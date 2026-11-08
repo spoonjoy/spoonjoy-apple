@@ -1232,7 +1232,7 @@ extension CookModeView {
                 // At accessibility sizes the whole head shows, so a long title can't cut off the step count.
                 .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
             Text(step.stepTitle ?? "Step \(step.stepNum)")
-                .font(.system(size: min(coverGlanceTitleSize, 88), weight: .bold, design: .serif))
+                .font(KitchenTypeRole.displayTitle.fixedFont(size: min(coverGlanceTitleSize, 88)))
                 .foregroundStyle(KitchenTableTheme.ink)
                 .lineLimit(4)
                 // A long word shrinks rather than breaking across lines on the narrow cover.

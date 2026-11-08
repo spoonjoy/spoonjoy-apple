@@ -433,7 +433,7 @@ struct KitchenIdentityLine: View {
         ZStack {
             KitchenTableTheme.vellum
             Text(String(chef.username.prefix(1)).uppercased())
-                .font(.system(.subheadline, design: .serif).weight(.bold))
+                .font(KitchenTypeRole.recipeTitle.font(relativeTo: .subheadline))
                 .foregroundStyle(KitchenTableTheme.ink)
         }
     }

@@ -229,10 +229,12 @@ end
 wide_journey_files = swift_files_under(APP_ROOT.join("Journeys/Wide"))
 duo_journey_files = swift_files_under(APP_ROOT.join("Journeys/Duo"))
 support_journey_files = swift_files_under(APP_ROOT.join("Journeys/Support"))
+layout_audit_collector = APP_ROOT.join("UITests/LayoutAuditCollector.swift").to_s
 {
-  JOURNEYS_TARGET => [JOURNEYS_BUNDLE_ID, swift_files_under(APP_ROOT.join("Journeys")) - wide_journey_files - duo_journey_files, "Apps/Spoonjoy/Journeys/**/*.swift outside Wide/ and Duo/"],
-  WIDE_JOURNEYS_TARGET => [WIDE_JOURNEYS_BUNDLE_ID, (wide_journey_files + support_journey_files).sort, "Apps/Spoonjoy/Journeys/{Wide,Support}/**/*.swift"],
-  DUO_JOURNEYS_TARGET => [DUO_JOURNEYS_BUNDLE_ID, (duo_journey_files + support_journey_files).sort, "Apps/Spoonjoy/Journeys/{Duo,Support}/**/*.swift"]
+  # Every journey target also compiles the UI tests' layout audit, to hold screens to no truncated text.
+  JOURNEYS_TARGET => [JOURNEYS_BUNDLE_ID, (swift_files_under(APP_ROOT.join("Journeys")) - wide_journey_files - duo_journey_files + [layout_audit_collector]).sort, "Apps/Spoonjoy/Journeys/**/*.swift outside Wide/ and Duo/, and UITests/LayoutAuditCollector.swift"],
+  WIDE_JOURNEYS_TARGET => [WIDE_JOURNEYS_BUNDLE_ID, (wide_journey_files + support_journey_files + [layout_audit_collector]).sort, "Apps/Spoonjoy/Journeys/{Wide,Support}/**/*.swift and UITests/LayoutAuditCollector.swift"],
+  DUO_JOURNEYS_TARGET => [DUO_JOURNEYS_BUNDLE_ID, (duo_journey_files + support_journey_files + [layout_audit_collector]).sort, "Apps/Spoonjoy/Journeys/{Duo,Support}/**/*.swift and UITests/LayoutAuditCollector.swift"]
 }.each do |name, (bundle_id, expected_sources, description)|
   target = target_by_name[name] || fail_check("missing target #{name}")
   fail_check("#{name} must be a UI test bundle") unless target.symbol_type == :ui_test_bundle
@@ -384,13 +386,14 @@ end
 
 theme_source = APP_ROOT.join("Shared/Design/KitchenTableTheme.swift").to_s
 fail_check("#{WIDGET_TARGET} must reuse KitchenTableTheme.swift so the Live Activity matches the app palette") unless widget_sources.include?(theme_source)
-# The widget links only OuroHX (for the theme), so it compiles exactly these plain-Foundation SpoonjoyCore files for
-# the cook session.
+# The widget links only OuroHX (for the theme), so it compiles exactly these SpoonjoyCore files: the cook session's
+# and the fonts' and type roles' the theme draws on.
 widget_core_sources = %w[
   Sources/SpoonjoyCore/Features/CookMode/CookSessionSnapshot.swift
   Sources/SpoonjoyCore/Features/CookMode/CookTimerBoard.swift
   Sources/SpoonjoyCore/Features/CookMode/CookSessionIslandLayout.swift
   Sources/SpoonjoyCore/Design/KitchenFontFiles.swift
+  Sources/SpoonjoyCore/Design/KitchenTypeRole.swift
 ].map { |path| ROOT.join(path).to_s }
 widget_core_sources.each do |source|
   fail_check("#{relative(source)} missing from #{WIDGET_TARGET}") unless widget_sources.include?(source)

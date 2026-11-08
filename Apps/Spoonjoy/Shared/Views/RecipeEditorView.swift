@@ -174,12 +174,10 @@ struct RecipeEditorView: View {
     private var recipeCardSection: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("RECIPE CARD")
-                    .font(KitchenTableTheme.runningHead)
-                    .tracking(1.2)
-                    .foregroundStyle(KitchenTableTheme.ink2)
+                Text("Recipe card")
+                    .kitchenEyebrow(KitchenTableTheme.ink2)
                 Text("Give the dish a home.")
-                    .font(Font.system(.largeTitle, design: .serif).weight(.semibold))
+                    .font(KitchenTableTheme.largeTitle)
                     .foregroundStyle(KitchenTableTheme.ink)
                     .accessibilityAddTraits(.isHeader)
                 Text("Capture the name, story, serving cue, and photo someone will need when they cook this later.")
@@ -210,7 +208,7 @@ struct RecipeEditorView: View {
     private func conflictBand(_ conflictBanner: RecipeEditorConflictBanner) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(conflictBanner.title)
-                .font(.headline)
+                .font(KitchenTableTheme.objectTitle)
                 .foregroundStyle(KitchenTableTheme.tomato)
             Text(conflictBanner.message)
                 .font(KitchenTableTheme.bodyNote)
@@ -237,12 +235,10 @@ struct RecipeEditorView: View {
     private var methodSection: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("METHOD")
-                    .font(KitchenTableTheme.runningHead)
-                    .tracking(1.2)
-                    .foregroundStyle(KitchenTableTheme.ink2)
+                Text("Method")
+                    .kitchenEyebrow(KitchenTableTheme.ink2)
                 Text("Build the cooking path.")
-                    .font(Font.system(.title, design: .serif).weight(.semibold))
+                    .font(KitchenTableTheme.recipeTitle)
                     .foregroundStyle(KitchenTableTheme.ink)
                     .accessibilityAddTraits(.isHeader)
             }
@@ -1029,7 +1025,7 @@ private struct EditorField<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(Font.system(.subheadline, design: .rounded).weight(.semibold))
+                .font(KitchenTypeRole.uiLabel.font(relativeTo: .subheadline))
                 .foregroundStyle(KitchenTableTheme.ink)
                 .accessibilityHidden(true)
             if boxed {

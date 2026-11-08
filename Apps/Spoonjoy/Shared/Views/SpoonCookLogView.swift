@@ -249,7 +249,7 @@ struct SpoonCookLogView: View {
                         .foregroundStyle(KitchenTableTheme.ink)
                         .lineLimit(1)
                     Text(hasStagedPhoto ? "Ready to attach to this cook." : "Optional cook photo.")
-                        .font(.caption)
+                        .font(KitchenTableTheme.uiLabel)
                         .foregroundStyle(KitchenTableTheme.ink2)
                         .lineLimit(1)
                 }

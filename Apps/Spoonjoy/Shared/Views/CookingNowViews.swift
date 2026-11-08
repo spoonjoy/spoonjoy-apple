@@ -219,10 +219,8 @@ struct CookingNowPlate: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .accessibilityHidden(true)
-            Text(entry.stepLabel.uppercased())
-                .font(KitchenTableTheme.runningHead)
-                .tracking(1.2)
-                .foregroundStyle(KitchenTableTheme.brass)
+            Text(entry.stepLabel)
+                .kitchenEyebrow()
             Text(entry.title)
                 .font(KitchenTableTheme.indexTitle)
                 .foregroundStyle(KitchenTableTheme.ink)
@@ -287,12 +285,12 @@ struct CookingNowAccessory: View {
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(lead.title)
-                                .font(.subheadline.weight(.semibold))
+                                .font(KitchenTypeRole.objectTitle.font(relativeTo: .subheadline))
                                 .foregroundStyle(KitchenTableTheme.ink)
                                 .lineLimit(1)
                             if placement != .inline {
                                 Text(lead.stepLabel)
-                                    .font(.caption)
+                                    .font(KitchenTableTheme.uiLabel)
                                     .foregroundStyle(KitchenTableTheme.ink2)
                                     .lineLimit(1)
                             }

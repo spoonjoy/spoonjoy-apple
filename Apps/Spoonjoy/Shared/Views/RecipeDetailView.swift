@@ -1007,10 +1007,7 @@ struct RecipeDetailView: View {
                 let ingredients = orderedIngredients(section.ingredients)
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Ingredients")
-                        .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.ink2)
-                        .textCase(.uppercase)
-                        .tracking(1.1)
+                        .kitchenEyebrow(KitchenTableTheme.ink2)
                         .padding(.bottom, KitchenTableTheme.Checklist.headingGap)
 
                     // Step outputs stay above the ingredients in their own order, as on the web.
@@ -1063,10 +1060,7 @@ struct RecipeDetailView: View {
 
     private func stepEyebrow(_ section: RecipeDetailStepSection) -> some View {
         Text("Step \(section.stepNumber)")
-            .font(KitchenTableTheme.uiLabel)
-            .foregroundStyle(KitchenTableTheme.brass)
-            .textCase(.uppercase)
-            .tracking(1.3)
+            .kitchenEyebrow()
             .accessibilityLabel("Step \(section.stepNumber)")
     }
 

@@ -17,6 +17,23 @@ public enum KitchenFontFiles {
         "IBMPlexSansCondensed-Bold.ttf"
     ]
 
+    /// Each typeface's SIL Open Font License text, which ships beside its fonts and in the app's acknowledgements.
+    public static let licences = [
+        (typeface: "Fraunces", file: "OFL-Fraunces.txt"),
+        (typeface: "Source Serif 4", file: "OFL-SourceSerif4.txt"),
+        (typeface: "IBM Plex Sans Condensed", file: "OFL-IBMPlexSansCondensed.txt")
+    ]
+
+    /// The licence texts a bundle carries, each with its typeface, in the order of ``licences``.
+    public static func licenceTexts(in bundle: Bundle) -> [(typeface: String, text: String)] {
+        licences.compactMap { licence in
+            let file = licence.file as NSString
+            guard let url = bundle.url(forResource: file.deletingPathExtension, withExtension: file.pathExtension),
+                  let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+            return (licence.typeface, text)
+        }
+    }
+
     /// The bundled faces a bundle carries. A missing one is left out, and the text it would set falls back to the
     /// system font.
     public static func urls(in bundle: Bundle) -> [URL] {

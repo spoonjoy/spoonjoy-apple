@@ -69,13 +69,16 @@ WIDE_JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Wide").freeze
 DUO_JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Duo").freeze
 JOURNEYS_SWIFT = (swift_sources_under("Apps/Spoonjoy/Journeys") - WIDE_JOURNEYS_SWIFT - DUO_JOURNEYS_SWIFT).freeze
 JOURNEY_SUPPORT_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Support").freeze
+LAYOUT_AUDIT_COLLECTOR = "Apps/Spoonjoy/UITests/LayoutAuditCollector.swift"
 # The Live Activity code the app and the widget extension both compile (attributes and button intents).
 LIVE_ACTIVITY_SHARED_SWIFT = swift_sources_under("Apps/Spoonjoy/LiveActivity/Shared").freeze
 LIVE_ACTIVITY_WIDGET_SWIFT = swift_sources_under("Apps/Spoonjoy/LiveActivity/Widget").freeze
-# The widget links only OuroHX (the theme's colours), not SpoonjoyCore, so it compiles the plain-Foundation
-# SpoonjoyCore files the cook session Live Activity draws from. Keep this list to files that import only Foundation.
+# The widget links only OuroHX (the theme's colours and fonts), not SpoonjoyCore, so it compiles the SpoonjoyCore files
+# the cook session Live Activity and the theme draw from. Keep this list to files that import only Apple frameworks
+# and OuroHX.
 WIDGET_CORE_SWIFT = %w[
   Sources/SpoonjoyCore/Design/KitchenFontFiles.swift
+  Sources/SpoonjoyCore/Design/KitchenTypeRole.swift
   Sources/SpoonjoyCore/Features/CookMode/CookSessionSnapshot.swift
   Sources/SpoonjoyCore/Features/CookMode/CookTimerBoard.swift
   Sources/SpoonjoyCore/Features/CookMode/CookSessionIslandLayout.swift
@@ -346,17 +349,18 @@ add_remote_package_product(project, ui_test_target, OURO_HX_URL, OURO_HX_REQUIRE
 ui_test_target.add_dependency(ios_target)
 ui_test_dependency = ui_test_target.dependencies[0]
 ui_test_dependency_proxy = ui_test_dependency.target_proxy
-add_sources(project, journeys_target, JOURNEYS_SWIFT)
+# Every journey target reuses the UI tests' layout audit (JourneyTruncation) to hold screens to no truncated text.
+add_sources(project, journeys_target, JOURNEYS_SWIFT + [LAYOUT_AUDIT_COLLECTOR])
 add_package_product(project, journeys_target, "SpoonjoyCore")
 journeys_target.add_dependency(ios_target)
 journeys_dependency = journeys_target.dependencies[0]
 journeys_dependency_proxy = journeys_dependency.target_proxy
-add_sources(project, wide_journeys_target, WIDE_JOURNEYS_SWIFT + JOURNEY_SUPPORT_SWIFT)
+add_sources(project, wide_journeys_target, WIDE_JOURNEYS_SWIFT + JOURNEY_SUPPORT_SWIFT + [LAYOUT_AUDIT_COLLECTOR])
 add_package_product(project, wide_journeys_target, "SpoonjoyCore")
 wide_journeys_target.add_dependency(ios_target)
 wide_journeys_dependency = wide_journeys_target.dependencies[0]
 wide_journeys_dependency_proxy = wide_journeys_dependency.target_proxy
-add_sources(project, duo_journeys_target, DUO_JOURNEYS_SWIFT + JOURNEY_SUPPORT_SWIFT)
+add_sources(project, duo_journeys_target, DUO_JOURNEYS_SWIFT + JOURNEY_SUPPORT_SWIFT + [LAYOUT_AUDIT_COLLECTOR])
 add_package_product(project, duo_journeys_target, "SpoonjoyCore")
 duo_journeys_target.add_dependency(ios_target)
 duo_journeys_dependency = duo_journeys_target.dependencies[0]

@@ -61,6 +61,7 @@ struct SettingsView: View {
     @State private var isExportingAccountData = false
     @State private var accountExportURL: URL?
     @State private var isBlockedChefsPresented = false
+    @State private var isFontLicencesPresented = false
     @State private var isConnectionsExpanded = false
     @State private var allowsThirdPartyAI = ThirdPartyAIConsentStore().consent == .granted
 
@@ -656,6 +657,23 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("settings.about.\(link.rawValue)")
                 }
+                Button {
+                    isFontLicencesPresented = true
+                } label: {
+                    settingsRowLabel("Font licences", systemImage: "textformat", prominence: .secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("settings.about.fontLicences")
+            }
+        }
+        .sheet(isPresented: $isFontLicencesPresented) {
+            NavigationStack {
+                FontLicencesView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { isFontLicencesPresented = false }
+                        }
+                    }
             }
         }
     }
@@ -1232,5 +1250,34 @@ enum SettingsAboutLink: String, CaseIterable, Identifiable {
         case .support: URL(string: "https://spoonjoy.app/support")!
         case .contact: URL(string: "mailto:ari@spoonjoy.app")!
         }
+    }
+}
+
+/// The SIL Open Font License texts of the typefaces the app bundles, as the licence asks.
+struct FontLicencesView: View {
+    private let licences = KitchenFontFiles.licenceTexts(in: .main)
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                ForEach(licences, id: \.typeface) { licence in
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(licence.typeface)
+                            .font(KitchenTableTheme.sectionTitle)
+                            .foregroundStyle(KitchenTableTheme.ink)
+                            .accessibilityAddTraits(.isHeader)
+                        Text(licence.text)
+                            .font(KitchenTableTheme.meta)
+                            .foregroundStyle(KitchenTableTheme.ink2)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+            .padding(KitchenTableTheme.Spacing.marginCompact)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(KitchenTableTheme.page)
+        .navigationTitle("Font licences")
+        .accessibilityIdentifier("settings.fontLicences")
     }
 }
