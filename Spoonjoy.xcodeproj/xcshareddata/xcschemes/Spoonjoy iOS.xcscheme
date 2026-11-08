@@ -51,7 +51,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "99AF7818DCB58980DA7C1B32A41D5530"
+               BlueprintIdentifier = "6C4B936A8D2F140C2410E6026906C4BB"
                BuildableName = "SpoonjoyJourneys.xctest"
                BlueprintName = "SpoonjoyJourneys"
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
@@ -61,7 +61,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "AC149E1B8C67FB8B6FFC90EAEBCEA3AD"
+               BlueprintIdentifier = "B90AD808FAD26E9F7F46CCE660406799"
                BuildableName = "SpoonjoyWideJourneys.xctest"
                BlueprintName = "SpoonjoyWideJourneys"
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
@@ -71,9 +71,19 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "6C20922EFC5CB8A18DABC81A2F7DE515"
+               BlueprintIdentifier = "5804263579949658C0F603A73F710476"
                BuildableName = "SpoonjoyDuoJourneys.xctest"
                BlueprintName = "SpoonjoyDuoJourneys"
+               ReferencedContainer = "container:Spoonjoy.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "1578E52CA73382A08BBD05081C3B1054"
+               BuildableName = "SpoonjoyParityJourneys.xctest"
+               BlueprintName = "SpoonjoyParityJourneys"
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
             </BuildableReference>
          </TestableReference>

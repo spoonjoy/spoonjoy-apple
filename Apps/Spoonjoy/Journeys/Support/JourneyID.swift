@@ -197,6 +197,10 @@ enum JourneyID {
     static let blockedChefsUnblock = "blockedChefs.unblock"
     static let blockedChefsEmpty = "blockedChefs.empty"
 
+    /// The Cookbooks tab's shelf, and a cookbook page's title block over its cover.
+    static let cookbookShelf = "cookbookShelf"
+    static let cookbookDetailHero = "CookbookDetailHero"
+
     /// The not-found page and its "Back to recipes" button.
     static let routeError = "route.error"
     static let routeErrorBack = "route.error.back"
