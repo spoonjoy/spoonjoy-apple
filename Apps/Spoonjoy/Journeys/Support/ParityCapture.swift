@@ -8,7 +8,7 @@ import XCTest
 ///
 /// The account's kitchen mirrors the web QA chef's (spoonjoy-v2 scripts/seed-qa-kitchen.mjs): Lemon Herb Rice and a
 /// tomato soup, a Weeknight Dinners cookbook holding the rice, and three items on the shopping list. ParityJourneys
-/// shoots it on the iPhone and iPad; DuoParityJourney on the open Duo, through the posture driver.
+/// shoots it on the iPhone and iPad; DuoCanonicalScreensJourney on the open Duo, through the posture driver.
 @MainActor
 struct ParityCapture {
     static let recipeTitle = "Lemon Herb Rice"
@@ -30,9 +30,12 @@ struct ParityCapture {
     /// Keeps one shot under the given name.
     let shoot: (String) throws -> Void
 
-    /// "ipad" on an iPad, otherwise "iphone".
+    /// "ipad" on an iPad, otherwise "iphone". The runner reports the phone idiom on an iPad, so the simulator model decides.
     static var deviceName: String {
-        UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone"
+        ParityShotDevice.name(
+            simulatorModelIdentifier: ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"],
+            idiomIsPad: UIDevice.current.userInterfaceIdiom == .pad
+        )
     }
 
     static func shotName(_ screen: String, device: String, scheme: String) -> String {

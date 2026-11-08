@@ -404,10 +404,10 @@ struct KitchenIdentityLine: View {
                 .clipShape(Circle())
                 .overlay(Circle().strokeBorder(KitchenTableTheme.hairline, lineWidth: 1))
                 .accessibilityHidden(true)
-            Text("@\(chef.username)")
+            Text(ChefHandle.breakingAnywhere(chef.username))
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.brass)
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Chef \(chef.username)")
@@ -561,6 +561,8 @@ struct RecipeLead: View {
                     .font(KitchenTableTheme.meta)
                     .foregroundStyle(KitchenTableTheme.onPhotoMuted)
                     .fixedSize(horizontal: false, vertical: true)
+                    // The handle's break points are for layout; VoiceOver reads the plain text.
+                    .accessibilityLabel(meta.replacingOccurrences(of: "\u{200B}", with: ""))
             }
         }
         .frame(maxWidth: 640, alignment: .leading)
@@ -571,7 +573,7 @@ struct RecipeLead: View {
         let parts = [
             RecipeCookTime.label(stepDurations: recipe.steps.map(\.duration)),
             recipe.servings.map { "Serves \($0)" },
-            "by \(recipe.chef.username)"
+            "by \(ChefHandle.wrapping(recipe.chef.username))"
         ]
         .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }
@@ -616,7 +618,7 @@ struct RecipeIndex: View {
     let seeAll: () -> Void
 
     var body: some View {
-        KitchenTableSection(title: "Your recipes", subtitle: summary) {
+        KitchenTableSection(title: "Your recipes", meta: summary) {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(recipes, id: \.id) { recipe in
                     if recipe.id != recipes.first?.id {

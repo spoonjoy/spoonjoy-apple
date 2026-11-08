@@ -647,8 +647,10 @@ struct RecipeDetailView: View {
         if separated {
             metaDot
         }
-        Text("by \(viewModel.recipe.chef.username)")
-            .lineLimit(1)
+        // A long handle wraps anywhere, as web's does, instead of ending in an ellipsis.
+        Text("by \(ChefHandle.wrapping(viewModel.recipe.chef.username))")
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityLabel("by \(viewModel.recipe.chef.username)")
     }
 
     private var metaDot: some View {
@@ -961,7 +963,7 @@ struct RecipeDetailView: View {
     }
 
     private var stepsSection: some View {
-        KitchenTableSection(title: "Steps", subtitle: "Tap ingredients as you go") {
+        KitchenTableSection(eyebrow: "Cook mode", title: "Steps", meta: "Tap ingredients as you go") {
             if viewModel.stepSections.isEmpty {
                 Text("No steps added yet")
                     .font(KitchenTableTheme.bodyNote)
@@ -1014,9 +1016,8 @@ struct RecipeDetailView: View {
                     ForEach(section.dependencies) { dependency in
                         RecipeStepChecklistRow(
                             title: dependency.label,
-                            note: "step output",
+                            note: "Step output",
                             amount: "",
-                            systemImage: "arrow.triangle.branch",
                             isChecked: dependencyIsChecked(dependency.id),
                             showsSeparator: !(ingredients.isEmpty && dependency.id == section.dependencies.last?.id),
                             accessibilityID: "recipeDetail.stepOutput",
@@ -1029,12 +1030,14 @@ struct RecipeDetailView: View {
                             title: ingredient.name,
                             note: ingredient.aisleLabel,
                             amount: ingredient.quantityText(scaleFactor: shoppingScaleFactor),
-                            systemImage: "cart",
                             isChecked: ingredientIsChecked(ingredient.id),
                             showsSeparator: ingredient.id != ingredients.last?.id,
                             accessibilityID: "recipeDetail.ingredient",
                             toggle: { toggleIngredient(id: ingredient.id) }
                         )
+                        .kitchenIngredientAddToList(isAvailable: hasAction(.addToShoppingList)) {
+                            addIngredientToList(ingredient)
+                        }
                     }
                 }
                 .accessibilityElement(children: .contain)
@@ -1227,7 +1230,20 @@ struct RecipeDetailView: View {
         runShoppingAction(action)
     }
 
-    private func runShoppingAction(_ action: ShoppingSurfaceAction) {
+    /// One ingredient onto the shopping list at the page's scale, from its row's context menu or accessibility action.
+    private func addIngredientToList(_ ingredient: RecipeDetailIngredientRow) {
+        runShoppingAction(.addItem(
+            name: ingredient.name,
+            quantity: ingredient.quantity * shoppingScaleFactor,
+            unit: ingredient.unit,
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: clientMutationID(prefix: "shopping-ingredient")
+        ), oneItemNamed: ingredient.name)
+    }
+
+    /// `oneItemNamed` is set when a single ingredient is added from its row; the status then names it.
+    private func runShoppingAction(_ action: ShoppingSurfaceAction, oneItemNamed: String? = nil) {
         let createdAt = timestamp()
         Task {
             do {
@@ -1239,11 +1255,16 @@ struct RecipeDetailView: View {
                     now: { createdAt }
                 ).plan(action)
                 let outcome = try await performShoppingAction(plan)
-                localHasIngredientsInShoppingList = true
                 actionErrorMessage = nil
-                actionStatusMessage = outcome == .queuedForSync
-                    ? "Ingredients saved for sync"
-                    : "\(stepIngredientCount) ingredients added at \(shoppingScaleFactor.formatted(.number.precision(.fractionLength(0...2))))x"
+                // One ingredient on the list doesn't make the whole recipe "In list".
+                if let oneItemNamed {
+                    actionStatusMessage = IngredientAddedCopy.status(name: oneItemNamed, queuedForSync: outcome == .queuedForSync)
+                } else {
+                    localHasIngredientsInShoppingList = true
+                    actionStatusMessage = outcome == .queuedForSync
+                        ? "Ingredients saved for sync"
+                        : "\(stepIngredientCount) ingredients added at \(shoppingScaleFactor.formatted(.number.precision(.fractionLength(0...2))))x"
+                }
             } catch {
                 actionStatusMessage = nil
                 actionErrorMessage = "Could not update shopping list."
@@ -1535,7 +1556,7 @@ extension RecipeDetailView {
                 )
                 .frame(maxWidth: .infinity)
                 .frame(height: 220)
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
+                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo))
                 .accessibilityElement(children: .ignore)
                 .accessibilityAddTraits(.isImage)
                 .accessibilityLabel("\(viewModel.title) cover image")
@@ -1606,7 +1627,7 @@ extension RecipeDetailView {
                 RecipeSpreadIngredientRow(
                     name: dependency.label,
                     amount: "",
-                    note: "from an earlier step",
+                    note: "From an earlier step",
                     isChecked: dependencyIsChecked(dependency.id),
                     toggle: { toggleDependency(id: dependency.id) }
                 )
@@ -1619,6 +1640,9 @@ extension RecipeDetailView {
                     isChecked: ingredientIsChecked(ingredient.id),
                     toggle: { toggleIngredient(id: ingredient.id) }
                 )
+                .kitchenIngredientAddToList(isAvailable: hasAction(.addToShoppingList)) {
+                    addIngredientToList(ingredient)
+                }
             }
         }
         .padding(.leading, 14)
@@ -1813,11 +1837,9 @@ private struct RecipeSpreadIngredientRow: View {
     var body: some View {
         Button(action: toggle) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
+                KitchenCheckMark(isChecked: isChecked)
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(isChecked ? KitchenTableTheme.herb : KitchenTableTheme.lineStrong)
                     .frame(width: 24)
-                    .accessibilityHidden(true)
                 if amountPlacement == .column {
                     amountText
                         .frame(width: amountColumnWidth, alignment: .leading)
@@ -1827,17 +1849,7 @@ private struct RecipeSpreadIngredientRow: View {
                         amountText
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    Text(name)
-                        .font(KitchenTableTheme.instructionBody)
-                        .foregroundStyle(isChecked ? KitchenTableTheme.ink2 : KitchenTableTheme.ink)
-                        .strikethrough(isChecked, color: KitchenTableTheme.ink2)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let note {
-                        Text(note)
-                            .font(KitchenTableTheme.uiLabel)
-                            .foregroundStyle(KitchenTableTheme.ink2)
-                    }
+                    KitchenIngredientText(name: name, note: note, isChecked: isChecked)
                 }
                 Spacer(minLength: 0)
             }
@@ -1968,14 +1980,13 @@ private extension View {
     }
 }
 
-/// An ingredient, or an earlier step's output, in a step's checklist. The separator starts under the text, not
-/// the checkbox, and the name and amount share a baseline. At accessibility text sizes the cart icon gives its
-/// room to the words and the amount moves above the name.
+/// An ingredient, or an earlier step's output, in a step's checklist, as web sets it: the check, the name in serif
+/// with its aisle in muted serif under it, and the amount on the right. The separator starts under the text, not the
+/// check. At accessibility text sizes the amount moves above the name.
 private struct RecipeStepChecklistRow: View {
     let title: String
     let note: String?
     let amount: String
-    let systemImage: String
     let isChecked: Bool
     let showsSeparator: Bool
     let accessibilityID: String
@@ -1983,25 +1994,14 @@ private struct RecipeStepChecklistRow: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .title3) private var checkColumn = KitchenTableTheme.Checklist.checkColumn
-    @ScaledMetric(relativeTo: .body) private var iconColumn = KitchenTableTheme.Checklist.iconColumn
     @ScaledMetric(relativeTo: .body) private var rowPadding = KitchenTableTheme.Checklist.rowVerticalPadding
 
     var body: some View {
         Button(action: toggle) {
             HStack(alignment: .firstTextBaseline, spacing: KitchenTableTheme.Checklist.columnGap) {
-                Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
+                KitchenCheckMark(isChecked: isChecked)
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(isChecked ? KitchenTableTheme.herb : KitchenTableTheme.brass)
                     .frame(width: checkColumn, alignment: .center)
-                    .accessibilityHidden(true)
-
-                if !dynamicTypeSize.isAccessibilitySize {
-                    Image(systemName: systemImage)
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(KitchenTableTheme.brass.opacity(0.85))
-                        .frame(width: iconColumn)
-                        .accessibilityHidden(true)
-                }
 
                 rowText
                     .padding(.vertical, rowPadding)
@@ -2040,21 +2040,7 @@ private struct RecipeStepChecklistRow: View {
     }
 
     private var nameAndNote: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(isChecked ? KitchenTableTheme.ink2 : KitchenTableTheme.ink)
-                .strikethrough(isChecked, color: KitchenTableTheme.ink2)
-                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if let note, !note.isEmpty {
-                // Web's checklist description: sentence case, untracked.
-                Text(note)
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.ink2)
-            }
-        }
+        KitchenIngredientText(name: title, note: note, isChecked: isChecked, nameLineLimit: 2)
     }
 
     @ViewBuilder private var amountText: some View {

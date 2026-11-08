@@ -40,6 +40,23 @@ class ParitySheetTest < Minitest::Test
     refute index.key?("shopping-duo-open-dark")
   end
 
+  def test_web_open_duo_shots_are_plain_and_pair_with_the_native_inner_display
+    web = ParitySheet.index([
+      "/w/parity-kitchen-duo-open-light.png",
+      "/w/parity-kitchen-duo-open-light-inner.png",
+      "/w/parity-recipe-iphone-dark.png"
+    ], side: :web)
+    native = ParitySheet.index(["/n/parity-kitchen-duo-open-light-inner.png"])
+    assert_equal "/w/parity-kitchen-duo-open-light.png", web["kitchen-duo-open-light"]
+    assert_equal "/w/parity-recipe-iphone-dark.png", web["recipe-iphone-dark"]
+    pair = ParitySheet.pairs(web: web, native: native).find { |candidate| candidate.key == "kitchen-duo-open-light" }
+    assert pair.complete?
+  end
+
+  def test_index_rejects_an_unknown_side
+    assert_raises(ArgumentError) { ParitySheet.index(["/a/parity-chef-iphone-dark.png"], side: :desktop) }
+  end
+
   def test_pairs_keep_every_canonical_key_and_mark_missing_sides
     web = { "kitchen-iphone-light" => "/w/k.png", "recipe-desktop-dark" => "/w/r.png" }
     native = { "kitchen-iphone-light" => "/n/k.png" }
@@ -74,7 +91,7 @@ class ParitySheetTest < Minitest::Test
   def test_gap_labels_say_which_side_is_missing_and_why
     assert_equal "native: not captured", ParitySheet.gap_label("native", "recipe")
     assert_equal "web: Add to list is one tap, no sheet", ParitySheet.gap_label("web", "sheet-add-to-list", "iphone")
-    assert_equal "native: no Mac parity journey yet", ParitySheet.gap_label("native", "kitchen", "desktop")
+    assert_equal "native: Mac capture comes with the Mac store frames (Task 10)", ParitySheet.gap_label("native", "kitchen", "desktop")
   end
   
   def test_index_html_lists_every_pair_and_labels_each_gap

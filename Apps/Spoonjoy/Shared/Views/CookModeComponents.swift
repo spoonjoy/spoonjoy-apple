@@ -49,14 +49,12 @@ struct CookIngredientCheckStyle: ToggleStyle {
             configuration.isOn.toggle()
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: configuration.isOn ? "checkmark.circle.fill" : "circle")
+                KitchenCheckMark(isChecked: configuration.isOn)
                     .font(.title2)
                     .imageScale(.large)
-                    .foregroundStyle(configuration.isOn ? KitchenTableTheme.herb : KitchenTableTheme.brass)
                     .symbolEffect(.bounce, options: .nonRepeating, value: reduceMotion ? false : configuration.isOn)
                     .contentTransition(.symbolEffect(.replace))
                     .frame(minWidth: KitchenTableTheme.minimumTouchTarget)
-                    .accessibilityHidden(true)
 
                 configuration.label
                     .strikethrough(configuration.isOn, color: KitchenTableTheme.ink2)

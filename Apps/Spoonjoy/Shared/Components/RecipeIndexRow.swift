@@ -98,14 +98,12 @@ struct RecipeIndexRow: View {
                         .font(KitchenTableTheme.indexTitle)
                         .foregroundStyle(KitchenTableTheme.ink)
                         .multilineTextAlignment(.leading)
-                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 3)
                         .fixedSize(horizontal: false, vertical: true)
                     if let detail = content.detail {
                         Text(detail)
                             .font(KitchenTableTheme.meta)
                             .foregroundStyle(KitchenTableTheme.ink2)
                             .multilineTextAlignment(.leading)
-                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
