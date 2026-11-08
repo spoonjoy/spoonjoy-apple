@@ -34,6 +34,8 @@ WIDE_JOURNEYS_TARGET = "SpoonjoyWideJourneys"
 WIDE_JOURNEYS_BUNDLE_ID = "app.spoonjoy.wide-journeys"
 DUO_JOURNEYS_TARGET = "SpoonjoyDuoJourneys"
 DUO_JOURNEYS_BUNDLE_ID = "app.spoonjoy.duo-journeys"
+PARITY_JOURNEYS_TARGET = "SpoonjoyParityJourneys"
+PARITY_JOURNEYS_BUNDLE_ID = "app.spoonjoy.parity-journeys"
 WIDGET_TARGET = "SpoonjoyCookTimerWidget"
 WIDGET_BUNDLE_ID = "app.spoonjoy.cook-timer-widget"
 WIDGET_INFO_PLIST = APP_ROOT.join("LiveActivity/Widget/Info.plist")
@@ -225,14 +227,17 @@ def swift_files_under(dir)
 end
 
 # The wide-screen journeys (Journeys/Wide) are their own target, which the Duo tour runs, and the iPhone Duo journey
-# (Journeys/Duo) is another, which the Duo journeys job runs; every target shares Journeys/Support.
+# (Journeys/Duo) is another, which the Duo journeys job runs, and the parity capture (Journeys/Parity) another, which
+# the Parity job runs; every target shares Journeys/Support.
 wide_journey_files = swift_files_under(APP_ROOT.join("Journeys/Wide"))
 duo_journey_files = swift_files_under(APP_ROOT.join("Journeys/Duo"))
+parity_journey_files = swift_files_under(APP_ROOT.join("Journeys/Parity"))
 support_journey_files = swift_files_under(APP_ROOT.join("Journeys/Support"))
 {
-  JOURNEYS_TARGET => [JOURNEYS_BUNDLE_ID, swift_files_under(APP_ROOT.join("Journeys")) - wide_journey_files - duo_journey_files, "Apps/Spoonjoy/Journeys/**/*.swift outside Wide/ and Duo/"],
+  JOURNEYS_TARGET => [JOURNEYS_BUNDLE_ID, swift_files_under(APP_ROOT.join("Journeys")) - wide_journey_files - duo_journey_files - parity_journey_files, "Apps/Spoonjoy/Journeys/**/*.swift outside Wide/, Duo/ and Parity/"],
   WIDE_JOURNEYS_TARGET => [WIDE_JOURNEYS_BUNDLE_ID, (wide_journey_files + support_journey_files).sort, "Apps/Spoonjoy/Journeys/{Wide,Support}/**/*.swift"],
-  DUO_JOURNEYS_TARGET => [DUO_JOURNEYS_BUNDLE_ID, (duo_journey_files + support_journey_files).sort, "Apps/Spoonjoy/Journeys/{Duo,Support}/**/*.swift"]
+  DUO_JOURNEYS_TARGET => [DUO_JOURNEYS_BUNDLE_ID, (duo_journey_files + support_journey_files).sort, "Apps/Spoonjoy/Journeys/{Duo,Support}/**/*.swift"],
+  PARITY_JOURNEYS_TARGET => [PARITY_JOURNEYS_BUNDLE_ID, (parity_journey_files + support_journey_files).sort, "Apps/Spoonjoy/Journeys/{Parity,Support}/**/*.swift"]
 }.each do |name, (bundle_id, expected_sources, description)|
   target = target_by_name[name] || fail_check("missing target #{name}")
   fail_check("#{name} must be a UI test bundle") unless target.symbol_type == :ui_test_bundle
@@ -299,7 +304,7 @@ def assert_package_product(target, product_name)
   fail_check("#{target.name} has duplicate #{product_name} Frameworks entries") if framework_entries.length > 1
 end
 
-[ios_target, mac_target, target_by_name[JOURNEYS_TARGET], target_by_name[WIDE_JOURNEYS_TARGET], target_by_name[DUO_JOURNEYS_TARGET]].each { |target| assert_package_product(target, PACKAGE_PRODUCT) }
+[ios_target, mac_target, target_by_name[JOURNEYS_TARGET], target_by_name[WIDE_JOURNEYS_TARGET], target_by_name[DUO_JOURNEYS_TARGET], target_by_name[PARITY_JOURNEYS_TARGET]].each { |target| assert_package_product(target, PACKAGE_PRODUCT) }
 
 # OuroHX (ourostack/ouro-ui-apple) gives the apps and the widget their motion, haptics and cookbook colours. The
 # project pins the exact version Package.swift pins, so the app and `swift test` build against the same tokens.

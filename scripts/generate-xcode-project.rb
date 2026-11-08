@@ -16,6 +16,7 @@ UI_TEST_TARGET_NAME = "SpoonjoyShoppingUITests"
 JOURNEYS_TARGET_NAME = "SpoonjoyJourneys"
 WIDE_JOURNEYS_TARGET_NAME = "SpoonjoyWideJourneys"
 DUO_JOURNEYS_TARGET_NAME = "SpoonjoyDuoJourneys"
+PARITY_JOURNEYS_TARGET_NAME = "SpoonjoyParityJourneys"
 IOS_BUNDLE_ID = "app.spoonjoy"
 # The Mac app shares the iOS bundle ID so one App Store record sells both (universal purchase).
 MAC_BUNDLE_ID = "app.spoonjoy"
@@ -23,6 +24,7 @@ UI_TEST_BUNDLE_ID = "app.spoonjoy.shopping-uitests"
 JOURNEYS_BUNDLE_ID = "app.spoonjoy.journeys"
 WIDE_JOURNEYS_BUNDLE_ID = "app.spoonjoy.wide-journeys"
 DUO_JOURNEYS_BUNDLE_ID = "app.spoonjoy.duo-journeys"
+PARITY_JOURNEYS_BUNDLE_ID = "app.spoonjoy.parity-journeys"
 WIDGET_TARGET_NAME = "SpoonjoyCookTimerWidget"
 WIDGET_BUNDLE_ID = "app.spoonjoy.cook-timer-widget"
 WIDGET_INFO_PLIST = "Apps/Spoonjoy/LiveActivity/Widget/Info.plist"
@@ -67,7 +69,10 @@ WIDE_JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Wide").freeze
 # The iPhone Duo journey folds the simulator through its postures with the posture driver beside it, so only the Duo
 # journeys job runs it, as its own target. It shares Journeys/Support.
 DUO_JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Duo").freeze
-JOURNEYS_SWIFT = (swift_sources_under("Apps/Spoonjoy/Journeys") - WIDE_JOURNEYS_SWIFT - DUO_JOURNEYS_SWIFT).freeze
+# The parity capture shoots the web/native parity sheet's screens on an iPhone and an iPad, each with an account of its
+# own, so the Parity job runs it, as its own target, on both. It shares Journeys/Support.
+PARITY_JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Parity").freeze
+JOURNEYS_SWIFT = (swift_sources_under("Apps/Spoonjoy/Journeys") - WIDE_JOURNEYS_SWIFT - DUO_JOURNEYS_SWIFT - PARITY_JOURNEYS_SWIFT).freeze
 JOURNEY_SUPPORT_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Support").freeze
 # The Live Activity code the app and the widget extension both compile (attributes and button intents).
 LIVE_ACTIVITY_SHARED_SWIFT = swift_sources_under("Apps/Spoonjoy/LiveActivity/Shared").freeze
@@ -222,6 +227,7 @@ ui_test_target = project.new_target(:ui_test_bundle, UI_TEST_TARGET_NAME, :ios, 
 journeys_target = project.new_target(:ui_test_bundle, JOURNEYS_TARGET_NAME, :ios, "26.5")
 wide_journeys_target = project.new_target(:ui_test_bundle, WIDE_JOURNEYS_TARGET_NAME, :ios, "26.5")
 duo_journeys_target = project.new_target(:ui_test_bundle, DUO_JOURNEYS_TARGET_NAME, :ios, "26.5")
+parity_journeys_target = project.new_target(:ui_test_bundle, PARITY_JOURNEYS_TARGET_NAME, :ios, "26.5")
 widget_target = project.new_target(:app_extension, WIDGET_TARGET_NAME, :ios, "26.5")
 ios_target.frameworks_build_phase.files.clear
 widget_target.frameworks_build_phase.files.clear
@@ -306,6 +312,7 @@ apply_ui_test_settings(ui_test_target, bundle_id: UI_TEST_BUNDLE_ID)
 apply_ui_test_settings(journeys_target, bundle_id: JOURNEYS_BUNDLE_ID)
 apply_ui_test_settings(wide_journeys_target, bundle_id: WIDE_JOURNEYS_BUNDLE_ID)
 apply_ui_test_settings(duo_journeys_target, bundle_id: DUO_JOURNEYS_BUNDLE_ID)
+apply_ui_test_settings(parity_journeys_target, bundle_id: PARITY_JOURNEYS_BUNDLE_ID)
 
 apply_common_settings(
   mac_target,
@@ -361,6 +368,11 @@ add_package_product(project, duo_journeys_target, "SpoonjoyCore")
 duo_journeys_target.add_dependency(ios_target)
 duo_journeys_dependency = duo_journeys_target.dependencies[0]
 duo_journeys_dependency_proxy = duo_journeys_dependency.target_proxy
+add_sources(project, parity_journeys_target, PARITY_JOURNEYS_SWIFT + JOURNEY_SUPPORT_SWIFT)
+add_package_product(project, parity_journeys_target, "SpoonjoyCore")
+parity_journeys_target.add_dependency(ios_target)
+parity_journeys_dependency = parity_journeys_target.dependencies[0]
+parity_journeys_dependency_proxy = parity_journeys_dependency.target_proxy
 
 project.sort
 project.predictabilize_uuids
@@ -399,7 +411,7 @@ end
     assign_stable_uuid(project, build_file, "#{target.name}/resources/#{path}")
   end
 end
-[journeys_target, wide_journeys_target, duo_journeys_target].each do |target|
+[journeys_target, wide_journeys_target, duo_journeys_target, parity_journeys_target].each do |target|
   target.source_build_phase.files.each do |build_file|
     path = build_file.file_ref&.hierarchy_path&.delete_prefix("/")
     next unless path && JOURNEY_SUPPORT_SWIFT.include?(path)
@@ -425,6 +437,9 @@ wide_journeys_dependency.target_proxy = wide_journeys_dependency_proxy
 assign_stable_uuid(project, duo_journeys_dependency_proxy, "SpoonjoyDuoJourneys/app-proxy")
 assign_stable_uuid(project, duo_journeys_dependency, "SpoonjoyDuoJourneys/app-dependency")
 duo_journeys_dependency.target_proxy = duo_journeys_dependency_proxy
+assign_stable_uuid(project, parity_journeys_dependency_proxy, "SpoonjoyParityJourneys/app-proxy")
+assign_stable_uuid(project, parity_journeys_dependency, "SpoonjoyParityJourneys/app-dependency")
+parity_journeys_dependency.target_proxy = parity_journeys_dependency_proxy
 
 def save_app_scheme(project_path, scheme_name, target, test_targets: [])
   scheme = Xcodeproj::XCScheme.new
@@ -435,7 +450,7 @@ def save_app_scheme(project_path, scheme_name, target, test_targets: [])
   scheme.save_as(project_path, scheme_name, true)
 end
 
-save_app_scheme(project_path, IOS_SCHEME_NAME, ios_target, test_targets: [ui_test_target, journeys_target, wide_journeys_target, duo_journeys_target])
+save_app_scheme(project_path, IOS_SCHEME_NAME, ios_target, test_targets: [ui_test_target, journeys_target, wide_journeys_target, duo_journeys_target, parity_journeys_target])
 save_app_scheme(project_path, MAC_SCHEME_NAME, mac_target)
 
 project.save
