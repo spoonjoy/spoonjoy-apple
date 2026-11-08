@@ -61,6 +61,7 @@ final class CookSyncJourney: JourneyTestCase {
         )
         let stepOffsetBeforeCheck = stepOne.frame.minY - recipeTitle.frame.minY
         journey.attachScreenshot(named: "00-recipe-before-check", to: self)
+        JourneyTruncation.assertNone(journey, on: "The recipe page at the default text size")
         pageLemon.tap()
         XCTAssertTrue(
             journey.element(JourneyID.recipeDetailClearProgress).waitForExistence(timeout: JourneyApp.interactionTimeout),
@@ -84,6 +85,7 @@ final class CookSyncJourney: JourneyTestCase {
             accuracy: 0.5,
             "Clearing progress moved the step."
         )
+        try await verifyAddToListStaysReachable(journey, row: pageLemon, ingredient: lemon, qa: qa)
 
         journey.tap(JourneyID.recipeDetailCook)
         let ingredient = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: lemon)
@@ -93,6 +95,7 @@ final class CookSyncJourney: JourneyTestCase {
         )
         ingredient.tap()
         journey.attachScreenshot(named: "01-checked-in-cook-mode", to: self)
+        JourneyTruncation.assertNone(journey, on: "The cook step at the default text size")
 
         // Live: the app sends after a short pause; the test process reads QA until the check arrives.
         let reading = try await qa.cookSession(recipeID: recipeID, waitingForChecked: ingredientID)
@@ -113,11 +116,35 @@ final class CookSyncJourney: JourneyTestCase {
             journey.openLink(cookLink)
             verifyLargestTextLayout(journey)
             journey.attachScreenshot(named: "06-after-relaunch-largest-text", to: self)
+            JourneyTruncation.assertNone(journey, on: "The cook step at the largest text size")
         }
 
         // Live: the relaunch's own sync never moves QA's cook session backwards.
         let afterRelaunch = try await qa.cookSession(recipeID: recipeID, waitingForChecked: ingredientID)
         XCTAssertGreaterThanOrEqual(afterRelaunch.revision, reading.revision, "A relaunch moved QA's cook session backwards.")
+    }
+
+    /// UI and live: the recipe page's ingredient rows draw no cart, so Add to list lives in each row's context menu.
+    /// A long press opens it, and choosing it puts that one ingredient on QA's shopping list.
+    private func verifyAddToListStaysReachable(
+        _ journey: JourneyApp,
+        row: XCUIElement,
+        ingredient: String,
+        qa: JourneyQAClient
+    ) async throws {
+        row.press(forDuration: 1.2)
+        let addToList = journey.element(JourneyID.ingredientAddToList)
+        XCTAssertTrue(
+            addToList.waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "The ingredient row's context menu has no Add to list. Screen: \(journey.screen)"
+        )
+        journey.attachScreenshot(named: "00b-recipe-ingredient-add-to-list", to: self)
+        addToList.tap()
+        let list = try await qa.shoppingList(waitingForItemNamed: ingredient)
+        XCTAssertTrue(
+            list.receiptItems.contains { $0.name.localizedCaseInsensitiveContains(ingredient) },
+            "Add to list on the lemon's row did not put it on QA's shopping list."
+        )
     }
 }
 

@@ -137,8 +137,9 @@ private struct ProfileHero: View {
             ProfileAvatar(url: viewModel.header.photoURL, name: viewModel.header.username)
 
             KitchenTableHeader(
-                title: "@\(viewModel.header.username)",
-                subtitle: viewModel.header.joinedLabel
+                title: viewModel.header.username,
+                subtitle: viewModel.header.joinedLabel,
+                titleBreaksAnywhere: true
             ) {
                 ownerActions
             }
@@ -213,7 +214,7 @@ private struct ProfileFigure: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("\(count)")
-                .font(.system(.title, design: .serif).weight(.bold).monospacedDigit())
+                .font(KitchenTableTheme.recipeTitle.monospacedDigit())
                 .foregroundStyle(KitchenTableTheme.ink)
             Text(label)
                 .font(KitchenTableTheme.meta)
@@ -250,7 +251,7 @@ private struct ProfileRecipeShelf: View {
 
     var body: some View {
         if !recipes.isEmpty {
-            KitchenTableSection(title: "Recipes") {
+            KitchenTableSection(title: "Recipes", meta: profileSectionCount(recipes.count, "recipe", "recipes")) {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(recipes, id: \.id) { recipe in
                         if recipe.id != recipes.first?.id {
@@ -285,7 +286,7 @@ private struct ProfileCookbookShelf: View {
 
     var body: some View {
         if !cookbooks.isEmpty {
-            KitchenTableSection(title: "Cookbooks") {
+            KitchenTableSection(title: "Cookbooks", meta: profileSectionCount(cookbooks.count, "cookbook", "cookbooks")) {
                 ForEach(cookbooks, id: \.id) { cookbook in
                     Button {
                         openRoute(cookbook.openRoute)
@@ -311,7 +312,7 @@ private struct RecentSpoonsSection: View {
 
     var body: some View {
         if !spoons.isEmpty {
-            KitchenTableSection(title: "Cooked") {
+            KitchenTableSection(title: "Cooked", meta: profileSectionCount(spoons.count, "cook", "cooks")) {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(spoons, id: \.id) { spoon in
                         if spoon.id != spoons.first?.id {
@@ -476,4 +477,9 @@ private struct ProfileGraphList: View {
             }
         }
     }
+}
+
+/// A profile section's meta, as web counts its shelves: "1 recipe", "4 cookbooks".
+private func profileSectionCount(_ count: Int, _ singular: String, _ plural: String) -> String {
+    "\(count) \(count == 1 ? singular : plural)"
 }

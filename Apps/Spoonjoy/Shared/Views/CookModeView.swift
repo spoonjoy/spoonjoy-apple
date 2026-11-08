@@ -776,7 +776,9 @@ struct CookModeView: View {
             .frame(maxWidth: .infinity, minHeight: height, alignment: .topLeading)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .scrollIndicators(.hidden)
+        // At large text sizes a step runs below the fold; the indicator, flashed on arrival, says there is more.
+        .scrollIndicators(.visible)
+        .scrollIndicatorsFlash(onAppear: true)
         .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel * 2))
         .overlay(
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel * 2)
@@ -792,7 +794,7 @@ struct CookModeView: View {
 
     private func stepHeading(_ step: RecipeStep) -> some View {
         Text(step.stepTitle ?? "Step \(step.stepNum)")
-            .font(KitchenTableTheme.control)
+            .font(KitchenTableTheme.stepTitle)
             .foregroundStyle(KitchenTableTheme.brass)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)
@@ -893,14 +895,8 @@ struct CookModeView: View {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(model.stepOutputChecklistRows, id: \.id) { row in
                     Toggle(isOn: isCurrent ? stepOutputBinding(for: row) : .constant(row.isChecked)) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "arrow.triangle.branch")
-                                .foregroundStyle(KitchenTableTheme.brass)
-                                .accessibilityHidden(true)
-                            Text(row.title)
-                                .font(KitchenTableTheme.bodyNote)
-                                .foregroundStyle(KitchenTableTheme.ink)
-                        }
+                        KitchenIngredientText(name: row.title, note: "Step output")
+                            .padding(.vertical, 4)
                     }
                     .toggleStyle(.cookIngredient)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -1232,7 +1228,7 @@ extension CookModeView {
                 // At accessibility sizes the whole head shows, so a long title can't cut off the step count.
                 .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
             Text(step.stepTitle ?? "Step \(step.stepNum)")
-                .font(.system(size: min(coverGlanceTitleSize, 88), weight: .bold, design: .serif))
+                .font(KitchenTypeRole.displayTitle.fixedFont(size: min(coverGlanceTitleSize, 88)))
                 .foregroundStyle(KitchenTableTheme.ink)
                 .lineLimit(4)
                 // A long word shrinks rather than breaking across lines on the narrow cover.
@@ -1911,7 +1907,6 @@ private struct CookModeIngredientChecklistLabel: View {
             } else {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     title
-                        .lineLimit(3)
                         .layoutPriority(1)
                     Spacer(minLength: 8)
                     quantity
@@ -1923,11 +1918,13 @@ private struct CookModeIngredientChecklistLabel: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// The name in serif with its aisle under it, as on the recipe page. The check style strikes it through.
     private var title: some View {
-        Text(row.title)
-            .font(KitchenTableTheme.bodyNote)
-            .foregroundStyle(KitchenTableTheme.ink)
-            .fixedSize(horizontal: false, vertical: true)
+        KitchenIngredientText(
+            name: row.title,
+            note: ShoppingPresentationModel.aisleLabel(forIngredientNamed: row.title),
+            nameLineLimit: 3
+        )
     }
 
     @ViewBuilder private var quantity: some View {

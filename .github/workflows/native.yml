@@ -250,6 +250,23 @@ jobs:
             fi
             plutil -lint "$manifest"
           done
+      # Web's typefaces render only where they are bundled: the iOS app, its cook timer widget and the Mac app each
+      # carry every face the type roles use, with its SIL Open Font License text.
+      - name: Check every bundle ships the fonts and their licences
+        run: |
+          set -euo pipefail
+          fonts=("Fraunces[SOFT,WONK,opsz,wght].ttf" "SourceSerif4[opsz,wght].ttf" IBMPlexSansCondensed-{Regular,Medium,SemiBold,Bold}.ttf OFL-{Fraunces,SourceSerif4,IBMPlexSansCondensed}.txt)
+          for spec in "Spoonjoy iOS|generic/platform=iOS Simulator|" "Spoonjoy iOS|generic/platform=iOS Simulator|PlugIns/SpoonjoyCookTimerWidget.appex/" "Spoonjoy macOS|generic/platform=macOS|Contents/Resources/"; do
+            IFS='|' read -r scheme destination resources <<<"$spec"
+            app="$(xcodebuild -project Spoonjoy.xcodeproj -scheme "$scheme" -configuration BootstrapDebug -destination "$destination" -showBuildSettings -json 2>/dev/null | ruby -rjson -e 'target = ARGV[0]; settings = JSON.parse(STDIN.read).find { |entry| entry["target"] == target }.fetch("buildSettings"); puts File.join(settings.fetch("BUILT_PRODUCTS_DIR"), settings.fetch("WRAPPER_NAME"))' "$scheme")"
+            for font in "${fonts[@]}"; do
+              if [ ! -f "$app/$resources$font" ]; then
+                echo "$scheme bundle is missing $resources$font ($app)"
+                exit 1
+              fi
+            done
+            echo "$scheme $resources: ${#fonts[@]} font and licence files"
+          done
       - name: Build the shipping Release configuration (unsigned)
         # TestFlight ships Release, so Release-only code (#if !DEBUG paths, iOS 27 minimums) must compile before release day.
         run: |

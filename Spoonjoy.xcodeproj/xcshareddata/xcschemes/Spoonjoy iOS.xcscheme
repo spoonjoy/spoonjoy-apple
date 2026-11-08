@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "DE20720BF22426A77A9D7A8F38BAFCAC"
+               BlueprintIdentifier = "C779B8C7EA88D90210FC4B897002D6E3"
                BuildableName = "Spoonjoy iOS.app"
                BlueprintName = "Spoonjoy iOS"
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
@@ -30,7 +30,7 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "DE20720BF22426A77A9D7A8F38BAFCAC"
+            BlueprintIdentifier = "C779B8C7EA88D90210FC4B897002D6E3"
             BuildableName = "Spoonjoy iOS.app"
             BlueprintName = "Spoonjoy iOS"
             ReferencedContainer = "container:Spoonjoy.xcodeproj">
@@ -51,7 +51,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "852FDAE5EF0919AC38AF3C319B7A96A2"
+               BlueprintIdentifier = "6C4B936A8D2F140C2410E6026906C4BB"
                BuildableName = "SpoonjoyJourneys.xctest"
                BlueprintName = "SpoonjoyJourneys"
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
@@ -61,7 +61,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "CE84155489F18F07608BA051D81B81FE"
+               BlueprintIdentifier = "B90AD808FAD26E9F7F46CCE660406799"
                BuildableName = "SpoonjoyWideJourneys.xctest"
                BlueprintName = "SpoonjoyWideJourneys"
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
@@ -71,7 +71,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "6C20922EFC5CB8A18DABC81A2F7DE515"
+               BlueprintIdentifier = "5804263579949658C0F603A73F710476"
                BuildableName = "SpoonjoyDuoJourneys.xctest"
                BlueprintName = "SpoonjoyDuoJourneys"
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
@@ -81,7 +81,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "0A50CA663D628BB15CE15FD51605388E"
+               BlueprintIdentifier = "1578E52CA73382A08BBD05081C3B1054"
                BuildableName = "SpoonjoyParityJourneys.xctest"
                BlueprintName = "SpoonjoyParityJourneys"
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
@@ -103,7 +103,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "DE20720BF22426A77A9D7A8F38BAFCAC"
+            BlueprintIdentifier = "C779B8C7EA88D90210FC4B897002D6E3"
             BuildableName = "Spoonjoy iOS.app"
             BlueprintName = "Spoonjoy iOS"
             ReferencedContainer = "container:Spoonjoy.xcodeproj">
@@ -120,7 +120,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "DE20720BF22426A77A9D7A8F38BAFCAC"
+            BlueprintIdentifier = "C779B8C7EA88D90210FC4B897002D6E3"
             BuildableName = "Spoonjoy iOS.app"
             BlueprintName = "Spoonjoy iOS"
             ReferencedContainer = "container:Spoonjoy.xcodeproj">

@@ -140,8 +140,8 @@ struct NativeMobileDesignContractTests {
             theme,
             in: themePath,
             contains: [
-                "static let instructionBody = Font.system(.body, design: .serif)",
-                "static let cookInstruction = Font.system(.title, design: .serif)",
+                "static let instructionBody = KitchenTypeRole.instructionBody.font",
+                "static let cookInstruction = KitchenTypeRole.cookInstruction.font",
                 "static let selectionWash = brass.opacity(0.09)"
             ],
             forbids: [".font(.system(size:"]
@@ -410,20 +410,26 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    /// The rule runs under the header, so it never squeezes the title; when the title and its meta don't fit on one
+    /// line, the meta drops under the title and the title wraps instead of ending in an ellipsis.
     @Test("Spoonjoy section headers keep titles legible before drawing dividers")
     func spoonjoySectionHeadersKeepTitlesLegibleBeforeDrawingDividers() throws {
-        let themePath = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
-        let theme = uncommentedSwift(try readRepoFile(themePath))
+        let headerPath = "Apps/Spoonjoy/Shared/Components/KitchenSectionHeader.swift"
+        let header = uncommentedSwift(try readRepoFile(headerPath))
 
         expectContent(
-            theme,
-            in: themePath,
+            header,
+            in: headerPath,
             contains: [
                 "Text(title)",
                 ".font(KitchenTableTheme.sectionTitle)",
-                ".lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)",
-                ".layoutPriority(1)",
+                "ViewThatFits(in: .horizontal)",
+                ".lineLimit(1)",
+                ".fixedSize(horizontal: false, vertical: true)",
                 "Rectangle()",
+                ".frame(maxWidth: .infinity, maxHeight: 1)"
+            ],
+            forbids: [
                 ".layoutPriority(-1)"
             ]
         )
@@ -899,7 +905,7 @@ struct NativeMobileDesignContractTests {
                 "isCookbookSaveSheetPresented",
                 "Label(\"Save\", systemImage: \"bookmark\")",
                 "stepsSection",
-                "KitchenTableSection(title: \"Steps\", subtitle: \"Tap ingredients as you go\")",
+                "KitchenTableSection(eyebrow: \"Cook mode\", title: \"Steps\", meta: \"Tap ingredients as you go\")",
                 "Text(\"Ingredients\")",
                 "RecipeStepDurationCue",
                 "RecipeStepChecklistRow",
@@ -1777,7 +1783,7 @@ struct NativeMobileDesignContractTests {
                 "CookbookFallbackCover",
                 "CookbookImageCover",
                 "@ScaledMetric(relativeTo: .largeTitle) private var initialSize: CGFloat = 64",
-                ".system(size: min(initialSize, 88), weight: .bold, design: .serif)",
+                "KitchenTypeRole.displayTitle.fixedFont(size: min(initialSize, 88))",
                 "title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1)",
                 "private var detailHeaderWidth",
                 "private var detailShareAction",
