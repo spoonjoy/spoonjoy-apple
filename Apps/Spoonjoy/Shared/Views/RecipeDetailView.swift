@@ -647,8 +647,10 @@ struct RecipeDetailView: View {
         if separated {
             metaDot
         }
-        Text("by \(viewModel.recipe.chef.username)")
-            .lineLimit(1)
+        // A long handle wraps anywhere, as web's does, instead of ending in an ellipsis.
+        Text("by \(ChefHandle.wrapping(viewModel.recipe.chef.username))")
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityLabel("by \(viewModel.recipe.chef.username)")
     }
 
     private var metaDot: some View {
