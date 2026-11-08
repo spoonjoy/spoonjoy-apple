@@ -84,6 +84,7 @@ LIVE_ACTIVITY_WIDGET_SWIFT = swift_sources_under("Apps/Spoonjoy/LiveActivity/Wid
 WIDGET_CORE_SWIFT = %w[
   Sources/SpoonjoyCore/Design/KitchenFontFiles.swift
   Sources/SpoonjoyCore/Design/KitchenTypeRole.swift
+  Sources/SpoonjoyCore/Design/ChefHandle.swift
   Sources/SpoonjoyCore/Features/CookMode/CookSessionSnapshot.swift
   Sources/SpoonjoyCore/Features/CookMode/CookTimerBoard.swift
   Sources/SpoonjoyCore/Features/CookMode/CookSessionIslandLayout.swift

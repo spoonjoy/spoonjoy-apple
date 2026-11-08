@@ -374,7 +374,7 @@ public enum ScenarioVerifier {
                     detail: "Receipt list uses market-category sections, basket-aware rows, large check toggles, and native delete actions.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift",
-                    tokens: ["ReceiptListView", "ShoppingPresentationSection", "ShoppingPresentationItem", "List {", "Section {", "ShoppingReceiptRow", "already in basket", "Toggle", ".toggleStyle(.largeCheck)", "LargeCheckToggleStyle", "minimumCheckTarget", "checkmark.circle.fill", "swipeActions", "deleteItem", "trash"]
+                    tokens: ["ReceiptListView", "ShoppingPresentationSection", "ShoppingPresentationItem", "List {", "Section {", "ShoppingReceiptRow", "already in basket", "Toggle", ".toggleStyle(.largeCheck)", "LargeCheckToggleStyle", "minimumCheckTarget", "KitchenCheckMark(isChecked: configuration.isOn)", "swipeActions", "deleteItem", "trash"]
                 ),
                 sourceCheck(
                     name: "kitchen safe controls source",

@@ -616,7 +616,7 @@ struct RecipeIndex: View {
     let seeAll: () -> Void
 
     var body: some View {
-        KitchenTableSection(title: "Your recipes", subtitle: summary) {
+        KitchenTableSection(title: "Your recipes", meta: summary) {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(recipes, id: \.id) { recipe in
                     if recipe.id != recipes.first?.id {
