@@ -41,7 +41,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "B80F96574D57DE3A766D221281BCB929"
+               BlueprintIdentifier = "32B34A8210CCEC516E393050D67F3AC0"
                BuildableName = "SpoonjoyShoppingUITests.xctest"
                BlueprintName = "SpoonjoyShoppingUITests"
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
@@ -51,7 +51,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "9F1858B50CCB6245B7A826E531F416A5"
+               BlueprintIdentifier = "852FDAE5EF0919AC38AF3C319B7A96A2"
                BuildableName = "SpoonjoyJourneys.xctest"
                BlueprintName = "SpoonjoyJourneys"
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
@@ -61,7 +61,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "686B85DE1B4E8989A81F7ADA944B0B3B"
+               BlueprintIdentifier = "CE84155489F18F07608BA051D81B81FE"
                BuildableName = "SpoonjoyWideJourneys.xctest"
                BlueprintName = "SpoonjoyWideJourneys"
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
@@ -71,9 +71,19 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "F172B7082C8B07BA0C3018742D24F760"
+               BlueprintIdentifier = "6C20922EFC5CB8A18DABC81A2F7DE515"
                BuildableName = "SpoonjoyDuoJourneys.xctest"
                BlueprintName = "SpoonjoyDuoJourneys"
+               ReferencedContainer = "container:Spoonjoy.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "0A50CA663D628BB15CE15FD51605388E"
+               BuildableName = "SpoonjoyParityJourneys.xctest"
+               BlueprintName = "SpoonjoyParityJourneys"
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
             </BuildableReference>
          </TestableReference>
