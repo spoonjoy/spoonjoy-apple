@@ -98,7 +98,7 @@ struct ShoppingRecipeSourcesPane: View {
             HStack(alignment: .center, spacing: 14) {
                 RecipeCoverImage(url: source.coverImageURL, title: source.title, showsFallbackLabel: false)
                     .frame(width: 48, height: 48)
-                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(source.title)

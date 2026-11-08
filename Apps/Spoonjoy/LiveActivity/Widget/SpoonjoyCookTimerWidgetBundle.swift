@@ -3,6 +3,11 @@ import WidgetKit
 
 @main
 struct SpoonjoyCookTimerWidgetBundle: WidgetBundle {
+    init() {
+        // The extension is its own process, so it registers web's typefaces for itself.
+        SpoonjoyFonts.registerBundled()
+    }
+
     var body: some Widget {
         // The whole cook session: step, checklist and timers, while cook mode is open.
         SpoonjoyCookSessionLiveActivity()

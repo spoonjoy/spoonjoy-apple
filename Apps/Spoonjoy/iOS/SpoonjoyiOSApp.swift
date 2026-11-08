@@ -11,6 +11,7 @@ struct SpoonjoyiOSApp: App {
     @State private var cookingNow = CookingNowCenter()
 
     init() {
+        SpoonjoyFonts.registerBundled()
         #if DEBUG
         if NativeJourneyAnimations.isRequested(arguments: ProcessInfo.processInfo.arguments) {
             UIView.setAnimationsEnabled(false)
