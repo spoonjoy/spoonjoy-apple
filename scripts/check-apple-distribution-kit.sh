@@ -61,6 +61,10 @@ grep -q 'Spoonjoy iOS' "$PACKAGE_SCRIPT" || fail "package script must archive th
 grep -q 'ExportOptions.testflight.plist' "$PACKAGE_SCRIPT" || fail "package script must use distribution/ExportOptions.testflight.plist"
 grep -q 'build/apple/testflight' "$PACKAGE_SCRIPT" || fail "package script must export under build/apple/testflight"
 
+listing_version="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV[0])).fetch("version").fetch("versionString")' "$ROOT_DIR/distribution/app-store/listing.json")"
+[[ "$listing_version" == "$xcode_marketing_version" ]] ||
+  fail "distribution/app-store/listing.json versionString ($listing_version) must match MARKETING_VERSION ($xcode_marketing_version)"
+
 node - "$MANIFEST" "$xcode_bundle_id" "$xcode_marketing_version" <<'NODE'
 const fs = require("node:fs");
 

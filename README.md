@@ -70,3 +70,5 @@ All workflows are in `.github/workflows/`. The jobs that need the iOS 27 SDK run
 ## Release
 
 Every green Native run on `main` publishes that exact commit to the internal TestFlight group. `docs/apple-distribution.md` describes the pipeline, the evidence it checks, and how to roll back with a manual dispatch.
+
+`main` is version 1.2. Version 1.1, which is with App Review, takes its fixes on the `release/1.1` branch: open the pull request against `release/1.1`, then dispatch TestFlight, "Stage App Store listing" or "Submit for App Review" with `release_branch: release/1.1`. All three build or read from that branch for iOS and Mac ([Release branches](docs/apple-distribution.md#release-branches)).
