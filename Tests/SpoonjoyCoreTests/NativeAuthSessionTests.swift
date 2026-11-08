@@ -5,6 +5,33 @@ import Testing
 
 @Suite("Native auth session contract")
 struct NativeAuthSessionTests {
+    /// App Review Guideline 4.8: an app that offers a third-party login (Google, GitHub) must offer Sign in with Apple
+    /// as an equivalent option. Mac 1.0 build 2 was rejected with Sign in with Apple last on the screen, so it must come
+    /// before every other way to sign in, and the shipped app must carry the entitlement on both platforms.
+    @Test("Sign in with Apple is the first sign-in option whenever a third-party login is offered (Guideline 4.8)")
+    func signInWithAppleIsTheFirstSignInOption() throws {
+        let path = "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift"
+        let source = try readRepoFile(path)
+        let lines = source.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+        let code = lines.joined(separator: "\n")
+        guard let apple = code.range(of: "SignInWithAppleButton(.signIn)")?.lowerBound else {
+            Issue.record("\(path) must offer SignInWithAppleButton(.signIn)")
+            return
+        }
+        for other in ["ForEach(OAuthProviderHint.allCases", #"TextField("Email or username""#] {
+            let otherStart = try #require(code.range(of: other)?.lowerBound,
+                "\(path) no longer contains \(other); update this Guideline 4.8 order check")
+            #expect(apple < otherStart, "Sign in with Apple must render before \(other) in \(path) (Guideline 4.8)")
+        }
+        #expect(code.contains(".frame(maxWidth: .infinity, minHeight: 50, maxHeight: 50)"),
+            "Sign in with Apple must be full width, as wide as the other sign-in buttons")
+        // The 1.0 release branch predates the Mac App Store target (#154), so it has only the shared entitlements file.
+        for entitlements in ["Apps/Spoonjoy/Shared/Spoonjoy.entitlements"] {
+            #expect(try readRepoFile(entitlements).contains("com.apple.developer.applesignin"),
+                "\(entitlements) must carry com.apple.developer.applesignin")
+        }
+    }
+
     @Test("OAuth callback contract uses universal links and rejects custom schemes")
     func oauthCallbackContractUsesUniversalLinksAndRejectsCustomSchemes() throws {
         #expect(try OAuthRedirectValidator.validate(URL(string: "https://spoonjoy.app/oauth/callback")!))
