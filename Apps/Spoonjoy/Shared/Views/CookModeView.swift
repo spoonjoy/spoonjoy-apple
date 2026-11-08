@@ -895,14 +895,8 @@ struct CookModeView: View {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(model.stepOutputChecklistRows, id: \.id) { row in
                     Toggle(isOn: isCurrent ? stepOutputBinding(for: row) : .constant(row.isChecked)) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "arrow.triangle.branch")
-                                .foregroundStyle(KitchenTableTheme.brass)
-                                .accessibilityHidden(true)
-                            Text(row.title)
-                                .font(KitchenTableTheme.bodyNote)
-                                .foregroundStyle(KitchenTableTheme.ink)
-                        }
+                        KitchenIngredientText(name: row.title, note: "Step output")
+                            .padding(.vertical, 4)
                     }
                     .toggleStyle(.cookIngredient)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -1913,7 +1907,6 @@ private struct CookModeIngredientChecklistLabel: View {
             } else {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     title
-                        .lineLimit(3)
                         .layoutPriority(1)
                     Spacer(minLength: 8)
                     quantity
@@ -1925,11 +1918,13 @@ private struct CookModeIngredientChecklistLabel: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// The name in serif with its aisle under it, as on the recipe page. The check style strikes it through.
     private var title: some View {
-        Text(row.title)
-            .font(KitchenTableTheme.bodyNote)
-            .foregroundStyle(KitchenTableTheme.ink)
-            .fixedSize(horizontal: false, vertical: true)
+        KitchenIngredientText(
+            name: row.title,
+            note: ShoppingPresentationModel.aisleLabel(forIngredientNamed: row.title),
+            nameLineLimit: 3
+        )
     }
 
     @ViewBuilder private var quantity: some View {

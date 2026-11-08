@@ -310,7 +310,7 @@ struct KitchenTableNoPhotoView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(KitchenTableTheme.brass.opacity(mode == .loading ? 0.62 : 1))
         }
-        .shadow(color: KitchenTableTheme.ink.opacity(0.08), radius: 5, y: 3)
+        .kitchenLiftShadow()
         .frame(width: 44, height: 44)
     }
 

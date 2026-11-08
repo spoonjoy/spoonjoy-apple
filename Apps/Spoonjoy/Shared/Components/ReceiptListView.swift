@@ -216,11 +216,9 @@ struct LargeCheckToggleStyle: ToggleStyle {
             configuration.isOn.toggle()
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: configuration.isOn ? "checkmark.circle.fill" : "circle")
+                KitchenCheckMark(isChecked: configuration.isOn)
                     .font(.title3)
-                    .foregroundStyle(configuration.isOn ? KitchenTableTheme.herb : KitchenTableTheme.brass)
                     .frame(width: Self.minimumCheckTarget, height: Self.minimumCheckTarget)
-                    .accessibilityHidden(true)
 
                 configuration.label
             }
