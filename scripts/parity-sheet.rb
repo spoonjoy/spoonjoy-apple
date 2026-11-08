@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Usage: ruby scripts/parity-sheet.rb --web-run <spoonjoy-v2 Journeys run id> --native-run <spoonjoy-apple run id> --out <dir>
-#        (the native run is the Journeys run on main, or the Native run on a pull request, which calls Journeys)
+#        (the native run is the After TestFlight run on main, or the Native run on a pull request; both call Journeys)
 #        ruby scripts/parity-sheet.rb --web-dir <dir> --native-dir <dir> --out <dir>
 #        ruby scripts/parity-sheet.rb --export-xcresult <bundle> --out <dir>
 #

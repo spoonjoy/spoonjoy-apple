@@ -5,11 +5,9 @@ name: Launch smoke
 # iPhones and iPads stop at 27.0), launches it three times signed out, and fails if it stops running or leaves a crash
 # report, or if its first sync fails instead of reaching the sign-in screen.
 on:
-  # Pull requests run this from Native, after every required check passes (see native.yml).
+  # Pull requests run this from Native, after every required check passes (see native.yml); main runs it from
+  # after-testflight.yml, once TestFlight has had the runners.
   workflow_call:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:

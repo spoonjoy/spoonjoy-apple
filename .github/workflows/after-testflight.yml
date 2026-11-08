@@ -1,0 +1,83 @@
+name: After TestFlight
+
+# main's optional macOS checks (Journeys, Launch smoke, Feel, Beta SDK, the App Intents X-ray behaviour stage) run
+# here, once the TestFlight run for the same commit has finished, so they never take a macOS runner TestFlight's
+# publish jobs are waiting for. The chain is Native (push to main) -> TestFlight -> this. Every finished TestFlight
+# run triggers it, whether it published, skipped or failed, so a red Native on main still gets its optional checks.
+# Pull requests run the same workflows from Native instead (native.yml).
+on:
+  workflow_run:
+    workflows: [TestFlight]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+# No concurrency group: main runs are never cancelled.
+
+jobs:
+  commit:
+    # Only TestFlight's automatic runs from main's Native count; a manual dispatch (a rollback, a release branch) does
+    # not. A commit main has already moved past is skipped, like TestFlight's own superseded check: the newer
+    # commit's chain runs the same checks on code that includes it.
+    name: Pick the main commit
+    if: >-
+      github.event.workflow_run.event == 'workflow_run' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.pick.outputs.run }}
+    steps:
+      - name: Is this TestFlight run's commit still main's head?
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          CHECKOUT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          main_head="$(gh api "repos/$REPO/commits/main" --jq .sha)"
+          # The called workflows check out github.sha, so it must be the commit TestFlight ran for.
+          if [[ "$RUN_SHA" == "$main_head" && "$CHECKOUT_SHA" == "$RUN_SHA" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Optional checks for $RUN_SHA after TestFlight ($RUN_CONCLUSION): $RUN_URL" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping $RUN_SHA: main has moved to $main_head, whose own chain runs the optional checks." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  journeys:
+    name: Journeys
+    needs: commit
+    if: needs.commit.outputs.run == 'true'
+    uses: ./.github/workflows/journeys.yml
+
+  launch-smoke:
+    name: Launch smoke
+    needs: commit
+    if: needs.commit.outputs.run == 'true'
+    uses: ./.github/workflows/launch-smoke.yml
+
+  feel:
+    name: Feel
+    needs: commit
+    if: needs.commit.outputs.run == 'true'
+    uses: ./.github/workflows/feel.yml
+
+  beta-sdk:
+    name: Beta SDK
+    needs: commit
+    if: needs.commit.outputs.run == 'true'
+    uses: ./.github/workflows/beta-sdk.yml
+
+  app-intents-xray:
+    name: App Intents X-ray
+    needs: commit
+    if: needs.commit.outputs.run == 'true'
+    uses: ./.github/workflows/app-intents-xray.yml

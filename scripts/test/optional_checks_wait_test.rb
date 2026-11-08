@@ -70,11 +70,39 @@ class OptionalChecksWaitTest < Minitest::Test
     end
   end
 
-  def test_optional_workflows_are_callable_and_still_run_on_main
-    OPTIONAL_WORKFLOWS.each do |name|
+  MAIN_OPTIONAL_WORKFLOWS = (OPTIONAL_WORKFLOWS + %w[app-intents-xray.yml]).freeze
+
+  def test_optional_workflows_are_callable_and_never_start_on_their_own_for_main
+    MAIN_OPTIONAL_WORKFLOWS.each do |name|
       on = triggers(workflow(name))
-      assert on.key?("workflow_call"), "#{name} must be callable from Native"
-      assert_equal ["main"], on.fetch("push").fetch("branches"), "#{name} still runs on every main push"
+      assert on.key?("workflow_call"), "#{name} must be callable"
+      refute on.key?("push"), "#{name} runs on main from after-testflight.yml, not beside Native and TestFlight"
+      refute on.key?("schedule"), name
+    end
+  end
+
+  # Native -> TestFlight -> after-testflight.yml: on main, optional work takes a runner only once TestFlight is done.
+  def test_main_runs_optional_workflows_after_testflight
+    doc = workflow("after-testflight.yml")
+    assert_equal({ "workflows" => ["TestFlight"], "types" => ["completed"], "branches" => ["main"] }, triggers(doc).fetch("workflow_run"))
+    refute doc.key?("concurrency"), "main runs are never cancelled"
+    jobs = doc.fetch("jobs")
+    gate = jobs.fetch("commit")
+    assert_includes gate.fetch("if"), "github.event.workflow_run.event == 'workflow_run'"
+    assert_includes gate.fetch("if"), "github.event.workflow_run.head_branch == 'main'"
+    MAIN_OPTIONAL_WORKFLOWS.each do |name|
+      callers = jobs.select { |_, job| job["uses"] == "./.github/workflows/#{name}" }
+      assert_equal 1, callers.size, "after-testflight.yml calls #{name} once"
+      _, job = callers.first
+      assert_equal "commit", job.fetch("needs")
+      assert_equal "needs.commit.outputs.run == 'true'", job.fetch("if")
+    end
+  end
+
+  def test_nothing_on_main_is_cancelled_by_an_optional_workflow
+    MAIN_OPTIONAL_WORKFLOWS.each do |name|
+      concurrency = workflow(name).fetch("concurrency")
+      assert_includes ["${{ github.event_name == 'pull_request' }}", false], concurrency.fetch("cancel-in-progress"), name
     end
   end
 
