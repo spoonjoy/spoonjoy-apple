@@ -90,6 +90,14 @@ class OptionalChecksWaitTest < Minitest::Test
     gate = jobs.fetch("commit")
     assert_includes gate.fetch("if"), "github.event.workflow_run.event == 'workflow_run'"
     assert_includes gate.fetch("if"), "github.event.workflow_run.head_branch == 'main'"
+    # A TestFlight run's own head_sha is main's head when it was created, not the commit Native built.
+    gate_script = gate.fetch("steps").map { |step| step["run"].to_s }.join("\n")
+    gate_env = gate.fetch("steps").map { |step| step.fetch("env", {}) }.reduce({}, :merge)
+    assert_equal "${{ github.event.workflow_run.display_title }}", gate_env.fetch("RUN_TITLE")
+    refute_includes gate_env.values.join("\n"), "workflow_run.head_sha"
+    assert_includes gate_script, '^TestFlight\\ ([0-9a-f]{40})$'
+    assert_equal "TestFlight ${{ github.event.workflow_run.head_sha || inputs.source_sha || github.sha }}",
+                 workflow("testflight.yml").fetch("run-name")
     MAIN_OPTIONAL_WORKFLOWS.each do |name|
       callers = jobs.select { |_, job| job["uses"] == "./.github/workflows/#{name}" }
       assert_equal 1, callers.size, "after-testflight.yml calls #{name} once"
