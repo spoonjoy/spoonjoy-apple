@@ -44,6 +44,7 @@ The app must feel native and still unmistakably Spoonjoy.
 - Do not self-approve. When approval is needed, use unbiased harsh sub-agent reviewers.
 - Ask the human only for true human-only blockers: credentials, billing/subscription changes, private account actions, unavailable hardware, secrets, destructive production operations with no safe staged path, or product decisions the user has not already delegated.
 - While a version is with App Review, check for open `app-review` issues and the release workflow's `status` at the start of every session; see `docs/apple-distribution.md#app-review`.
+- `main` builds the next version (1.2). A fix for a version already with App Review (1.1) goes by pull request to that version's `release/<version>` branch, never by holding `main` back; TestFlight, "Stage App Store listing" and "Submit for App Review" take `release_branch: release/1.1` to build, stage and submit from it on iOS and Mac. Port the fix to `main` too when it still applies. See `docs/apple-distribution.md#release-branches`.
 - Completion standard is full moon: defer nothing that is part of the accepted scope. Use multiple atomic PRs until the app is complete and validated.
 
 ## Git Workflow
