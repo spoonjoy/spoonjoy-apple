@@ -84,18 +84,22 @@ fail_check("#{display_path(web_css)} missing web tokens: #{missing_web_tokens.jo
 
 native_content = native_theme.read
 
-# A native colour is Spoonjoy's own, `webColor(0x<hex>)`, or an OuroHX cookbook token written with the web hex it
-# equals, `cookbookDay(\.token, 0x<hex>)`. Either way the hex must be the web token's; Swift tests
-# (KitchenPaletteOuroTests) hold each OuroHX token to that hex.
-def native_color_source(mode, hex)
-  "(?:webColor\\(0x#{hex}\\)|cookbook#{mode}\\(\\\\\\.[a-zA-Z]+,\\s*0x#{hex}\\))"
+# Each native colour is the OuroHX cookbook token named after its web token (`--sj-bone-lift` is
+# `cookbookDay(.sjBoneLift)`). KitchenPaletteOuroTests holds each token's value to the web hex.
+def cookbook_token(web_token)
+  head, *rest = web_token.split("-")
+  head + rest.map(&:capitalize).join
+end
+
+def native_color_source(mode, web_token)
+  "cookbook#{mode}\\(\\.#{cookbook_token(web_token)}\\)"
 end
 required_mapping.each do |web_token, native_name|
   expected_hex = web_tokens.fetch(web_token)
-  pattern = /static\s+let\s+#{Regexp.escape(native_name)}\s*=\s*#{native_color_source("Day", expected_hex)}\s*\/\/\s*--#{Regexp.escape(web_token)}\b/
+  pattern = /static\s+let\s+#{Regexp.escape(native_name)}\s*=\s*#{native_color_source("Day", web_token)}\s*$/
   next if native_content.match?(pattern)
 
-  fail_check("#{display_path(native_theme)} must map #{native_name} to --#{web_token} ##{expected_hex}")
+  fail_check("#{display_path(native_theme)} must map #{native_name} to cookbookDay(.#{cookbook_token(web_token)}) (--#{web_token} ##{expected_hex})")
 end
 
 required_night_mapping = required_mapping.transform_values { |name| "#{name}Night" }.merge(
@@ -108,14 +112,14 @@ fail_check("#{display_path(web_css)} .dark block missing web tokens: #{missing_n
 
 required_night_mapping.each do |web_token, native_name|
   expected_hex = web_night_tokens.fetch(web_token)
-  pattern = /static\s+let\s+#{Regexp.escape(native_name)}\s*=\s*#{native_color_source("Night", expected_hex)}\s*\/\/\s*\.dark\s+--#{Regexp.escape(web_token)}\b/
+  pattern = /static\s+let\s+#{Regexp.escape(native_name)}\s*=\s*#{native_color_source("Night", web_token)}\s*$/
   next if native_content.match?(pattern)
 
-  fail_check("#{display_path(native_theme)} must map #{native_name} to .dark --#{web_token} ##{expected_hex}")
+  fail_check("#{display_path(native_theme)} must map #{native_name} to cookbookNight(.#{cookbook_token(web_token)}) (.dark --#{web_token} ##{expected_hex})")
 end
 
 raw_color_literals = native_content.scan(/Color\s*\(\s*red:/m).length
-fail_check("#{display_path(native_theme)} should define raw RGB only inside webColor helper") unless raw_color_literals == 1
+fail_check("#{display_path(native_theme)} must not define raw RGB; colours come from the cookbook tokens") unless raw_color_literals.zero?
 fail_check("#{display_path(native_theme)} must not contain the old yellow offline palette") if native_content.match?(/F6E9CF|0\.97,\s*green:\s*0\.95/)
 
 swift_sources = options.fetch(:app_source_roots).flat_map do |root|
@@ -128,7 +132,7 @@ banned_source_patterns = {
   /\.tint\(\s*\.(blue|gray|grey|red|green|orange|yellow|purple)\s*\)/ => "use KitchenTableTheme role tokens for tint instead of system colors",
   /\bColor\.(blue|gray|grey|red|green|orange|yellow|purple)\b/ => "use KitchenTableTheme role tokens instead of Color.<system>",
   /\b(?:UIColor|NSColor)\b/ => "SwiftUI surfaces should not bypass KitchenTableTheme through UIKit/AppKit colors",
-  /Color\s*\(\s*red:/m => "raw RGB colors belong only in KitchenTableTheme.webColor"
+  /Color\s*\(\s*red:/m => "use KitchenTableTheme role tokens instead of raw RGB colors"
 }.freeze
 
 violations = []

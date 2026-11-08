@@ -27,6 +27,14 @@ WIDGET_TARGET_NAME = "SpoonjoyCookTimerWidget"
 WIDGET_BUNDLE_ID = "app.spoonjoy.cook-timer-widget"
 WIDGET_INFO_PLIST = "Apps/Spoonjoy/LiveActivity/Widget/Info.plist"
 THEME_SOURCE = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
+# Web's three typefaces, registered at launch by the iOS app, the Mac app and the widget (SpoonjoyFonts), with their
+# SIL Open Font License texts.
+FONTS_SOURCE = "Apps/Spoonjoy/Shared/Design/SpoonjoyFonts.swift"
+FONT_FILES = Dir.children(ROOT.join("Apps/Spoonjoy/Shared/Fonts"))
+  .select { |name| name.end_with?(".ttf", ".txt") }
+  .sort
+  .map { |name| "Apps/Spoonjoy/Shared/Fonts/#{name}" }
+  .freeze
 CONFIGURATIONS = ["Debug", "Release", "BootstrapDebug"].freeze
 INFO_PLIST = "Apps/Spoonjoy/Shared/Info.plist"
 ENTITLEMENTS = "Apps/Spoonjoy/Shared/Spoonjoy.entitlements"
@@ -67,6 +75,7 @@ LIVE_ACTIVITY_WIDGET_SWIFT = swift_sources_under("Apps/Spoonjoy/LiveActivity/Wid
 # The widget links only OuroHX (the theme's colours), not SpoonjoyCore, so it compiles the plain-Foundation
 # SpoonjoyCore files the cook session Live Activity draws from. Keep this list to files that import only Foundation.
 WIDGET_CORE_SWIFT = %w[
+  Sources/SpoonjoyCore/Design/KitchenFontFiles.swift
   Sources/SpoonjoyCore/Features/CookMode/CookSessionSnapshot.swift
   Sources/SpoonjoyCore/Features/CookMode/CookTimerBoard.swift
   Sources/SpoonjoyCore/Features/CookMode/CookSessionIslandLayout.swift
@@ -317,15 +326,16 @@ end
 [INFO_PLIST, ENTITLEMENTS, MAC_ENTITLEMENTS].each { |path| file_reference(project, path) }
 add_sources(project, ios_target, SHARED_SWIFT + IOS_SWIFT + LIVE_ACTIVITY_SHARED_SWIFT)
 add_sources(project, mac_target, SHARED_SWIFT + MAC_SWIFT)
-add_resources(project, ios_target, [ASSET_CATALOG, PRIVACY_MANIFEST, SKILLS_BUNDLE])
-add_resources(project, mac_target, [ASSET_CATALOG, PRIVACY_MANIFEST, SKILLS_BUNDLE])
+add_resources(project, ios_target, [ASSET_CATALOG, PRIVACY_MANIFEST, SKILLS_BUNDLE] + FONT_FILES)
+add_resources(project, mac_target, [ASSET_CATALOG, PRIVACY_MANIFEST, SKILLS_BUNDLE] + FONT_FILES)
 add_package_product(project, ios_target, "SpoonjoyCore")
 add_package_product(project, mac_target, "SpoonjoyCore")
 [ios_target, mac_target, widget_target].each do |target|
   add_remote_package_product(project, target, OURO_HX_URL, OURO_HX_REQUIREMENT, "OuroHX")
 end
 file_reference(project, WIDGET_INFO_PLIST)
-add_sources(project, widget_target, LIVE_ACTIVITY_SHARED_SWIFT + LIVE_ACTIVITY_WIDGET_SWIFT + [THEME_SOURCE] + WIDGET_CORE_SWIFT)
+add_sources(project, widget_target, LIVE_ACTIVITY_SHARED_SWIFT + LIVE_ACTIVITY_WIDGET_SWIFT + [THEME_SOURCE, FONTS_SOURCE] + WIDGET_CORE_SWIFT)
+add_resources(project, widget_target, FONT_FILES)
 add_sources(project, ui_test_target, UI_TEST_SWIFT)
 add_package_product(project, ui_test_target, "SpoonjoyCore")
 # Ouro Feel (same ouro-ui-apple pin): the UI tests' feel checks by genre of jank (FeelUITests, scripts/check-feel.sh).
@@ -378,9 +388,15 @@ end
 [ios_target, mac_target, widget_target].each do |target|
   target.source_build_phase.files.each do |build_file|
     path = build_file.file_ref&.hierarchy_path&.delete_prefix("/")
-    next unless path && (path.start_with?("Apps/Spoonjoy/LiveActivity/") || path == THEME_SOURCE || WIDGET_CORE_SWIFT.include?(path))
+    next unless path && (path.start_with?("Apps/Spoonjoy/LiveActivity/") || [THEME_SOURCE, FONTS_SOURCE].include?(path) || WIDGET_CORE_SWIFT.include?(path))
 
     assign_stable_uuid(project, build_file, "#{target.name}/sources/#{path}")
+  end
+  target.resources_build_phase.files.each do |build_file|
+    path = build_file.file_ref&.hierarchy_path&.delete_prefix("/")
+    next unless path && FONT_FILES.include?(path)
+
+    assign_stable_uuid(project, build_file, "#{target.name}/resources/#{path}")
   end
 end
 [journeys_target, wide_journeys_target, duo_journeys_target].each do |target|
