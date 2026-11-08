@@ -126,6 +126,14 @@ def check_warning_script_behavior
     generic_io_service_diagnostic_log.write("IOServiceMatchingfailed\n")
     other_driver_diagnostic_log.write("IOServiceMatchingfailed for: UnexpectedScalerDriver\n")
     benign_failure_language_log.write("Test \"failed upload remains queued\" passed\n")
+    app_intents_log = dir_path.join("app-intents-skipped.log")
+    app_intents_log.write("2026-11-07 22:07:59.477 appintentsmetadataprocessor[17242:51798] warning: Metadata extraction skipped, no AppIntents.framework dependency found\n")
+    other_app_intents_log = dir_path.join("app-intents-other.log")
+    other_app_intents_log.write("2026-11-07 22:07:59.477 appintentsmetadataprocessor[17242:51798] warning: Unable to find AppShortcutsProvider\n")
+    app_intents_skipped, = run_command("ruby", WARNING_SCRIPT.to_s, "--log", app_intents_log.to_s)
+    record_failure("warning script must allow App Intents' metadata-skipped note") unless app_intents_skipped
+    other_app_intents, = run_command("ruby", WARNING_SCRIPT.to_s, "--log", other_app_intents_log.to_s)
+    record_failure("warning script must fail on any other App Intents warning") if other_app_intents
 
     clean, = run_command("ruby", WARNING_SCRIPT.to_s, "--log", clean_log.to_s)
     record_failure("warning script must pass a warning-free log") unless clean
