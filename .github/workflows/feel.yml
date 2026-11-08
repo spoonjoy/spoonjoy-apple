@@ -32,7 +32,7 @@ jobs:
   feel:
     name: Feel (every screen lands still; the way back)
     runs-on: xcode-27
-    timeout-minutes: 125
+    timeout-minutes: 145
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -64,14 +64,16 @@ jobs:
         id: wayback
         if: always() && steps.sim.outcome == 'success'
         continue-on-error: true
-        timeout-minutes: 30
+        # A hosted walk of 18 screens took 27.5 minutes, then over 30 on the next run.
+        timeout-minutes: 45
         env:
           UDID: ${{ steps.sim.outputs.udid }}
           FEEL_REPORT_DIR: ${{ runner.temp }}/feel-reports/way-back
         run: scripts/check-feel.sh "$UDID" "$RUNNER_TEMP/feel-dd" testTheWayBackFromEveryScreen
       - name: Say so when the way back misses
         if: always() && steps.wayback.outcome == 'failure'
-        run: echo "::warning title=The way back::The way-back walk failed (report only until #225, #226, #227 and ourostack/ouro-ui-apple#60 are fixed); see its step log and the feel-reports artifact."
+        run: |
+          echo "::warning title=The way back::The way-back walk failed (report only until #225, #226, #227 and ourostack/ouro-ui-apple#60 are fixed); see its step log and the feel-reports artifact."
       - name: Keep the reports
         if: always()
         continue-on-error: true
