@@ -31,7 +31,7 @@ on:
         required: false
         type: string
       release_branch:
-        description: Publish the head of this release/<version> branch instead of a main commit (iOS only)
+        description: Publish the head of this release/<version> branch instead of a main commit (iOS and Mac)
         required: false
         type: string
 
@@ -361,8 +361,8 @@ jobs:
   publish-mac-app-store:
     name: Upload Mac App Store build
     needs: release-gate
-    # A release branch fixes one iOS version in review; the Mac app ships from main.
-    if: needs.release-gate.outputs.publish == 'true' && !inputs.release_branch
+    # A release branch fixes a version already in App Review, on iOS and Mac alike; main builds the next version.
+    if: needs.release-gate.outputs.publish == 'true'
     environment: internal-testflight
     runs-on: xcode-27
     timeout-minutes: 120
