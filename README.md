@@ -7,13 +7,17 @@
 </p>
 <!-- spoonjoy:brand:end -->
 
-# Spoonjoy Apple
+# Spoonjoy for iPhone, iPad and Mac
 
 Spoonjoy for iPhone, iPad and Mac, written in SwiftUI.
 
 [spoonjoy.app](https://spoonjoy.app) · [Web app and API](https://github.com/spoonjoy/spoonjoy-v2) · [Design language](docs/native-design-language.md) · [AGENTS.md](AGENTS.md)
 
-**Start:** with Xcode 27, `swift test --disable-xctest --parallel` runs the core tests, and the `Spoonjoy iOS` scheme in `Spoonjoy.xcodeproj` runs the app ([Build and test](#build-and-test)).
+**Start:** with Xcode 27, run the core tests, then open `Spoonjoy.xcodeproj` and run the `Spoonjoy iOS` scheme ([Build and test](#build-and-test)).
+
+```sh
+swift test --disable-xctest --parallel
+```
 
 The app is in internal TestFlight testing and not on the App Store yet. It talks to the [Spoonjoy](https://spoonjoy.app) web app's `/api/v1` API and signs in through its OAuth flow; the web app and API live in [spoonjoy/spoonjoy-v2](https://github.com/spoonjoy/spoonjoy-v2). `AGENTS.md` holds the product intent and the working rules for agents.
 
