@@ -86,12 +86,20 @@ module ParitySheet
     inner?(key) ? "parity-#{key}-inner.png" : "parity-#{key}.png"
   end
 
-  # Keys of the light shots in `index` whose dark shot is byte-identical: the scheme never switched.
+  # Keys of the light shots in `index` whose dark shot is missing or byte-identical: the scheme never switched.
   def unswitched_schemes(index)
     index.keys.select { |key| key.end_with?("-light") }.sort.select do |light|
       dark = index[light.sub(/-light\z/, "-dark")]
-      dark && FileUtils.compare_file(index[light], dark)
+      dark.nil? || FileUtils.compare_file(index[light], dark)
     end
+  end
+
+  # Why the shots in `index` cannot be trusted as a light/dark pair, or nil when every light shot has a distinct dark one.
+  def scheme_failure(index)
+    unswitched = unswitched_schemes(index)
+    return nil if unswitched.empty?
+
+    "dark shot missing or identical to light, so the scheme never switched: #{unswitched.join(", ")}"
   end
 
   # Copies each shot of `index` into `dir` under its canonical name, for the parity-shots artifact. Returns the copies.
