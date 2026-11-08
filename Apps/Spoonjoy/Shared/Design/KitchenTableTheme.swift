@@ -515,7 +515,7 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
                 // The number sits beside the thumbnail, never on it.
                 Text(ordinal)
                     .font(KitchenTableTheme.eyebrow)
-                    .tracking(1.0)
+                    .kitchenEyebrowTracking()
                     .foregroundStyle(KitchenTableTheme.brass)
                     .frame(width: 26, alignment: .leading)
                     .accessibilityHidden(true)
@@ -764,5 +764,24 @@ extension View {
         ouroType(KitchenTypeRole.eyebrow.token, in: OuroTokens.cookbook.extras)
             .textCase(.uppercase)
             .foregroundStyle(color)
+    }
+
+    /// The eyebrow token's letter spacing (`sj-tracking-eyebrow`, 0.18 em), scaled with Dynamic Type, for a tracked
+    /// uppercase label that keeps its own font. Letter spacing is never hand-set.
+    func kitchenEyebrowTracking() -> some View {
+        modifier(KitchenEyebrowTracking())
+    }
+}
+
+private struct KitchenEyebrowTracking: ViewModifier {
+    private let token = KitchenTypeRole.eyebrow.token
+    @ScaledMetric private var scale: Double
+
+    init() {
+        _scale = ScaledMetric(wrappedValue: 1, relativeTo: KitchenTypeRole.eyebrow.token.textStyle)
+    }
+
+    func body(content: Content) -> some View {
+        content.tracking(OuroFont.tracking(token, scale: scale))
     }
 }

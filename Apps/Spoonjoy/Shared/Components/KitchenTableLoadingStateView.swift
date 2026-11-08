@@ -119,7 +119,7 @@ struct KitchenTableRouteErrorView: View {
             Label {
                 Text("Spoonjoy".uppercased())
                     .font(KitchenTableTheme.runningHead)
-                    .tracking(1.4)
+                    .kitchenEyebrowTracking()
             } icon: {
                 Image(systemName: systemImage)
                     .font(.caption2.weight(.bold))

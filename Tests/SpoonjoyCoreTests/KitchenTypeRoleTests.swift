@@ -106,6 +106,24 @@ struct KitchenTypeRoleTests {
             == .system(size: 20, weight: .bold, design: .default))
     }
 
+    @Test("no view hand-sets letter spacing; tracked labels take the eyebrow token")
+    func noHandSetTracking() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Apps/Spoonjoy")
+        let files = try #require(FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil))
+            .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" }
+        #expect(files.count > 20)
+        let handSet = try Regex(#"\.(tracking|kerning)\(\s*-?[0-9.]+\s*\)"#)
+        for file in files {
+            let source = try String(contentsOf: file, encoding: .utf8)
+            #expect(source.firstMatch(of: handSet) == nil, "\(file.lastPathComponent) hand-sets letter spacing")
+        }
+        let theme = try String(contentsOf: root.appendingPathComponent("Shared/Design/KitchenTableTheme.swift"), encoding: .utf8)
+        #expect(theme.contains("content.tracking(OuroFont.tracking(token, scale: scale))"))
+        let em = try #require(Self.extras.numbers[.sjTrackingEyebrow])
+        #expect(em == 0.18)
+        #expect(abs(KitchenTypeRole.eyebrow.token.tracking - em * KitchenTypeRole.eyebrow.token.size) < 0.0001)
+    }
+
     @Test("a theme without the tokens falls back to a plain body token and needs no faces")
     func emptyThemeFallsBack() {
         #expect(KitchenTypeRole.displayTitle.token(in: .empty)

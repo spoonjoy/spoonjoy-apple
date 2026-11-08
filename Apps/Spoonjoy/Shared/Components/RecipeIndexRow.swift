@@ -149,7 +149,7 @@ extension RecipeIndexRow {
     private func ordinalText(_ ordinal: Int) -> some View {
         Text(ordinal < 10 ? "0\(ordinal)" : "\(ordinal)")
             .font(KitchenTableTheme.eyebrow.monospacedDigit())
-            .tracking(1.0)
+            .kitchenEyebrowTracking()
             .foregroundStyle(KitchenTableTheme.brass)
             .accessibilityHidden(true)
     }

@@ -2049,11 +2049,10 @@ private struct RecipeStepChecklistRow: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             if let note, !note.isEmpty {
+                // Web's checklist description: sentence case, untracked.
                 Text(note)
                     .font(KitchenTableTheme.uiLabel)
-                    .tracking(0.8)
                     .foregroundStyle(KitchenTableTheme.ink2)
-                    .textCase(.uppercase)
             }
         }
     }

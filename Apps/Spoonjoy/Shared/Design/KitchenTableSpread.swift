@@ -76,7 +76,7 @@ extension View {
     /// A small uppercase running head, like the line at the top of a cookbook page.
     func spreadRunningHead() -> some View {
         font(KitchenTableTheme.runningHead)
-            .tracking(1.4)
+            .kitchenEyebrowTracking()
             .textCase(.uppercase)
             .foregroundStyle(KitchenTableTheme.brass)
     }
