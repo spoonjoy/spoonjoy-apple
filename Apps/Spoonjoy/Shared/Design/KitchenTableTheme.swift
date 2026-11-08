@@ -115,7 +115,6 @@ enum KitchenTableTheme {
         /// The room above and below each row's text.
         static let rowVerticalPadding: CGFloat = 12
         static let checkColumn: CGFloat = 28
-        static let iconColumn: CGFloat = 20
         static let columnGap: CGFloat = 12
         /// The room under the list's "Ingredients" label.
         static let headingGap: CGFloat = 4
@@ -154,6 +153,8 @@ enum KitchenTableTheme {
     static let objectTitle = KitchenTypeRole.objectTitle.font
     static let indexTitle = KitchenTypeRole.indexTitle.font
     static let bodyNote = KitchenTypeRole.bodyNote.font
+    /// An ingredient's aisle under its name: the reading serif, a size down, as web sets a checklist item's description.
+    static let ingredientNote = KitchenTypeRole.bodyNote.font(relativeTo: .subheadline)
     static let uiLabel = KitchenTypeRole.uiLabel.font
 
     // The cookbook spread: a recipe or cook mode laid open across a wide landscape screen, such as the inner
@@ -299,6 +300,8 @@ struct KitchenTableHeader<Trailing: View>: View {
     let subtitle: String?
     let hidesTitleInCompactNavigation: Bool
     let titleFont: Font
+    /// The title is a chef's handle: shown with "@" and free to break between any two characters, as web's does.
+    let titleBreaksAnywhere: Bool
     @ViewBuilder let trailing: () -> Trailing
 
     /// `eyebrow` is a kicker that carries state, such as the day or a cookbook's owner; leave it empty when it would
@@ -309,9 +312,11 @@ struct KitchenTableHeader<Trailing: View>: View {
         subtitle: String? = nil,
         hidesTitleInCompactNavigation: Bool = false,
         titleFont: Font = KitchenTableTheme.displayTitle,
+        titleBreaksAnywhere: Bool = false,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) {
         self.titleFont = titleFont
+        self.titleBreaksAnywhere = titleBreaksAnywhere
         self.eyebrow = eyebrow
         self.title = title
         self.subtitle = subtitle
@@ -342,11 +347,12 @@ struct KitchenTableHeader<Trailing: View>: View {
             }
             // A page whose title the bar already shows leaves it out, so it never reads twice.
             if !(usesCompactNavigation || barShowsPageTitle) || !hidesTitleInCompactNavigation {
-                Text(title)
+                Text(titleBreaksAnywhere ? ChefHandle.breakingAnywhere(title) : title)
                     .font(titleFont)
                     .foregroundStyle(KitchenTableTheme.ink)
-                    .lineLimit(3)
+                    .lineLimit(titleBreaksAnywhere ? nil : 3)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(titleBreaksAnywhere ? "@\(title)" : title)
             }
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
@@ -365,14 +371,16 @@ extension KitchenTableHeader where Trailing == EmptyView {
         title: String,
         subtitle: String? = nil,
         hidesTitleInCompactNavigation: Bool = false,
-        titleFont: Font = KitchenTableTheme.displayTitle
+        titleFont: Font = KitchenTableTheme.displayTitle,
+        titleBreaksAnywhere: Bool = false
     ) {
         self.init(
             eyebrow: eyebrow,
             title: title,
             subtitle: subtitle,
             hidesTitleInCompactNavigation: hidesTitleInCompactNavigation,
-            titleFont: titleFont
+            titleFont: titleFont,
+            titleBreaksAnywhere: titleBreaksAnywhere
         ) {
             EmptyView()
         }
@@ -401,22 +409,31 @@ extension EnvironmentValues {
     }
 }
 
-/// A titled section. An accessory, such as a quiet control for the section, sits at the trailing end of the
-/// subtitle line, so it never adds a line of its own.
+#if !SPOONJOY_WIDGET_EXTENSION
+// The app's sections; the widget draws none, and the shared header lives with the app's components.
+/// A titled section. An accessory, such as a quiet control for the section, sits in the header beside the meta, as
+/// web's section action does, or at the trailing end of the subtitle line when there is one, so it never adds a line
+/// of its own.
 struct KitchenTableSection<Content: View, Accessory: View>: View {
+    let eyebrow: String?
     let title: String
+    /// Tracked at the title's trailing edge: a count or a short hint, as web's section headers carry.
+    let meta: String?
     let subtitle: String?
     @ViewBuilder let content: () -> Content
     @ViewBuilder let accessory: () -> Accessory
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(
+        eyebrow: String? = nil,
         title: String,
+        meta: String? = nil,
         subtitle: String? = nil,
         @ViewBuilder content: @escaping () -> Content,
         @ViewBuilder accessory: @escaping () -> Accessory
     ) {
+        self.eyebrow = eyebrow
         self.title = title
+        self.meta = meta
         self.subtitle = subtitle
         self.content = content
         self.accessory = accessory
@@ -424,43 +441,37 @@ struct KitchenTableSection<Content: View, Accessory: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: KitchenTableTheme.sectionSpacing) {
-            sectionHeader
+            if hasSubtitle || Accessory.self == EmptyView.self {
+                KitchenSectionHeader(eyebrow: eyebrow, title: title, meta: meta)
+                subtitleAndAccessory
+            } else {
+                KitchenSectionHeader(eyebrow: eyebrow, title: title, meta: meta, action: accessory)
+            }
             content()
         }
     }
 
-    private var sectionHeader: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(title)
-                    .font(KitchenTableTheme.sectionTitle)
-                    .foregroundStyle(KitchenTableTheme.ink)
-                    // One line beside the rule at the default sizes; at the accessibility sizes a title such as
-                    // "No recipes yet" wraps rather than ending in an ellipsis on a narrow screen.
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-                    .layoutPriority(1)
-                Rectangle()
-                    .fill(KitchenTableTheme.hairline.opacity(0.55))
-                    .frame(height: 1)
-                    .layoutPriority(-1)
-            }
-            if Accessory.self == EmptyView.self {
-                subtitleText
-            } else {
-                // At large text sizes the accessory drops under the subtitle instead of squeezing it.
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .center, spacing: 12) {
-                        subtitleText
-                        Spacer(minLength: 0)
-                        accessory()
-                    }
-                    VStack(alignment: .leading, spacing: 0) {
-                        subtitleText
-                        accessory()
-                    }
+    @ViewBuilder private var subtitleAndAccessory: some View {
+        if Accessory.self == EmptyView.self {
+            subtitleText
+        } else {
+            // At large text sizes the accessory drops under the subtitle instead of squeezing it.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 12) {
+                    subtitleText
+                    Spacer(minLength: 0)
+                    accessory()
+                }
+                VStack(alignment: .leading, spacing: 0) {
+                    subtitleText
+                    accessory()
                 }
             }
         }
+    }
+
+    private var hasSubtitle: Bool {
+        !(subtitle ?? "").isEmpty
     }
 
     @ViewBuilder private var subtitleText: some View {
@@ -474,12 +485,19 @@ struct KitchenTableSection<Content: View, Accessory: View>: View {
 }
 
 extension KitchenTableSection where Accessory == EmptyView {
-    init(title: String, subtitle: String? = nil, @ViewBuilder content: @escaping () -> Content) {
-        self.init(title: title, subtitle: subtitle, content: content) {
+    init(
+        eyebrow: String? = nil,
+        title: String,
+        meta: String? = nil,
+        subtitle: String? = nil,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.init(eyebrow: eyebrow, title: title, meta: meta, subtitle: subtitle, content: content) {
             EmptyView()
         }
     }
 }
+#endif
 
 struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
     let title: String

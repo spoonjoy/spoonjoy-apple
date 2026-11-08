@@ -399,6 +399,7 @@ widget_core_sources = %w[
   Sources/SpoonjoyCore/Features/CookMode/CookSessionIslandLayout.swift
   Sources/SpoonjoyCore/Design/KitchenFontFiles.swift
   Sources/SpoonjoyCore/Design/KitchenTypeRole.swift
+  Sources/SpoonjoyCore/Design/ChefHandle.swift
 ].map { |path| ROOT.join(path).to_s }
 widget_core_sources.each do |source|
   fail_check("#{relative(source)} missing from #{WIDGET_TARGET}") unless widget_sources.include?(source)

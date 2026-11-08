@@ -132,7 +132,7 @@ struct CookingNowSection: View {
     @Namespace private var transition
 
     var body: some View {
-        KitchenTableSection(title: "Cooking now", subtitle: subtitle) {
+        KitchenTableSection(eyebrow: "On the stove", title: "Cooking now", meta: meta) {
             if isWide {
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 200, maximum: 300), spacing: 24, alignment: .top)],
@@ -171,8 +171,9 @@ struct CookingNowSection: View {
         .accessibilityIdentifier("kitchen.cookingNow")
     }
 
-    private var subtitle: String {
-        entries.count == 1 ? "Pick up where you left off" : "\(entries.count) recipes on the go"
+    /// Web's count: "1 recipe", "3 recipes".
+    private var meta: String {
+        entries.count == 1 ? "1 recipe" : "\(entries.count) recipes"
     }
 }
 
@@ -217,7 +218,7 @@ struct CookingNowPlate: View {
                         RecipeInitialTile(title: entry.title)
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo))
                 .accessibilityHidden(true)
             Text(entry.stepLabel)
                 .kitchenEyebrow()

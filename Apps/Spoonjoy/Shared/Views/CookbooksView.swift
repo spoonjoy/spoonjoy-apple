@@ -276,7 +276,7 @@ struct CookbookShelf: View {
     }
 
     var body: some View {
-        KitchenTableSection(title: "Cookbook Shelf", subtitle: "\(rows.count) \(rows.count == 1 ? "shelf" : "shelves")") {
+        KitchenTableSection(title: "Cookbook Shelf", meta: "\(rows.count) \(rows.count == 1 ? "shelf" : "shelves")") {
             if rows.isEmpty {
                 KitchenTableEmptyTile(
                     systemImage: "books.vertical",
