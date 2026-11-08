@@ -19,7 +19,7 @@ The native SwiftUI app, with a cook mode that walks you through a recipe one ste
 swift test --disable-xctest --parallel
 ```
 
-The app is in internal TestFlight testing and not on the App Store yet. It talks to the [Spoonjoy](https://spoonjoy.app) web app's `/api/v1` API and signs in through its OAuth flow; the web app and API live in [spoonjoy/spoonjoy-v2](https://github.com/spoonjoy/spoonjoy-v2). `AGENTS.md` holds the product intent and the working rules for agents.
+The app is in internal TestFlight testing, and version 1.0 has been submitted to App Review; it is not on the App Store yet, and open [`app-review` issues](https://github.com/spoonjoy/spoonjoy-apple/issues?q=is%3Aopen+label%3Aapp-review) show where review stands. It talks to the [Spoonjoy](https://spoonjoy.app) web app's `/api/v1` API and signs in through its OAuth flow; the web app and API live in [spoonjoy/spoonjoy-v2](https://github.com/spoonjoy/spoonjoy-v2). `AGENTS.md` holds the product intent and the working rules for agents.
 
 ## Layout
 
@@ -65,6 +65,7 @@ All workflows are in `.github/workflows/`. The jobs that need the iOS 27 SDK run
 - `beta-sdk.yml` (**Beta SDK**): compiles the iOS app with newer beta Xcodes to catch API breakage early. Not a required check.
 - `app-intents-xray.yml` (**App Intents X-ray**): the X-ray's behaviour stage, signed out, on `main` pushes. Evidence only, not a required check.
 - `testflight.yml` (**TestFlight**): publishes to internal TestFlight after Native succeeds on a `main` push.
+- `submit-app-store-review.yml`, `app-store-release.yml` and `app-review-watch.yml` (**App Store**): submit a version to App Review, release it, and keep one `app-review` issue per platform and version while it is in review ([App Review](docs/apple-distribution.md#app-review)).
 
 ## Release
 

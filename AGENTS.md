@@ -50,7 +50,7 @@ The app must feel native and still unmistakably Spoonjoy.
 
 - Work on agent-scoped branches like `slugger/native-apple-bootstrap`.
 - Keep commits atomic and push after each commit.
-- Required checks on `main` intentionally mirror the native repo posture from `ourostack/ouro-md`: `Swift tests`, `Native scenario verifier`, `App bundle`, and `Contracts`.
+- Required checks on `main` intentionally mirror the native repo posture from `ourostack/ouro-md`: `Swift tests`, `Native scenario verifier`, `App bundle`, `Contracts`, and `Reins journeys`.
 
 ## Validation
 
@@ -60,4 +60,4 @@ Spoonjoy is built for agentic developers end to end, and so is its validation.
 - **Test outcomes, not source text.** A check passes only when a real user action produces a result that survives relaunching the app or shows up on another screen. Scripts that only confirm a type name or string exists in a source file are not validation; replace them with behaviour tests as journeys land. Flaky is failing: no retry loops around taps. The one retry is the Live journeys job's second attempt after a network or launch failure (`scripts/lib/live_journey_failure.rb` decides the class); an assertion failure never gets one.
 - **Every bug becomes a failing journey step first**, then a fix. Read failures from the CI artifacts (`.xcresult` bundles and screenshots).
 - **Coverage is not validation.** Coverage reporting stays, but green coverage says nothing about whether a user can use the app.
-- The native journey harness is being built after the web harness (tracked on Ari's desk as `spoonjoy/real-validation-layer`). Until it lands, the protected checks (`Swift tests`, `Native scenario verifier`, `App bundle`, `Contracts`) remain required, and new work should add XCUITest behaviour coverage rather than more source-text contract scripts.
+- Native journeys run in CI: the required headless `Reins journeys` check (`SpoonjoyReinsTests`, in `native.yml`) and the live XCUITest layer in `journeys.yml`. New work adds behaviour coverage there rather than more source-text contract scripts.
