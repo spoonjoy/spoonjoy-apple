@@ -69,11 +69,16 @@ struct SignedOutSetupView: View {
                 .fill(KitchenTableTheme.charcoal.opacity(0.10))
                 .frame(width: 1)
 
-            credentialPanel
-                .frame(maxWidth: 430, alignment: .leading)
-                .padding(.horizontal, 44)
-                .padding(.vertical, 44)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            GeometryReader { geometry in
+                ScrollView {
+                    credentialPanel
+                        .frame(maxWidth: 430, alignment: .leading)
+                        .padding(.horizontal, 44)
+                        .padding(.vertical, 44)
+                        .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
+                }
+                .scrollIndicators(.automatic)
+            }
         }
         .frame(minWidth: 900, minHeight: 620)
 #else
@@ -165,6 +170,82 @@ struct SignedOutSetupView: View {
                     .background(KitchenTableTheme.herb.opacity(0.12), in: Capsule())
             }
 
+            // Guideline 4.8: Sign in with Apple comes first and at full width whenever Google or GitHub is offered,
+            // so it is never less prominent than a third-party login. App Review rejected Mac 1.0 (build 2) when it sat last.
+            if appleSignInCapability == .available {
+                SignInWithAppleButton(.signIn) { request in
+                    let nonce = Self.randomNonceString()
+                    currentNonce = nonce
+                    request.requestedScopes = [.fullName, .email]
+                    request.nonce = Self.sha256(nonce)
+                    isSigningIn = true
+                    statusTone = .progress
+                    authStatus = "Waiting for Apple sign-in."
+                    NativeAppleSignInTelemetry.logPhase("authorization_request_started")
+                    Task {
+                        await appleSignInTelemetry.recordPhase("authorization_request_started",
+                            rawNoncePresent: true
+                        )
+                    }
+                } onCompletion: { result in
+                    Task {
+                        await handleAppleAuthorization(result)
+                    }
+                }
+                .signInWithAppleButtonStyle(.black)
+                .frame(maxWidth: .infinity, minHeight: 50, maxHeight: 50)
+                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
+                .disabled(isSigningIn)
+                .accessibilityIdentifier(Self.liveAppleSignInIdentifier)
+            } else {
+                appleUnavailableRow
+            }
+
+            VStack(spacing: 10) {
+                ForEach(OAuthProviderHint.allCases, id: \.self) { provider in
+                    Button {
+                        Task {
+                            await handleBrowserOAuthSignIn(provider: provider)
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            if pendingOAuthProvider == provider && isSigningIn {
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
+                            Image(systemName: provider.signInSystemImage)
+                                .imageScale(.medium)
+                            Text(provider.signInButtonTitle)
+                                .font(.headline)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(isSigningIn ? KitchenTableTheme.charcoal.opacity(0.46) : KitchenTableTheme.charcoal)
+                    .background(KitchenTableTheme.paper, in: Capsule())
+                    .overlay {
+                        Capsule()
+                            .stroke(KitchenTableTheme.charcoal.opacity(0.14), lineWidth: 1)
+                    }
+                    .disabled(isSigningIn)
+                    .accessibilityIdentifier(provider.signInAccessibilityIdentifier)
+                }
+            }
+
+            HStack(alignment: .center, spacing: 12) {
+                Rectangle()
+                    .fill(KitchenTableTheme.charcoal.opacity(0.14))
+                    .frame(height: 1)
+                Text("or")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.56))
+                Rectangle()
+                    .fill(KitchenTableTheme.charcoal.opacity(0.14))
+                    .frame(height: 1)
+            }
+            .accessibilityHidden(true)
+
             VStack(alignment: .leading, spacing: 12) {
                 TextField("Email or username", text: $emailOrUsername)
                     .textFieldStyle(.roundedBorder)
@@ -220,80 +301,6 @@ struct SignedOutSetupView: View {
             }
             .disabled(isSigningIn || !canSubmitPassword)
             .accessibilityIdentifier(Self.livePasswordSignInIdentifier)
-
-            HStack(alignment: .center, spacing: 12) {
-                Rectangle()
-                    .fill(KitchenTableTheme.charcoal.opacity(0.14))
-                    .frame(height: 1)
-                Text("or")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.56))
-                Rectangle()
-                    .fill(KitchenTableTheme.charcoal.opacity(0.14))
-                    .frame(height: 1)
-            }
-            .accessibilityHidden(true)
-
-            VStack(spacing: 10) {
-                ForEach(OAuthProviderHint.allCases, id: \.self) { provider in
-                    Button {
-                        Task {
-                            await handleBrowserOAuthSignIn(provider: provider)
-                        }
-                    } label: {
-                        HStack(spacing: 10) {
-                            if pendingOAuthProvider == provider && isSigningIn {
-                                ProgressView()
-                                    .controlSize(.small)
-                            }
-                            Image(systemName: provider.signInSystemImage)
-                                .imageScale(.medium)
-                            Text(provider.signInButtonTitle)
-                                .font(.headline)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(isSigningIn ? KitchenTableTheme.charcoal.opacity(0.46) : KitchenTableTheme.charcoal)
-                    .background(KitchenTableTheme.paper, in: Capsule())
-                    .overlay {
-                        Capsule()
-                            .stroke(KitchenTableTheme.charcoal.opacity(0.14), lineWidth: 1)
-                    }
-                    .disabled(isSigningIn)
-                    .accessibilityIdentifier(provider.signInAccessibilityIdentifier)
-                }
-            }
-
-            if appleSignInCapability == .available {
-                SignInWithAppleButton(.signIn) { request in
-                    let nonce = Self.randomNonceString()
-                    currentNonce = nonce
-                    request.requestedScopes = [.fullName, .email]
-                    request.nonce = Self.sha256(nonce)
-                    isSigningIn = true
-                    statusTone = .progress
-                    authStatus = "Waiting for Apple sign-in."
-                    NativeAppleSignInTelemetry.logPhase("authorization_request_started")
-                    Task {
-                        await appleSignInTelemetry.recordPhase("authorization_request_started",
-                            rawNoncePresent: true
-                        )
-                    }
-                } onCompletion: { result in
-                    Task {
-                        await handleAppleAuthorization(result)
-                    }
-                }
-                .signInWithAppleButtonStyle(.black)
-                .frame(maxWidth: .infinity, minHeight: 50, maxHeight: 50)
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
-                .disabled(isSigningIn)
-                .accessibilityIdentifier(Self.liveAppleSignInIdentifier)
-            } else {
-                appleUnavailableRow
-            }
 
             statusRow
 
