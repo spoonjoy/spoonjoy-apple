@@ -776,7 +776,9 @@ struct CookModeView: View {
             .frame(maxWidth: .infinity, minHeight: height, alignment: .topLeading)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .scrollIndicators(.hidden)
+        // At large text sizes a step runs below the fold; the indicator, flashed on arrival, says there is more.
+        .scrollIndicators(.visible)
+        .scrollIndicatorsFlash(onAppear: true)
         .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel * 2))
         .overlay(
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel * 2)
@@ -792,7 +794,7 @@ struct CookModeView: View {
 
     private func stepHeading(_ step: RecipeStep) -> some View {
         Text(step.stepTitle ?? "Step \(step.stepNum)")
-            .font(KitchenTableTheme.control)
+            .font(KitchenTableTheme.stepTitle)
             .foregroundStyle(KitchenTableTheme.brass)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)
@@ -1232,7 +1234,7 @@ extension CookModeView {
                 // At accessibility sizes the whole head shows, so a long title can't cut off the step count.
                 .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
             Text(step.stepTitle ?? "Step \(step.stepNum)")
-                .font(.system(size: min(coverGlanceTitleSize, 88), weight: .bold, design: .serif))
+                .font(KitchenTypeRole.displayTitle.fixedFont(size: min(coverGlanceTitleSize, 88)))
                 .foregroundStyle(KitchenTableTheme.ink)
                 .lineLimit(4)
                 // A long word shrinks rather than breaking across lines on the narrow cover.

@@ -213,7 +213,7 @@ private struct ProfileFigure: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("\(count)")
-                .font(.system(.title, design: .serif).weight(.bold).monospacedDigit())
+                .font(KitchenTableTheme.recipeTitle.monospacedDigit())
                 .foregroundStyle(KitchenTableTheme.ink)
             Text(label)
                 .font(KitchenTableTheme.meta)

@@ -6,9 +6,12 @@
 # Usage: create-and-boot-simulator.sh FAMILY NAME OUT
 #
 # Nothing of the app has run yet, so a failure here is the runner's or CoreSimulator's: a create that hangs, or a
-# simctl that aborts inside CoreSimulator (#218). Such a failure gets one more try on a fresh device, reported as an
-# infrastructure retry; a second failure fails. Each simctl call has its own limit, so a hang is caught here rather
-# than by the step's timeout, which would end the job with no retry.
+# simctl that aborts inside CoreSimulator (#218). Such a failure gets one more try on a fresh device, after
+# CoreSimulator itself is restarted, reported as an infrastructure retry; a second failure fails. A fresh device alone
+# was not enough: after a hung boot the service stayed wedged and the retry's create or boot hung too (#218: run
+# 42410863682, run 42445736229). Each simctl call has its own limit, so a hang is caught here rather than by the
+# step's timeout, which would end the job with no retry. Worst case: 2 tries of 120 + 120 + 150 s, plus 120 s of
+# cleanup and 20 s of restart between them, is 920 s, inside the step's 16 minutes.
 set -uo pipefail
 
 family="$1"
@@ -38,7 +41,10 @@ attempt() {
 attempt "" && exit 0
 
 first="$(cat "$out")"
-echo "::warning title=Infrastructure retry::Creating and booting the $family simulator failed before the app ran. Trying once more on a fresh device."
+echo "::warning title=Infrastructure retry::Creating and booting the $family simulator failed before the app ran. Restarting CoreSimulator and trying once more on a fresh device (#218)."
+# Restarted first, so the failed device's shutdown and delete reach a working service; launchd starts a fresh one on
+# the next simctl call.
+limit 20 killall -9 com.apple.CoreSimulator.CoreSimulatorService >/dev/null 2>&1 || true
 if [ -n "$first" ]; then
   limit 60 xcrun simctl shutdown "$first" >/dev/null 2>&1 || true
   limit 60 xcrun simctl delete "$first" >/dev/null 2>&1 || true

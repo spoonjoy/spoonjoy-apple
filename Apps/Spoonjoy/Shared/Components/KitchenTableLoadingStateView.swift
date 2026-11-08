@@ -118,8 +118,8 @@ struct KitchenTableRouteErrorView: View {
         VStack(alignment: .leading, spacing: 14) {
             Label {
                 Text("Spoonjoy".uppercased())
-                    .font(.caption2.weight(.bold))
-                    .tracking(1.4)
+                    .font(KitchenTableTheme.runningHead)
+                    .kitchenEyebrowTracking()
             } icon: {
                 Image(systemName: systemImage)
                     .font(.caption2.weight(.bold))
