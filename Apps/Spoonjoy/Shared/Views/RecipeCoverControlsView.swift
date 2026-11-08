@@ -369,7 +369,7 @@ struct RecipeCoverControlsView: View {
             HStack(alignment: .top, spacing: 12) {
                 RecipeCoverImage(url: cover.thumbnailURL)
                     .frame(width: 92, height: 92)
-                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
@@ -522,7 +522,7 @@ struct RecipeCoverControlsView: View {
                     HStack(spacing: 12) {
                         RecipeCoverImage(url: spoon.photoURL)
                             .frame(width: 76, height: 76)
-                            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
                         VStack(alignment: .leading, spacing: 4) {
                             Text(spoon.chef.username)
                                 .font(KitchenTableTheme.bodyNote)

@@ -1,4 +1,6 @@
 import Foundation
+import OuroHX
+import SwiftUI
 import Testing
 @testable import SpoonjoyCore
 
@@ -69,15 +71,12 @@ struct KitchenContrastTests {
         #expect(KitchenContrast.ratio(foreground: try #require(tokens["onPhotoNight"]), background: try #require(tokens["photoCharcoalNight"])) >= 4.5)
     }
 
+    /// The theme's colours as the app resolves them: each name's cookbook token, read live from OuroHX.
     private func themeTokens() throws -> [String: UInt32] {
-        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let theme = try String(contentsOf: root.appendingPathComponent("Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"), encoding: .utf8)
-        // A colour is either Spoonjoy's own (`webColor(0x...)`) or an OuroHX token written with its hex (`cookbookDay(\.token, 0x...)`).
-        let pattern = try NSRegularExpression(pattern: #"static let (\w+) = (?:webColor\(|cookbook(?:Day|Night)\(\\\.\w+, )0x([0-9A-Fa-f]{6})\)"#)
         var tokens: [String: UInt32] = [:]
-        for match in pattern.matches(in: theme, range: NSRange(theme.startIndex..., in: theme)) {
-            let name = String(theme[Range(match.range(at: 1), in: theme)!])
-            tokens[name] = UInt32(theme[Range(match.range(at: 2), in: theme)!], radix: 16)
+        for colour in KitchenPaletteOuroTests.colours {
+            let value = try #require(OuroTokens.cookbook.extras.color(colour.token, colour.scheme), "\(colour)")
+            tokens[colour.name] = KitchenPaletteOuroTests.hex(value.resolve(in: EnvironmentValues()))
         }
         return tokens
     }

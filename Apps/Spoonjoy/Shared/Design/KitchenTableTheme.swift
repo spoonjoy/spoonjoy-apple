@@ -8,42 +8,39 @@ import UIKit
 #endif
 
 enum KitchenTableTheme {
-    /// The web's light palette, verbatim from spoonjoy-v2 `:root`. Surfaces never use these directly; they use the
-    /// roles below, which pick the light or night value for the current appearance. A colour whose meaning and value
-    /// match OuroHX's cookbook theme comes from OuroHX, written with the hex it equals (`KitchenPaletteOuroTests`
-    /// holds each one to that hex); the rest are Spoonjoy's own.
+    /// The web's light palette. Every value comes from ouro-ui-core's cookbook theme (the `sj-*` tokens, the one
+    /// source web and native share) through OuroHX; `KitchenPaletteOuroTests` holds each one to web's hex. Surfaces
+    /// never use these directly; they use the roles below, which pick the light or night value for the appearance.
     enum Day {
         // Also the day value of `onInk` and `onPhoto` (text on a fill); same value, so it stays one constant.
-        static let bone = cookbookDay(\.background, 0xFBFAF4) // --sj-bone
-        static let paper = cookbookDay(\.card, 0xFFFEFA) // --sj-bone-lift / --sj-panel-solid
-        static let vellum = cookbookDay(\.muted, 0xE8E9DF) // --sj-vellum / --sj-flour
-        static let charcoal = cookbookDay(\.foreground, 0x28231D) // --sj-charcoal / --sj-action
-        static let inkMuted = cookbookDay(\.mutedForeground, 0x635D54) // --sj-charcoal-soft / --sj-ink-soft
-        static let brass = cookbookDay(\.primary, 0x9B6834) // --sj-brass
-        static let action = webColor(0x28231D) // --sj-action
-        static let actionDeep = webColor(0x1F1B17) // --sj-action-deep
-        static let tomato = cookbookDay(\.destructive, 0xA24A38) // --sj-tomato
-        static let herb = cookbookDay(\.success, 0x596A4F) // --sj-herb
-        static let photoCharcoal = webColor(0x211F1B) // --sj-photo-charcoal
+        static let bone = cookbookDay(.sjBone)
+        static let paper = cookbookDay(.sjBoneLift)
+        static let vellum = cookbookDay(.sjVellum)
+        static let charcoal = cookbookDay(.sjCharcoal)
+        static let inkMuted = cookbookDay(.sjCharcoalSoft)
+        static let brass = cookbookDay(.sjBrass)
+        static let action = cookbookDay(.sjAction)
+        static let actionDeep = cookbookDay(.sjActionDeep)
+        static let tomato = cookbookDay(.sjTomato)
+        static let herb = cookbookDay(.sjHerb)
+        static let photoCharcoal = cookbookDay(.sjPhotoCharcoal)
     }
 
-    /// The web's designed `.dark` palette, verbatim from spoonjoy-v2 `.dark`: the night kitchen. `charcoalNight` has
-    /// OuroHX's dark `background` value but is ink on a fill here, and `pageNight` (#1E1C19) differs from that
-    /// background, so both stay Spoonjoy's own.
+    /// The web's designed `.dark` palette, the night kitchen, from the same cookbook tokens.
     enum Night {
-        static let boneNight = cookbookNight(\.foreground, 0xF2EEE6) // .dark --sj-bone
-        static let paperNight = cookbookNight(\.card, 0x282522) // .dark --sj-bone-lift
-        static let vellumNight = cookbookNight(\.muted, 0x34302B) // .dark --sj-vellum
-        static let charcoalNight = webColor(0x1F1D1A) // .dark --sj-charcoal
-        static let inkMutedNight = cookbookNight(\.mutedForeground, 0xC8C0B4) // .dark --sj-charcoal-soft
-        static let brassNight = cookbookNight(\.primary, 0xC4945C) // .dark --sj-brass
-        static let actionNight = webColor(0xB9854B) // .dark --sj-action
-        static let actionDeepNight = webColor(0x95683A) // .dark --sj-action-deep
-        static let tomatoNight = cookbookNight(\.destructive, 0xE58263) // .dark --sj-tomato
-        static let herbNight = cookbookNight(\.success, 0xA4B578) // .dark --sj-herb
-        static let photoCharcoalNight = webColor(0x1D1915) // .dark --sj-photo-charcoal
-        static let pageNight = webColor(0x1E1C19) // .dark --sj-page
-        static let onPhotoNight = webColor(0xF1E6D3) // .dark --sj-on-photo
+        static let boneNight = cookbookNight(.sjBone)
+        static let paperNight = cookbookNight(.sjBoneLift)
+        static let vellumNight = cookbookNight(.sjVellum)
+        static let charcoalNight = cookbookNight(.sjCharcoal)
+        static let inkMutedNight = cookbookNight(.sjCharcoalSoft)
+        static let brassNight = cookbookNight(.sjBrass)
+        static let actionNight = cookbookNight(.sjAction)
+        static let actionDeepNight = cookbookNight(.sjActionDeep)
+        static let tomatoNight = cookbookNight(.sjTomato)
+        static let herbNight = cookbookNight(.sjHerb)
+        static let photoCharcoalNight = cookbookNight(.sjPhotoCharcoal)
+        static let pageNight = cookbookNight(.sjPage)
+        static let onPhotoNight = cookbookNight(.sjOnPhoto)
     }
 
     // Roles. Each picks its light or night value from the current appearance, so every surface follows Dark Mode.
@@ -76,12 +73,21 @@ enum KitchenTableTheme {
     /// black instead, the same way a real crease shades in low light.
     static let foldShadow = dynamic(Day.charcoal.opacity(0.10), Color.black.opacity(0.32))
 
+    /// Corners from the cookbook tokens, as web draws them. Controls keep the platform's capsule.
     enum Radius {
         static let edge: CGFloat = 0
-        static let media: CGFloat = 4
-        static let panel: CGFloat = 8
+        /// Book covers and recipe thumbnails: `sj-radius-small`.
+        static let cover = cookbookLength(.sjRadiusSmall)
+        /// Photographs: `sj-radius-photo`.
+        static let photo = cookbookLength(.sjRadiusPhoto)
+        /// Panels, cards and sheets' inner surfaces: `sj-radius-surface`.
+        static let panel = cookbookLength(.sjRadiusSurface)
         static let control: CGFloat = 999
     }
+
+    /// The soft lift under a cover or photo that sits above the page: web's `sj-shadow-soft`, with its own reach at
+    /// night. Draw it with `kitchenLiftShadow()`.
+    static let liftShadow = cookbookShadow(.sjShadowSoft)
 
     static let pagePadding: CGFloat = 20
     static let pageSpacing: CGFloat = 24
@@ -117,10 +123,10 @@ enum KitchenTableTheme {
     /// The 1.1 layout grid: every spacing value is a multiple of 4 pt. Screen margins are 24 pt on iPhone,
     /// 32 pt on iPad and Mac, and 40 pt on the side of a page that meets the iPhone Duo fold.
     enum Spacing {
-        static let unit: CGFloat = 4
-        static let marginCompact: CGFloat = 24
-        static let marginRegular: CGFloat = 32
-        static let marginFold: CGFloat = 40
+        static let unit = cookbookLength(.sjSpaceUnit)
+        static let marginCompact = cookbookLength(.sjMarginCompact)
+        static let marginRegular = cookbookLength(.sjMarginRegular)
+        static let marginFold = cookbookLength(.sjMarginFold)
     }
 
     // 1.1 type roles. Serif roles use the system serif (New York); every role follows Dynamic Type.
@@ -166,22 +172,33 @@ enum KitchenTableTheme {
         #endif
     }
 
-    /// An OuroHX cookbook light colour. `hex` is the web value it equals; it documents the line and the tests check it.
-    private static func cookbookDay(_ token: KeyPath<OuroColors, Color>, _ hex: UInt32) -> Color {
-        OuroTokens.cookbook.light[keyPath: token]
+    /// A cookbook colour by day.
+    private static func cookbookDay(_ token: OuroExtraColor) -> Color { cookbookColor(token, .light) }
+
+    /// A cookbook colour at night.
+    private static func cookbookNight(_ token: OuroExtraColor) -> Color { cookbookColor(token, .dark) }
+
+    /// A cookbook token is part of the pinned OuroHX release, so a missing one means the pin dropped a Spoonjoy token:
+    /// stop at once (every test and launch reaches these) rather than draw a guessed colour.
+    private static func cookbookColor(_ token: OuroExtraColor, _ scheme: ColorScheme) -> Color {
+        guard let color = OuroTokens.cookbook.extras.color(token, scheme) else {
+            preconditionFailure("OuroHX's cookbook theme has no \(token.rawValue)")
+        }
+        return color
     }
 
-    /// An OuroHX cookbook dark colour. `hex` is the web value it equals; it documents the line and the tests check it.
-    private static func cookbookNight(_ token: KeyPath<OuroColors, Color>, _ hex: UInt32) -> Color {
-        OuroTokens.cookbook.dark[keyPath: token]
+    private static func cookbookLength(_ token: OuroExtraLength) -> CGFloat {
+        guard let length = OuroTokens.cookbook.extras.lengths[token] else {
+            preconditionFailure("OuroHX's cookbook theme has no \(token.rawValue)")
+        }
+        return CGFloat(length)
     }
 
-    private static func webColor(_ hex: UInt32) -> Color {
-        Color(
-            red: Double((hex >> 16) & 0xFF) / 255.0,
-            green: Double((hex >> 8) & 0xFF) / 255.0,
-            blue: Double(hex & 0xFF) / 255.0
-        )
+    private static func cookbookShadow(_ token: OuroExtraShadow) -> OuroShadow {
+        guard let shadow = OuroTokens.cookbook.extras.shadows[token] else {
+            preconditionFailure("OuroHX's cookbook theme has no \(token.rawValue)")
+        }
+        return shadow
     }
 }
 
@@ -499,7 +516,7 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
             leading()
                 .frame(width: 56, height: 56)
                 .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -716,4 +733,18 @@ extension KitchenTableEmptyTile where Action == EmptyView {
             EmptyView()
         }
     }
+}
+
+private struct KitchenLiftShadow: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        let layer = KitchenTableTheme.liftShadow.layer(colorScheme)
+        content.shadow(color: layer.color, radius: layer.radius, x: layer.x, y: layer.y)
+    }
+}
+
+extension View {
+    /// Lifts a cover or photo off the page with web's soft shadow, by day or by night.
+    func kitchenLiftShadow() -> some View { modifier(KitchenLiftShadow()) }
 }

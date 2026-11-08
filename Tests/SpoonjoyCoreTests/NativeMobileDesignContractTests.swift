@@ -1590,26 +1590,26 @@ struct NativeMobileDesignContractTests {
             theme,
             in: themePath,
             contains: [
-                "cookbookDay(\\.background, 0xFBFAF4) // --sj-bone",
-                "cookbookDay(\\.card, 0xFFFEFA) // --sj-bone-lift",
-                "cookbookDay(\\.muted, 0xE8E9DF) // --sj-vellum",
-                "cookbookDay(\\.foreground, 0x28231D) // --sj-charcoal",
-                "cookbookDay(\\.mutedForeground, 0x635D54) // --sj-charcoal-soft",
-                "cookbookDay(\\.primary, 0x9B6834) // --sj-brass",
-                "webColor(0x28231D) // --sj-action",
-                "webColor(0x1F1B17) // --sj-action-deep",
-                "cookbookDay(\\.destructive, 0xA24A38) // --sj-tomato",
-                "cookbookDay(\\.success, 0x596A4F) // --sj-herb",
+                "static let bone = cookbookDay(.sjBone)",
+                "static let paper = cookbookDay(.sjBoneLift)",
+                "static let vellum = cookbookDay(.sjVellum)",
+                "static let charcoal = cookbookDay(.sjCharcoal)",
+                "static let inkMuted = cookbookDay(.sjCharcoalSoft)",
+                "static let brass = cookbookDay(.sjBrass)",
+                "static let action = cookbookDay(.sjAction)",
+                "static let actionDeep = cookbookDay(.sjActionDeep)",
+                "static let tomato = cookbookDay(.sjTomato)",
+                "static let herb = cookbookDay(.sjHerb)",
                 "onPhoto = dynamic(Day.bone, Night.onPhotoNight) // --sj-on-photo",
                 "onPhotoMuted = onPhoto.opacity(0.76) // --sj-on-photo-muted",
-                "webColor(0x211F1B) // --sj-photo-charcoal",
-                "cookbookNight(\\.foreground, 0xF2EEE6) // .dark --sj-bone",
-                "webColor(0x1E1C19) // .dark --sj-page",
-                "webColor(0xF1E6D3) // .dark --sj-on-photo"
+                "static let photoCharcoal = cookbookDay(.sjPhotoCharcoal)",
+                "static let pageNight = cookbookNight(.sjPage)",
+                "static let onPhotoNight = cookbookNight(.sjOnPhoto)"
             ],
             forbids: [
                 "Color(red: 0.97, green: 0.95, blue: 0.90)",
-                "Color(red: 0.99, green: 0.98, blue: 0.94)"
+                "Color(red: 0.99, green: 0.98, blue: 0.94)",
+                "webColor("
             ]
         )
     }

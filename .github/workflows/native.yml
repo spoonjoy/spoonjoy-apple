@@ -88,6 +88,7 @@ jobs:
           ruby scripts/test/ouro_ui_pin_test.rb
           ruby scripts/test/live_journey_failure_test.rb
           ruby scripts/test/release_branch_workflow_test.rb
+          ruby scripts/test/no_design_hex_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
           ruby scripts/stage-app-store-listing.rb --validate-only --platform MAC_OS
           ruby scripts/seed-review-demo-account.rb --validate-only

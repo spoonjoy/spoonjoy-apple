@@ -358,7 +358,7 @@ struct SpoonCookLogView: View {
                     .frame(maxWidth: .infinity)
                     .aspectRatio(4 / 3, contentMode: .fit)
                     .frame(maxWidth: 520)
-                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
                     .accessibilityHidden(true)
             }
             HStack(alignment: .firstTextBaseline, spacing: 8) {

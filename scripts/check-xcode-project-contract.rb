@@ -343,6 +343,12 @@ app_swift_files = APP_ROOT.find.select do |path|
     !path.to_s.start_with?("#{APP_ROOT.join("Journeys")}/")
 end.map(&:to_s)
 
+# The widget draws with the app's theme and its bundled fonts, so it compiles these two shared design files too.
+WIDGET_SHARED_DESIGN = %w[
+  Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift
+  Apps/Spoonjoy/Shared/Design/SpoonjoyFonts.swift
+].freeze
+
 app_swift_files.each do |source|
   rel = relative(source)
   expected_targets =
@@ -363,7 +369,7 @@ app_swift_files.each do |source|
   fail_check("#{rel} missing from #{IOS_TARGET}") if expected_targets.include?(IOS_TARGET) && !ios_sources.include?(source)
   fail_check("#{rel} missing from #{MAC_TARGET}") if expected_targets.include?(MAC_TARGET) && !mac_sources.include?(source)
   fail_check("#{rel} missing from #{WIDGET_TARGET}") if expected_targets.include?(WIDGET_TARGET) && !widget_sources.include?(source)
-  fail_check("#{rel} unexpectedly in #{WIDGET_TARGET}") if !expected_targets.include?(WIDGET_TARGET) && widget_sources.include?(source) && !rel.end_with?("Shared/Design/KitchenTableTheme.swift")
+  fail_check("#{rel} unexpectedly in #{WIDGET_TARGET}") if !expected_targets.include?(WIDGET_TARGET) && widget_sources.include?(source) && !WIDGET_SHARED_DESIGN.include?(rel)
   fail_check("#{rel} unexpectedly in #{IOS_TARGET}") if !expected_targets.include?(IOS_TARGET) && ios_sources.include?(source)
   fail_check("#{rel} unexpectedly in #{MAC_TARGET}") if !expected_targets.include?(MAC_TARGET) && mac_sources.include?(source)
 end
@@ -376,11 +382,12 @@ widget_core_sources = %w[
   Sources/SpoonjoyCore/Features/CookMode/CookSessionSnapshot.swift
   Sources/SpoonjoyCore/Features/CookMode/CookTimerBoard.swift
   Sources/SpoonjoyCore/Features/CookMode/CookSessionIslandLayout.swift
+  Sources/SpoonjoyCore/Design/KitchenFontFiles.swift
 ].map { |path| ROOT.join(path).to_s }
 widget_core_sources.each do |source|
   fail_check("#{relative(source)} missing from #{WIDGET_TARGET}") unless widget_sources.include?(source)
 end
-fail_check("#{WIDGET_TARGET} must not compile other Shared app code") unless (widget_sources - [theme_source] - widget_core_sources).all? { |source| relative(source).start_with?("Apps/Spoonjoy/LiveActivity/") }
+fail_check("#{WIDGET_TARGET} must not compile other Shared app code") unless (widget_sources - WIDGET_SHARED_DESIGN.map { |path| ROOT.join(path).to_s } - widget_core_sources).all? { |source| relative(source).start_with?("Apps/Spoonjoy/LiveActivity/") }
 
 # App Store review rejects uploads (ITMS-91053) whose bundle uses a required-reason API without declaring it.
 # The manifest must ship as a resource of both apps, and every required-reason API category the app or
@@ -394,6 +401,15 @@ fail_check("#{WIDGET_TARGET} must not compile other Shared app code") unless (wi
 end
 widget_resources = widget_target.resources_build_phase.files.map { |build_file| build_file.file_ref&.real_path&.to_s }.compact
 fail_check("#{WIDGET_TARGET} must not copy #{relative(SKILLS_BUNDLE)}; app skills belong to the apps") if widget_resources.include?(SKILLS_BUNDLE.to_s)
+# Every target that draws Spoonjoy type registers the bundled faces at launch, so each one copies them.
+font_files = APP_ROOT.join("Shared/Fonts").children.select { |path| path.extname == ".ttf" }.map(&:to_s)
+fail_check("Apps/Spoonjoy/Shared/Fonts must hold the bundled faces") if font_files.empty?
+[ios_target, mac_target, widget_target].each do |target|
+  resource_paths = target.resources_build_phase.files.map { |build_file| build_file.file_ref&.real_path&.to_s }.compact
+  font_files.each do |font|
+    fail_check("#{target.name} must copy #{relative(font)} as a resource") unless resource_paths.include?(font)
+  end
+end
 privacy_manifest = plist_json(PRIVACY_MANIFEST)
 fail_check("#{relative(PRIVACY_MANIFEST)} must declare NSPrivacyTracking false") unless privacy_manifest["NSPrivacyTracking"] == false
 fail_check("#{relative(PRIVACY_MANIFEST)} must declare an empty NSPrivacyTrackingDomains") unless privacy_manifest["NSPrivacyTrackingDomains"] == []
