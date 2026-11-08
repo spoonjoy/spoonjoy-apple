@@ -1,4 +1,7 @@
 import OuroHX
+#if !SPOONJOY_WIDGET_EXTENSION
+import SpoonjoyCore
+#endif
 import SwiftUI
 
 #if os(macOS)
@@ -135,34 +138,35 @@ enum KitchenTableTheme {
         static let marginFold = cookbookLength(.sjMarginFold)
     }
 
-    // 1.1 type roles. Serif roles use the system serif (New York); every role follows Dynamic Type.
-    static let largeTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
-    static let recipeTitle = Font.system(.title, design: .serif).weight(.semibold)
-    /// The cook step is read from arm's length, so it starts at the 34 pt large-title size (the closest Dynamic
-    /// Type style to the 33 pt the design asks for) and scales from there.
-    static let cookStep = Font.system(.largeTitle, design: .serif)
-    static let story = Font.system(.body, design: .serif)
-    static let control = Font.body.weight(.semibold)
-    static let meta = Font.footnote
+    // Type roles in web's faces (``KitchenTypeRole``): Fraunces titles, Source Serif 4 reading, IBM Plex Sans Condensed
+    // labels. Each is its `sj-type-*` token's size, scaled with Dynamic Type relative to the token's text style.
+    static let largeTitle = KitchenTypeRole.largeTitle.font
+    static let recipeTitle = KitchenTypeRole.recipeTitle.font
+    static let cookStep = KitchenTypeRole.cookStep.font
+    static let story = KitchenTypeRole.story.font
+    static let control = KitchenTypeRole.control.font
+    static let meta = KitchenTypeRole.meta.font
+    /// The timer's digits stay San Francisco, light and monospaced, so they never jump as they count.
     static let timer = Font.system(.largeTitle).weight(.light).monospacedDigit()
 
-    static let displayTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
-    static let sectionTitle = Font.system(.title2, design: .serif).weight(.bold)
-    static let objectTitle = Font.system(.headline, design: .rounded).weight(.semibold)
-    // Index entries are titles in a book's contents, so they take the serif voice the web gives them.
-    static let indexTitle = Font.system(.title3, design: .serif).weight(.semibold)
-    static let bodyNote = Font.body
-    static let uiLabel = Font.caption.weight(.semibold)
+    static let displayTitle = KitchenTypeRole.displayTitle.font
+    static let sectionTitle = KitchenTypeRole.sectionTitle.font
+    static let objectTitle = KitchenTypeRole.objectTitle.font
+    static let indexTitle = KitchenTypeRole.indexTitle.font
+    static let bodyNote = KitchenTypeRole.bodyNote.font
+    static let uiLabel = KitchenTypeRole.uiLabel.font
 
     // The cookbook spread: a recipe or cook mode laid open across a wide landscape screen, such as the inner
-    // screen of the iPhone Duo. Instructions are body serif, as the design language assigns them.
-    static let instructionBody = Font.system(.body, design: .serif)
-    static let spreadInstruction = Font.system(.title3, design: .serif)
-    static let cookInstruction = Font.system(.title, design: .serif)
-    static let stepNumeral = Font.system(.title, design: .serif).weight(.semibold)
-    /// A step's name beside its "STEP 1" eyebrow on the recipe page, set like a cookbook subhead.
-    static let stepTitle = Font.system(.title3, design: .serif).weight(.medium).italic()
-    static let runningHead = Font.caption2.weight(.bold)
+    // screen of the iPhone Duo.
+    static let instructionBody = KitchenTypeRole.instructionBody.font
+    static let spreadInstruction = KitchenTypeRole.spreadInstruction.font
+    static let cookInstruction = KitchenTypeRole.cookInstruction.font
+    static let stepNumeral = KitchenTypeRole.stepNumeral.font
+    /// A step's name beside its "STEP 1" eyebrow on the recipe page.
+    static let stepTitle = KitchenTypeRole.stepTitle.font
+    static let runningHead = KitchenTypeRole.runningHead.font
+    /// Web's eyebrow face (IBM Plex Sans Condensed bold); `.kitchenEyebrow()` adds its capitals, tracking and brass.
+    static let eyebrow = KitchenTypeRole.eyebrow.font
     static let selectionWash = brass.opacity(0.09)
     static let spreadGutterRule = hairline
 
@@ -333,10 +337,8 @@ struct KitchenTableHeader<Trailing: View>: View {
     private var titleStack: some View {
         VStack(alignment: .leading, spacing: 6) {
             if !eyebrow.isEmpty {
-                Text(eyebrow.uppercased())
-                    .font(.caption2.weight(.bold))
-                    .tracking(1.4)
-                    .foregroundStyle(KitchenTableTheme.brass)
+                Text(eyebrow)
+                    .kitchenEyebrow()
             }
             // A page whose title the bar already shows leaves it out, so it never reads twice.
             if !(usesCompactNavigation || barShowsPageTitle) || !hidesTitleInCompactNavigation {
@@ -512,8 +514,8 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
             if let ordinal {
                 // The number sits beside the thumbnail, never on it.
                 Text(ordinal)
-                    .font(.caption.weight(.bold))
-                    .tracking(1.0)
+                    .font(KitchenTableTheme.eyebrow)
+                    .kitchenEyebrowTracking()
                     .foregroundStyle(KitchenTableTheme.brass)
                     .frame(width: 26, alignment: .leading)
                     .accessibilityHidden(true)
@@ -539,7 +541,7 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
                 }
                 if let detail, !detail.isEmpty {
                     Text(detail)
-                        .font(.footnote)
+                        .font(KitchenTableTheme.meta)
                         .foregroundStyle(KitchenTableTheme.ink2)
                         .lineLimit(lineLimit)
                 }
@@ -638,7 +640,7 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
         let shape = Capsule()
         // At the accessibility sizes a label wraps to a second line instead of truncating.
         let label = configuration.label
-            .font(.headline)
+            .font(KitchenTableTheme.control)
             .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
             .minimumScaleFactor(0.74)
             .multilineTextAlignment(.center)
@@ -753,4 +755,33 @@ private struct KitchenLiftShadow: ViewModifier {
 extension View {
     /// Lifts a cover or photo off the page with web's soft shadow, by day or by night.
     func kitchenLiftShadow() -> some View { modifier(KitchenLiftShadow()) }
+}
+
+extension View {
+    /// Web's eyebrow: IBM Plex Sans Condensed bold capitals, tracked 0.18 em at every text size, in brass unless a
+    /// quieter ink is passed. VoiceOver reads the text as written, not spelled out in capitals.
+    func kitchenEyebrow(_ color: Color = KitchenTableTheme.brass) -> some View {
+        ouroType(KitchenTypeRole.eyebrow.token, in: OuroTokens.cookbook.extras)
+            .textCase(.uppercase)
+            .foregroundStyle(color)
+    }
+
+    /// The eyebrow token's letter spacing (`sj-tracking-eyebrow`, 0.18 em), scaled with Dynamic Type, for a tracked
+    /// uppercase label that keeps its own font. Letter spacing is never hand-set.
+    func kitchenEyebrowTracking() -> some View {
+        modifier(KitchenEyebrowTracking())
+    }
+}
+
+private struct KitchenEyebrowTracking: ViewModifier {
+    private let token = KitchenTypeRole.eyebrow.token
+    @ScaledMetric private var scale: Double
+
+    init() {
+        _scale = ScaledMetric(wrappedValue: 1, relativeTo: KitchenTypeRole.eyebrow.token.textStyle)
+    }
+
+    func body(content: Content) -> some View {
+        content.tracking(OuroFont.tracking(token, scale: scale))
+    }
 }

@@ -681,7 +681,7 @@ struct SpoonjoyRootView: View {
                 .font(.system(size: 34, weight: .semibold))
                 .foregroundStyle(KitchenTableTheme.tomato)
             Text("We couldn't load your kitchen")
-                .font(.title2.weight(.semibold))
+                .font(KitchenTableTheme.sectionTitle)
                 .foregroundStyle(KitchenTableTheme.ink)
             Text(bodyText)
                 .font(KitchenTableTheme.bodyNote)

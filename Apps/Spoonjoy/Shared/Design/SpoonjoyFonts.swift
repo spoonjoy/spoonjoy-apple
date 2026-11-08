@@ -10,9 +10,14 @@ import SwiftUI
 /// face that isn't registered falls back to the system serif or sans (``OuroFont``), so text never disappears.
 enum SpoonjoyFonts {
     /// Registers the bundled faces for this process. The app and the widget extension each call it once at launch;
-    /// calling it again is harmless.
+    /// calling it again is harmless. A debug build or test run stops here if the bundle lacks a face or a licence, so
+    /// a font never ships without its OFL text.
     static func registerBundled(in bundle: Bundle = .main) {
-        KitchenFontFiles.register(KitchenFontFiles.urls(in: bundle))
+        let urls = KitchenFontFiles.urls(in: bundle)
+        assert(urls.count == KitchenFontFiles.names.count, "\(bundle.bundleURL.lastPathComponent) is missing a bundled font")
+        let missing = KitchenFontFiles.missingLicences(in: bundle)
+        assert(missing.isEmpty, "\(bundle.bundleURL.lastPathComponent) is missing font licences: \(missing)")
+        KitchenFontFiles.register(urls)
     }
 
     /// A cookbook text role as a font.

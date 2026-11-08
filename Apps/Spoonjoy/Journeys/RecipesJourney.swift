@@ -48,6 +48,7 @@ final class RecipesJourney: JourneyTestCase {
             journey.element(JourneyID.kitchenRoot).waitForExistence(timeout: JourneyApp.networkTimeout),
             "Signing in did not open the kitchen."
         )
+        JourneyTruncation.assertNone(journey, on: "The Kitchen at the default text size")
 
         journey.useLargestAccessibilityTextOnNextLaunch()
         verifyAfterRelaunch(journey) {
@@ -66,6 +67,7 @@ final class RecipesJourney: JourneyTestCase {
             XCTAssertTrue(cook.isHittable, "Start cooking cannot be tapped at the largest text size. Screen: \(journey.screen)")
             XCTAssertTrue(journey.element(JourneyID.kitchenRecipeOpen).exists, "The Recipe button is missing at the largest text size.")
             journey.attachScreenshot(named: "06a-kitchen-accessibility-text-size", to: self)
+            JourneyTruncation.assertNone(journey, on: "The Kitchen at the largest text size")
 
             // UI: on My Recipes the shared index row stacks and wraps at this size instead of running off the screen.
             // The lead fills the first screen, so the index row sits further down.
@@ -78,6 +80,15 @@ final class RecipesJourney: JourneyTestCase {
             XCTAssertGreaterThanOrEqual(row.frame.minX, screenFrame.minX, "The recipe row starts off the screen at the largest text size.")
             XCTAssertLessThanOrEqual(row.frame.maxX, screenFrame.maxX, "The recipe row runs off the screen at the largest text size.")
             journey.attachScreenshot(named: "06b-recipe-row-accessibility-text-size", to: self)
+
+            // UI: the recipe page wraps its Fraunces title, eyebrows and Source Serif steps at this size, never cutting one.
+            row.tap()
+            XCTAssertTrue(
+                journey.element(JourneyID.recipeDetailTitle).waitForExistence(timeout: JourneyApp.networkTimeout),
+                "The recipe page did not open at the largest text size. Screen: \(journey.screen)"
+            )
+            JourneyTruncation.assertNone(journey, on: "The recipe page at the largest text size")
+            journey.attachScreenshot(named: "06c-recipe-accessibility-text-size", to: self)
         }
     }
 }
