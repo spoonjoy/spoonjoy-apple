@@ -8,7 +8,7 @@ Spoonjoy's product language is **The Kitchen Table**: quiet bone paper, charcoal
 
 **Same look as web, platform behaviour.** A screenshot of any Spoonjoy screen on web and on an Apple device, side by side, should look like the same book: the same three typefaces, the same palette, the same eyebrows, section headers, ingredient rows, covers and cook-step page. What differs is only what the platform owns (see "Same Look, Platform Behaviour (1.2)"): on Apple, navigation, Liquid Glass controls, system sheets, haptics, Dynamic Type, the Dynamic Island and Siri.
 
-Source pin: this brief mirrors `spoonjoy/spoonjoy-v2` `docs/design-language.md` on `main` at SHA-256 `3e7cd48db32e9453fef9bd6566b83a7c84454d88e6d9feaaf311e49baeecbb5c`. A changed source hash means the native brief and contract must be intentionally reviewed together.
+Source pin: this brief mirrors `spoonjoy/spoonjoy-v2` `docs/design-language.md` on `main` at SHA-256 `3e7cd48db32e9453fef9bd6566b83a7c84454d88e6d9feaaf311e49baeecbb5c` (spoonjoy-v2 commit `5647a350`). A changed source hash means the native brief and contract must be intentionally reviewed together.
 
 ## Invariants To Preserve
 
@@ -27,7 +27,7 @@ Source pin: this brief mirrors `spoonjoy/spoonjoy-v2` `docs/design-language.md` 
 
 - `NavigationStack` and `NavigationSplitView` for structure.
 - Native toolbars instead of custom web nav shells.
-- `TabView` and contextual `safeAreaInset` actions instead of recreating the web mobile dock.
+- `TabView` and contextual `safeAreaInset` actions instead of recreating the web phone tab bar.
 - `List`, `Section`, `DisclosureGroup`, `swipeActions`, and `EditMode` for dense lists.
 - `sheet`, `confirmationDialog`, and `ShareLink` for modal and share behavior.
 - `PhotosPicker`, camera capture, OCR, barcode scanning, and visual intelligence for recipe and grocery capture.
@@ -173,7 +173,7 @@ What web took from native: the cover placeholder (a vellum-to-brass wash with a 
 | Where | Native | Web | Why |
 | --- | --- | --- | --- |
 | Checks | Circle | Rounded square | The filled circle is the iOS checklist idiom; the colour matches. |
-| Profile title | Keeps "@" before the handle | Chef page title without "@" | On native the title is the handle; web shows "@" in the eyebrow. |
+| Profile title | The handle with "@" | The bare username, under a "Chef profile" eyebrow | On native the title is the handle, written as one. |
 | Add to list on one ingredient | Context menu and a named accessibility action ("Add to list"); no swipe action; the page's Add to list button stays | No per-row action | Rows are not in a `List`, so a swipe would fight scrolling and tap-to-check. |
 | Cook-step size on a phone | Display size | Step size below the `md` breakpoint, display size from `md` | A long instruction at display size fills a 393 px browser page and hides the timer. |
 | Timer ring | At least 120 pt, digits inside | 80 or 96 px, beside the digits | Web keeps its timer row layout. |
