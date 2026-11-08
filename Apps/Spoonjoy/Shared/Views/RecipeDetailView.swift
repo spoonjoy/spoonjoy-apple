@@ -1237,10 +1237,11 @@ struct RecipeDetailView: View {
             categoryKey: nil,
             iconKey: nil,
             clientMutationID: clientMutationID(prefix: "shopping-ingredient")
-        ), addedMessage: "\(ingredient.name) added to your list")
+        ), oneItemNamed: ingredient.name)
     }
 
-    private func runShoppingAction(_ action: ShoppingSurfaceAction, addedMessage: String? = nil) {
+    /// `oneItemNamed` is set when a single ingredient is added from its row; the status then names it.
+    private func runShoppingAction(_ action: ShoppingSurfaceAction, oneItemNamed: String? = nil) {
         let createdAt = timestamp()
         Task {
             do {
@@ -1252,15 +1253,16 @@ struct RecipeDetailView: View {
                     now: { createdAt }
                 ).plan(action)
                 let outcome = try await performShoppingAction(plan)
-                // One ingredient on the list doesn't make the whole recipe "In list".
-                if addedMessage == nil {
-                    localHasIngredientsInShoppingList = true
-                }
                 actionErrorMessage = nil
-                actionStatusMessage = outcome == .queuedForSync
-                    ? "Ingredients saved for sync"
-                    : addedMessage
-                    ?? "\(stepIngredientCount) ingredients added at \(shoppingScaleFactor.formatted(.number.precision(.fractionLength(0...2))))x"
+                // One ingredient on the list doesn't make the whole recipe "In list".
+                if let oneItemNamed {
+                    actionStatusMessage = IngredientAddedCopy.status(name: oneItemNamed, queuedForSync: outcome == .queuedForSync)
+                } else {
+                    localHasIngredientsInShoppingList = true
+                    actionStatusMessage = outcome == .queuedForSync
+                        ? "Ingredients saved for sync"
+                        : "\(stepIngredientCount) ingredients added at \(shoppingScaleFactor.formatted(.number.precision(.fractionLength(0...2))))x"
+                }
             } catch {
                 actionStatusMessage = nil
                 actionErrorMessage = "Could not update shopping list."

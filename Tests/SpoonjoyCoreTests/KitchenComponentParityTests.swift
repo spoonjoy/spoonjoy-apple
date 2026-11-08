@@ -68,12 +68,13 @@ struct KitchenComponentParityTests {
         #expect(detail.components(separatedBy: ".kitchenIngredientAddToList(").count - 1 == 2)
         #expect(detail.contains("func addIngredientToList(_ ingredient: RecipeDetailIngredientRow)"))
         #expect(detail.contains(".addItem("))
+        #expect(detail.contains("IngredientAddedCopy.status(name: oneItemNamed, queuedForSync: outcome == .queuedForSync)"))
     }
 
     @Test("the section header is an eyebrow, a Fraunces title with tracked meta at the trailing edge, and a rule below")
     func testSectionHeaderLayout() throws {
         let header = try Self.source("\(Self.components)/KitchenSectionHeader.swift")
-        #expect(header.contains("struct KitchenSectionHeader: View"))
+        #expect(header.contains("struct KitchenSectionHeader<Action: View>: View"))
         #expect(header.contains("let eyebrow: String?"))
         #expect(header.contains("let title: String"))
         #expect(header.contains("let meta: String?"))
@@ -84,25 +85,35 @@ struct KitchenComponentParityTests {
         let eyebrow = try #require(body.range(of: ".kitchenEyebrow()"))
         let title = try #require(body.range(of: "titleText"))
         let meta = try #require(body.range(of: "metaText"))
+        let action = try #require(body.range(of: "action()"))
         let rule = try #require(body.range(of: ".fill(KitchenTableTheme.lineStrong)"))
         #expect(eyebrow.lowerBound < title.lowerBound, "The eyebrow sits above the title.")
         #expect(title.lowerBound < meta.lowerBound, "The meta follows the title on its line.")
-        #expect(meta.lowerBound < rule.lowerBound, "The rule runs under both.")
-        #expect(header.contains("private var titleText: some View {\n        Text(title)\n            .font(KitchenTableTheme.sectionTitle)"))
+        #expect(meta.lowerBound < action.lowerBound, "A section action sits at the end of the title line, as web's does.")
+        #expect(action.lowerBound < rule.lowerBound, "The rule runs under them all.")
+        #expect(Self.containsLines(header, ["private var titleText: some View {", "Text(title)", ".font(KitchenTableTheme.sectionTitle)"]))
         #expect(header.contains(".kitchenEyebrow(KitchenTableTheme.ink2)"), "The meta is tracked like web's.")
         #expect(header.contains("Spacer(minLength:"), "The meta keeps to the trailing edge.")
         #expect(header.contains(".frame(maxWidth: .infinity, maxHeight: 1)"))
-        #expect(header.contains(".accessibilityAddTraits(.isHeader)"))
+        // VoiceOver hears one header: the title as its label and the meta as its value. The eyebrow is a kicker.
+        #expect(Self.containsLines(header, [".accessibilityAddTraits(.isHeader)", #".accessibilityValue(meta ?? "")"#]))
+        let metaText = try #require(header.components(separatedBy: "private var metaText: some View {").last)
+        #expect(metaText.contains(".accessibilityHidden(true)"))
+        #expect(Self.containsLines(header, [".kitchenEyebrow()", ".accessibilityHidden(true)"]))
 
         let section = try Self.declaration("struct KitchenTableSection", in: "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift")
         #expect(section.contains("KitchenSectionHeader(eyebrow: eyebrow, title: title, meta: meta)"))
+        // With no subtitle, the accessory (Kitchen's "See all") rides in the header, not on a row of its own.
+        #expect(section.contains("KitchenSectionHeader(eyebrow: eyebrow, title: title, meta: meta, action: accessory)"))
+        let kitchenSection = try Self.declaration("struct RecipeIndex: View", in: "\(Self.views)/KitchenView.swift")
+        #expect(kitchenSection.contains(#"KitchenTableSection(title: "Your recipes", meta: summary)"#))
+        #expect(kitchenSection.contains("} accessory: {"))
+        #expect(!kitchenSection.contains("subtitle:"), "Kitchen has no subtitle, so See all sits in the header.")
 
         // Every section uses it; these take web's eyebrow and meta.
         let cookingNow = try Self.source("\(Self.views)/CookingNowViews.swift")
         #expect(cookingNow.contains(#"KitchenTableSection(eyebrow: "On the stove", title: "Cooking now", meta: meta)"#))
         #expect(detail(contains: #"KitchenTableSection(eyebrow: "Cook mode", title: "Steps", meta: "Tap ingredients as you go")"#))
-        let kitchen = try Self.source("\(Self.views)/KitchenView.swift")
-        #expect(kitchen.contains(#"KitchenTableSection(title: "Your recipes", meta: summary)"#))
         let cookbooks = try Self.source("\(Self.views)/CookbooksView.swift")
         #expect(cookbooks.contains(#"KitchenTableSection(title: "Cookbook Shelf", meta:"#))
         let profile = try Self.source("\(Self.views)/ProfileView.swift")
@@ -119,9 +130,10 @@ struct KitchenComponentParityTests {
         // VoiceOver reads the handle, not the break points.
         #expect(header.contains(".accessibilityLabel(titleBreaksAnywhere ? \"@\\(title)\" : title)"))
         #expect(!header.contains("minimumScaleFactor"), "The handle wraps; the type stays its size.")
+        #expect(header.contains(".lineLimit(titleBreaksAnywhere ? nil : 3)"), "A long handle never ends in an ellipsis.")
 
         let profile = try Self.source("\(Self.views)/ProfileView.swift")
-        #expect(profile.contains("title: viewModel.header.username,\n                subtitle: viewModel.header.joinedLabel,\n                titleBreaksAnywhere: true"))
+        #expect(Self.containsLines(profile, ["title: viewModel.header.username,", "subtitle: viewModel.header.joinedLabel,", "titleBreaksAnywhere: true"]))
         #expect(!profile.contains("title: \"@\\(viewModel.header.username)\""))
     }
 
@@ -134,7 +146,7 @@ struct KitchenComponentParityTests {
         #expect(plate.contains("RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo"))
         #expect(!plate.contains("cornerRadius: 14"))
         let spread = try Self.source("\(Self.views)/RecipeDetailView.swift")
-        #expect(spread.contains(".frame(height: 220)\n                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo))"))
+        #expect(Self.containsLines(spread, [".frame(height: 220)", ".clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo))"]))
     }
 
     // MARK: - Source
@@ -146,6 +158,13 @@ struct KitchenComponentParityTests {
     static func source(_ path: String) throws -> String {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         return try String(contentsOf: root.appendingPathComponent(path), encoding: .utf8)
+    }
+
+    /// True when `expected` appear as consecutive lines of `text`, ignoring indentation.
+    static func containsLines(_ text: String, _ expected: [String]) -> Bool {
+        let lines = text.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+        guard !expected.isEmpty, lines.count >= expected.count else { return false }
+        return (0...(lines.count - expected.count)).contains { Array(lines[$0..<($0 + expected.count)]) == expected }
     }
 
     /// One top-level declaration: from its line to the closing brace at the start of a line.

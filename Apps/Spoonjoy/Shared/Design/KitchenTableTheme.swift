@@ -350,7 +350,7 @@ struct KitchenTableHeader<Trailing: View>: View {
                 Text(titleBreaksAnywhere ? ChefHandle.breakingAnywhere(title) : title)
                     .font(titleFont)
                     .foregroundStyle(KitchenTableTheme.ink)
-                    .lineLimit(3)
+                    .lineLimit(titleBreaksAnywhere ? nil : 3)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityLabel(titleBreaksAnywhere ? "@\(title)" : title)
             }
@@ -411,8 +411,9 @@ extension EnvironmentValues {
 
 #if !SPOONJOY_WIDGET_EXTENSION
 // The app's sections; the widget draws none, and the shared header lives with the app's components.
-/// A titled section. An accessory, such as a quiet control for the section, sits at the trailing end of the
-/// subtitle line, so it never adds a line of its own.
+/// A titled section. An accessory, such as a quiet control for the section, sits in the header beside the meta, as
+/// web's section action does, or at the trailing end of the subtitle line when there is one, so it never adds a line
+/// of its own.
 struct KitchenTableSection<Content: View, Accessory: View>: View {
     let eyebrow: String?
     let title: String
@@ -440,8 +441,12 @@ struct KitchenTableSection<Content: View, Accessory: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: KitchenTableTheme.sectionSpacing) {
-            KitchenSectionHeader(eyebrow: eyebrow, title: title, meta: meta)
-            subtitleAndAccessory
+            if hasSubtitle || Accessory.self == EmptyView.self {
+                KitchenSectionHeader(eyebrow: eyebrow, title: title, meta: meta)
+                subtitleAndAccessory
+            } else {
+                KitchenSectionHeader(eyebrow: eyebrow, title: title, meta: meta, action: accessory)
+            }
             content()
         }
     }
@@ -463,6 +468,10 @@ struct KitchenTableSection<Content: View, Accessory: View>: View {
                 }
             }
         }
+    }
+
+    private var hasSubtitle: Bool {
+        !(subtitle ?? "").isEmpty
     }
 
     @ViewBuilder private var subtitleText: some View {

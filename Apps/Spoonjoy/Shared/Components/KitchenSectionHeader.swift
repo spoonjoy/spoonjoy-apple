@@ -1,20 +1,27 @@
 import SwiftUI
 
 /// One section header for every section, as web draws them: a brass eyebrow, the title in Fraunces with tracked meta
-/// (a count, a hint) at its trailing edge, and a full-width rule under both. When the meta can't sit beside the title,
-/// at the larger text sizes, it drops under it rather than squeezing it.
-struct KitchenSectionHeader: View {
+/// (a count, a hint) and any section action at its trailing edge, and a full-width rule under them. When they can't
+/// share the title's line, at the larger text sizes, the meta and action drop under the title rather than squeezing it.
+struct KitchenSectionHeader<Action: View>: View {
     let eyebrow: String?
     let title: String
     let meta: String?
+    @ViewBuilder let action: () -> Action
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    init(eyebrow: String? = nil, title: String, meta: String? = nil, @ViewBuilder action: @escaping () -> Action) {
+        self.eyebrow = eyebrow
+        self.title = title
+        self.meta = meta
+        self.action = action
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let eyebrow, !eyebrow.isEmpty {
                 Text(eyebrow)
                     .kitchenEyebrow()
+                    .accessibilityHidden(true)
             }
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -22,11 +29,22 @@ struct KitchenSectionHeader: View {
                         .lineLimit(1)
                     Spacer(minLength: 12)
                     metaText
+                    action()
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    titleText
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        metaText
+                        Spacer(minLength: 0)
+                        action()
+                    }
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     titleText
                         .fixedSize(horizontal: false, vertical: true)
                     metaText
+                    action()
                 }
             }
             Rectangle()
@@ -43,6 +61,7 @@ struct KitchenSectionHeader: View {
             .font(KitchenTableTheme.sectionTitle)
             .foregroundStyle(KitchenTableTheme.ink)
             .accessibilityAddTraits(.isHeader)
+            .accessibilityValue(meta ?? "")
     }
 
     @ViewBuilder private var metaText: some View {
@@ -50,6 +69,16 @@ struct KitchenSectionHeader: View {
             Text(meta)
                 .kitchenEyebrow(KitchenTableTheme.ink2)
                 .fixedSize(horizontal: false, vertical: true)
+                // Read as the title's value.
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+extension KitchenSectionHeader where Action == EmptyView {
+    init(eyebrow: String? = nil, title: String, meta: String? = nil) {
+        self.init(eyebrow: eyebrow, title: title, meta: meta) {
+            EmptyView()
         }
     }
 }
