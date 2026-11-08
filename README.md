@@ -1,6 +1,21 @@
+<!-- spoonjoy:brand:start -->
+<p align="center">
+  <a href="https://spoonjoy.app"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/spoonjoy/.github/main/brand/headers/spoonjoy-apple-dark.webp">
+    <img src="https://raw.githubusercontent.com/spoonjoy/.github/main/brand/headers/spoonjoy-apple-light.webp" alt="Spoonjoy on a Mac showing the kitchen, with two iPhones in front: one on the Lemon Pantry Pasta recipe, one in cook mode with a ten-minute timer" width="100%">
+  </picture></a>
+</p>
+<!-- spoonjoy:brand:end -->
+
 # Spoonjoy Apple
 
-The native iOS, iPadOS and macOS app for [Spoonjoy](https://spoonjoy.app), written in SwiftUI. The web app and API live in [spoonjoy/spoonjoy-v2](https://github.com/spoonjoy/spoonjoy-v2); this app talks to its `/api/v1` API and signs in through its OAuth flow. `AGENTS.md` holds the product intent and the working rules for agents.
+Spoonjoy for iPhone, iPad and Mac, written in SwiftUI.
+
+[spoonjoy.app](https://spoonjoy.app) · [Web app and API](https://github.com/spoonjoy/spoonjoy-v2) · [Design language](docs/native-design-language.md) · [AGENTS.md](AGENTS.md)
+
+**Start:** with Xcode 27, `swift test --disable-xctest --parallel` runs the core tests, and the `Spoonjoy iOS` scheme in `Spoonjoy.xcodeproj` runs the app ([Build and test](#build-and-test)).
+
+The app is in internal TestFlight testing and not on the App Store yet. It talks to the [Spoonjoy](https://spoonjoy.app) web app's `/api/v1` API and signs in through its OAuth flow; the web app and API live in [spoonjoy/spoonjoy-v2](https://github.com/spoonjoy/spoonjoy-v2). `AGENTS.md` holds the product intent and the working rules for agents.
 
 ## Layout
 
