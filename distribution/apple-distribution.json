@@ -19,7 +19,7 @@
       "buildCommand": "swift test && scripts/check-xcode-project-contract.rb",
       "packageCommand": "scripts/package-testflight-ios.sh",
       "store": {
-        "version": "1.1",
+        "version": "1.2",
         "copyright": "Copyright (c) 2026 Ari Mendelow",
         "category": "FOOD_AND_DRINK",
         "screenshots": [],
