@@ -300,6 +300,8 @@ struct KitchenTableHeader<Trailing: View>: View {
     let subtitle: String?
     let hidesTitleInCompactNavigation: Bool
     let titleFont: Font
+    /// The title is a chef's handle: shown with "@" and free to break between any two characters, as web's does.
+    let titleBreaksAnywhere: Bool
     @ViewBuilder let trailing: () -> Trailing
 
     /// `eyebrow` is a kicker that carries state, such as the day or a cookbook's owner; leave it empty when it would
@@ -310,9 +312,11 @@ struct KitchenTableHeader<Trailing: View>: View {
         subtitle: String? = nil,
         hidesTitleInCompactNavigation: Bool = false,
         titleFont: Font = KitchenTableTheme.displayTitle,
+        titleBreaksAnywhere: Bool = false,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) {
         self.titleFont = titleFont
+        self.titleBreaksAnywhere = titleBreaksAnywhere
         self.eyebrow = eyebrow
         self.title = title
         self.subtitle = subtitle
@@ -343,11 +347,12 @@ struct KitchenTableHeader<Trailing: View>: View {
             }
             // A page whose title the bar already shows leaves it out, so it never reads twice.
             if !(usesCompactNavigation || barShowsPageTitle) || !hidesTitleInCompactNavigation {
-                Text(title)
+                Text(titleBreaksAnywhere ? ChefHandle.breakingAnywhere(title) : title)
                     .font(titleFont)
                     .foregroundStyle(KitchenTableTheme.ink)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(titleBreaksAnywhere ? "@\(title)" : title)
             }
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
@@ -366,14 +371,16 @@ extension KitchenTableHeader where Trailing == EmptyView {
         title: String,
         subtitle: String? = nil,
         hidesTitleInCompactNavigation: Bool = false,
-        titleFont: Font = KitchenTableTheme.displayTitle
+        titleFont: Font = KitchenTableTheme.displayTitle,
+        titleBreaksAnywhere: Bool = false
     ) {
         self.init(
             eyebrow: eyebrow,
             title: title,
             subtitle: subtitle,
             hidesTitleInCompactNavigation: hidesTitleInCompactNavigation,
-            titleFont: titleFont
+            titleFont: titleFont,
+            titleBreaksAnywhere: titleBreaksAnywhere
         ) {
             EmptyView()
         }

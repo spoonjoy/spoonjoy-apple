@@ -137,8 +137,9 @@ private struct ProfileHero: View {
             ProfileAvatar(url: viewModel.header.photoURL, name: viewModel.header.username)
 
             KitchenTableHeader(
-                title: "@\(viewModel.header.username)",
-                subtitle: viewModel.header.joinedLabel
+                title: viewModel.header.username,
+                subtitle: viewModel.header.joinedLabel,
+                titleBreaksAnywhere: true
             ) {
                 ownerActions
             }

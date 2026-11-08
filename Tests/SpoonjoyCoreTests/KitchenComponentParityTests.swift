@@ -111,6 +111,20 @@ struct KitchenComponentParityTests {
         }
     }
 
+    @Test("a long chef handle wraps anywhere like web's, never hyphenated and never shrunk")
+    func longHandleBreaksAnywhere() throws {
+        let header = try Self.declaration("struct KitchenTableHeader", in: "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift")
+        #expect(header.contains("let titleBreaksAnywhere: Bool"))
+        #expect(header.contains("Text(titleBreaksAnywhere ? ChefHandle.breakingAnywhere(title) : title)"))
+        // VoiceOver reads the handle, not the break points.
+        #expect(header.contains(".accessibilityLabel(titleBreaksAnywhere ? \"@\\(title)\" : title)"))
+        #expect(!header.contains("minimumScaleFactor"), "The handle wraps; the type stays its size.")
+
+        let profile = try Self.source("\(Self.views)/ProfileView.swift")
+        #expect(profile.contains("title: viewModel.header.username,\n                subtitle: viewModel.header.joinedLabel,\n                titleBreaksAnywhere: true"))
+        #expect(!profile.contains("title: \"@\\(viewModel.header.username)\""))
+    }
+
     @Test("photographs take the photo radius and a lifted cover takes web's soft shadow")
     func photosAndCoversTakeTheirTokens() throws {
         let cover = try Self.source("\(Self.components)/RecipeCoverImage.swift")
