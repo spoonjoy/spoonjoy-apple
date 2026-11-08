@@ -21,10 +21,10 @@ let package = Package(
     // pin and config/xray-expected.json together. The pin is a release (`exact:`) or, until the release that carries a
     // change is tagged, the merge commit on ouro-ui-apple's main (`revision:`); both are exact.
     dependencies: [
-        // Until v0.3.5 is tagged: Ouro Reins, and Ouro Feel for the UI tests' feel checks, with its recorder loaded into
-        // the app by the UI tests (no build of the app links it) filming a push or a sheet, and every copy of a text for
-        // double draws, frame by frame; and a walk of the whole app that reads tab switches, submenus and popovers right.
-        .package(url: "https://github.com/ourostack/ouro-ui-apple.git", revision: "fa6bb7df4fea7bc72ec0649f283304c6eb9ab1b1")
+        // 0.3.5: Ouro Reins, and Ouro Feel for the UI tests' feel checks, with its recorder loaded into the app by the UI
+        // tests (no build of the app links it) filming a push or a sheet, and every copy of a text for double draws, frame
+        // by frame; and a walk of the whole app that reads tab switches, submenus and popovers right.
+        .package(url: "https://github.com/ourostack/ouro-ui-apple.git", exact: "0.3.5")
     ],
     targets: [
         .target(

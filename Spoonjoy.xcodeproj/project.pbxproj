@@ -31,6 +31,7 @@
 		1B9BFDFB6EFD4F72FF97EC244FA81E5D /* JourneyQAClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F955430436D905473C2579A3ADE0066 /* JourneyQAClient.swift */; };
 		1BA9F7759D64DDE9753FF4BA4D3A0801 /* ModerationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E3C0CD200F903D2DC87294B24A0CDBC /* ModerationViews.swift */; };
 		1BB58C8ACAE962C9DC5A62AB6D7A078D /* TabletopJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55090DAA54ED6E054B88316172DACE6A /* TabletopJourney.swift */; };
+		1DEB029FFB84E0F7C63C4D044E956366 /* OuroHX in Frameworks */ = {isa = PBXBuildFile; productRef = 67AAC95A0864E13F3226DB5095B0C5DD /* OuroHX */; };
 		1E2E3C2AE629E23FBDAEBA36318267ED /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36181FB4A1824E3E1E4F4727066FFA6E /* ProfileView.swift */; };
 		1E5A61C86D58BC838E1040A77EC2CF8D /* SpoonjoyShoppingEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0430CD120506C1AE59E836E67D1D3FA0 /* SpoonjoyShoppingEntities.swift */; };
 		211944EC5EEDB16B4BA039CF03704F03 /* VerifyAfterRelaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 148CDC2A77E988188F1C5BD0F0029A40 /* VerifyAfterRelaunch.swift */; };
@@ -58,7 +59,6 @@
 		3AC3DACDB5F061AA5C76F9D9B6113550 /* SpoonjoyCookTimerActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E3C40EBED6FAB7D580B737DA851E65 /* SpoonjoyCookTimerActivity.swift */; };
 		3AD3E171E1C31B0E21D7C7713C73D849 /* Skills.skillsbundle in Resources */ = {isa = PBXBuildFile; fileRef = 814EE9EE9C750E7539945EC0BE895C38 /* Skills.skillsbundle */; };
 		3D469F2CA2BE98C5E90D35A62FC24395 /* JourneyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C54FEBFCF141163B232C14FC253B1AD7 /* JourneyApp.swift */; };
-		3FD5C188B05ACAE58CEACC9BDB948E24 /* OuroFeel in Frameworks */ = {isa = PBXBuildFile; productRef = ADB96B9BCCFED387CF024BFDAADB1A2A /* OuroFeel */; };
 		4078A0EFE70FC7E6E6190D86DDF3444F /* NotificationAPNsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FE5965BFD3AA172E849C9856DBE28B0 /* NotificationAPNsSettingsView.swift */; };
 		40C73289F663E4921E28586ECCFCD947 /* ThirdPartyAIConsentSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81BB718B6C11DB9E70692893DF40E81 /* ThirdPartyAIConsentSheet.swift */; };
 		41B4BD899619CB63EDEEF6044E6E7495 /* SpoonjoySpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48272699E888598D6724C39284CA654 /* SpoonjoySpotlightIndexer.swift */; };
@@ -75,7 +75,6 @@
 		5044BBA55172C8BB69E28F04C0CFBBCA /* JourneyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C54FEBFCF141163B232C14FC253B1AD7 /* JourneyApp.swift */; };
 		511C07949EC01DB619AB3AFC5C224FFE /* SpoonjoySpoonEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81BCF5B1A015F7BBBC64C685766796D6 /* SpoonjoySpoonEntities.swift */; };
 		52A08F346BF176F926931EDD3138B9EB /* KitchenSafeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3639F458F7B93C5FC644D9929FD192F1 /* KitchenSafeControls.swift */; };
-		546332DD7DD4E32283C336DA6298FCA0 /* OuroHX in Frameworks */ = {isa = PBXBuildFile; productRef = 2E6757C1B6854057FF54DCB2175246CD /* OuroHX */; };
 		55294A4EE15452856499BC89646F2EDD /* ModerationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E3C0CD200F903D2DC87294B24A0CDBC /* ModerationViews.swift */; };
 		5544E28A10FDD7BADFA699E19CC254DD /* CookMotionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E37FA398F96E509BC2CEE31E0D29EB /* CookMotionUITests.swift */; };
 		55D4DF89F8450C398DB53AAB62A0D085 /* CookModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E3AE79C9A043FEC5C34189B1464120F /* CookModeView.swift */; };
@@ -98,6 +97,7 @@
 		6993E253611D0B70E3E264DC800DDE7D /* VerifyAfterRelaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 148CDC2A77E988188F1C5BD0F0029A40 /* VerifyAfterRelaunch.swift */; };
 		6BC556E2FF7952BAC3BC78F3138C65BF /* JourneyQAClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F955430436D905473C2579A3ADE0066 /* JourneyQAClient.swift */; };
 		6C8B16E2CBE7EE8055A4D1E8B432EAB1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 599BDA28E43EA964D33E5C4114F47146 /* PrivacyInfo.xcprivacy */; };
+		6E1E8A422A4F52A40B104AAC61D15474 /* OuroHX in Frameworks */ = {isa = PBXBuildFile; productRef = 2D10D69A91A2D69D1C8270C6C9268D3A /* OuroHX */; };
 		6E35D04A145E8B5D4E31E5AA72020EF7 /* CookSessionSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 419A7A8E2BAFC9DA9E8A693F1892B2C8 /* CookSessionSnapshot.swift */; };
 		707CEF39888ACB10023A0D0EA8E4D9AC /* JourneyCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 370139081C4F32AD81427C2852ED38CE /* JourneyCopy.swift */; };
 		733D68F8C20EAA211D8F0CD4E72FF772 /* SceneWindows.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDEB2D3D248FAC6CCE828AFCAED873EF /* SceneWindows.swift */; };
@@ -111,6 +111,7 @@
 		7AC50827051F133C2145984475819CD3 /* AddRecipeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF961B7FD2CD9E9DFDE6464BA5E9860F /* AddRecipeSheet.swift */; };
 		7AE4186519A9FEBCDBF2283103F1C93F /* LayoutAuditUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4FBFC8BEE9FDE81A81420FD73D7C6C3 /* LayoutAuditUITests.swift */; };
 		7BC11CD037B8DBFAE5FA8B1A160ECCA2 /* JourneyQA.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1C4183CDE2ED7A33F4A17169551C97 /* JourneyQA.swift */; };
+		7C5ACEDF3415B658AC2FBB03511F62DE /* OuroFeel in Frameworks */ = {isa = PBXBuildFile; productRef = A5741B9BC4B9EF97AE702D6411339553 /* OuroFeel */; };
 		7FDCE0E2FCF80448CAA813C731E7EE03 /* SpoonjoyRecipeCookbookEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD885059882531335C94AE666656DFEA /* SpoonjoyRecipeCookbookEntities.swift */; };
 		808D1842F76015D6FE9E1C3C5B73CEE5 /* NotificationAPNsDeviceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91000A2C14FD4C028894A484D72B8F73 /* NotificationAPNsDeviceBridge.swift */; };
 		80B3D49959C384070817DDC2D8F00180 /* SpoonCookLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F51BCC75139C12B928FB7D52EC4138 /* SpoonCookLogView.swift */; };
@@ -145,8 +146,6 @@
 		AA5F5B393BE20AEC95509786947D5277 /* DuoHinge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A6456EA52C819FF0476ECF59A244418 /* DuoHinge.swift */; };
 		AAF44D8C2937C02578F7BDB4E412E235 /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 91209B8A89A3C6B76F4EB759AC211C3E /* SpoonjoyCore */; };
 		AC4A3EC31838E7A4FB01298F754AE7D3 /* CookTimerBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAB05FB5D2F15DEE29C6B2927085746D /* CookTimerBoard.swift */; };
-		ACBF43E5CF90E7E028378679A9B4DBA5 /* OuroHX in Frameworks */ = {isa = PBXBuildFile; productRef = D73EE8CE96AE111681E36929743071CB /* OuroHX */; };
-		ACDEC31E74F20DBC3D7000C916462689 /* OuroHX in Frameworks */ = {isa = PBXBuildFile; productRef = D1AF7BB19E18693965475D66718AEF7B /* OuroHX */; };
 		AD214C3A798BA099BA978A598427B255 /* ShareActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29E06C2C1E53D3E2A548498FCB7649F3 /* ShareActions.swift */; };
 		AD308A9FBD34FC4CF2BD3FCB894F1F8F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8C1D85176BAA2B67F559047E48775BF9 /* Assets.xcassets */; };
 		B07AD085F65147BB5E14C39942F5C684 /* DuoHinge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A6456EA52C819FF0476ECF59A244418 /* DuoHinge.swift */; };
@@ -202,6 +201,7 @@
 		E47B9F4C268A0A8AA9DC9DD41B3BC181 /* NativeAppleSignInTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E38946F561542A8AC57EDE1A226C1D3E /* NativeAppleSignInTelemetry.swift */; };
 		E743A8C592091A1F727F6452C0903D73 /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = E3EF50846970508E87596AA405040811 /* SpoonjoyCore */; };
 		E7B502E5B627333411098664CD3A8EE7 /* KitchenSafeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3639F458F7B93C5FC644D9929FD192F1 /* KitchenSafeControls.swift */; };
+		E8580BCBBDAA69F649AE751176054EBA /* OuroFeelRecorderInjectable in Frameworks */ = {isa = PBXBuildFile; productRef = 00CE16E3C2A6C4F272DD780CC835D796 /* OuroFeelRecorderInjectable */; };
 		E9BA19B4ECC1EFF951372A59D46602C9 /* ShareActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29E06C2C1E53D3E2A548498FCB7649F3 /* ShareActions.swift */; };
 		EB21E675F667952E90161E4C8BBB198A /* CookSyncJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E9ECF6A0E7E3E797E985C7259FFB50 /* CookSyncJourney.swift */; };
 		EB2E1A605CE930E10A2B0AB6CAD7E712 /* SpoonjoyCookSessionActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7765D1DDD5DBA7A0E6C24A9CA2151C18 /* SpoonjoyCookSessionActivity.swift */; };
@@ -215,7 +215,6 @@
 		F5DA4112EC4402E61905C8598A09F18A /* RecipeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB05EF78C9BC01A54911A2E3F3002DD /* RecipeEditorView.swift */; };
 		F64AA84AE9DB2D216CABB4910D8A663B /* SpoonjoySettingsEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6548CFD8942C24D6D3FA8E1B8BD3589 /* SpoonjoySettingsEntities.swift */; };
 		F78F22C4E9E31736906AA39F18A738D2 /* RecipeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 040904F503F1DAAE7D40481F44A5A9DF /* RecipeDetailView.swift */; };
-		F7F0E1C50C27DED0CD121E142ED8BAC5 /* OuroFeelRecorderInjectable in Frameworks */ = {isa = PBXBuildFile; productRef = 6D587D801A6796EFD2AD135A15B697A5 /* OuroFeelRecorderInjectable */; };
 		F9A768F1292B98798F1E8FAF4CC33E3D /* RecipeCoverControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0F3D7B55BADCFDA115F24EFBE0E2DA7 /* RecipeCoverControlsView.swift */; };
 		FA697EF410618991591E2FEA9C6EB3C9 /* KitchenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB0A6384940FB8BFE77E8E26F068A55B /* KitchenView.swift */; };
 		FAFABA8A24A4A1CD0D1AA1D68EBF7AED /* RecipeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB05EF78C9BC01A54911A2E3F3002DD /* RecipeEditorView.swift */; };
@@ -225,6 +224,7 @@
 		FDD496B3BBC4E0D5BEE2DCB2099800DB /* CookbooksJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50BCB63E01D38B768A51A2A81AED768 /* CookbooksJourney.swift */; };
 		FE120511F86D6EFEEC8723463A37382D /* SignInJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = F49BAF32BF67B47C2CAC897B4A461FDD /* SignInJourney.swift */; };
 		FEC6B0F08440C5C6DC958B5AFFA67E3F /* JourneyID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EF5545B6EBF8F29A8E14B85727C5B93 /* JourneyID.swift */; };
+		FF2187725E0F767E1023215F22D8E2A1 /* OuroHX in Frameworks */ = {isa = PBXBuildFile; productRef = EA76D4FC514CE1D3A1EAB885452ED5BB /* OuroHX */; };
 		FF61F90489210F0C1E9BCD6F801DE5E4 /* JourneyWindows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E86AEBE87DDCB8BAC4AA848EC132857 /* JourneyWindows.swift */; };
 /* End PBXBuildFile section */
 
@@ -427,7 +427,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				ACBF43E5CF90E7E028378679A9B4DBA5 /* OuroHX in Frameworks */,
+				6E1E8A422A4F52A40B104AAC61D15474 /* OuroHX in Frameworks */,
 				AAF44D8C2937C02578F7BDB4E412E235 /* SpoonjoyCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -436,8 +436,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3FD5C188B05ACAE58CEACC9BDB948E24 /* OuroFeel in Frameworks */,
-				F7F0E1C50C27DED0CD121E142ED8BAC5 /* OuroFeelRecorderInjectable in Frameworks */,
+				7C5ACEDF3415B658AC2FBB03511F62DE /* OuroFeel in Frameworks */,
+				E8580BCBBDAA69F649AE751176054EBA /* OuroFeelRecorderInjectable in Frameworks */,
 				9FA84FC9139735ECFEDF0954F4461F98 /* SpoonjoyCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -446,7 +446,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				ACDEC31E74F20DBC3D7000C916462689 /* OuroHX in Frameworks */,
+				1DEB029FFB84E0F7C63C4D044E956366 /* OuroHX in Frameworks */,
 				18168DF6713122259A9917E48484ED38 /* SpoonjoyCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -463,7 +463,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				546332DD7DD4E32283C336DA6298FCA0 /* OuroHX in Frameworks */,
+				FF2187725E0F767E1023215F22D8E2A1 /* OuroHX in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -866,7 +866,7 @@
 			);
 			name = "Spoonjoy iOS";
 			packageProductDependencies = (
-				D1AF7BB19E18693965475D66718AEF7B /* OuroHX */,
+				67AAC95A0864E13F3226DB5095B0C5DD /* OuroHX */,
 				D0C9AB70D83EB4CD724C74E1554A2487 /* SpoonjoyCore */,
 			);
 			productName = "Spoonjoy iOS";
@@ -887,7 +887,7 @@
 			);
 			name = "Spoonjoy macOS";
 			packageProductDependencies = (
-				D73EE8CE96AE111681E36929743071CB /* OuroHX */,
+				2D10D69A91A2D69D1C8270C6C9268D3A /* OuroHX */,
 				91209B8A89A3C6B76F4EB759AC211C3E /* SpoonjoyCore */,
 			);
 			productName = "Spoonjoy macOS";
@@ -950,7 +950,7 @@
 			);
 			name = SpoonjoyCookTimerWidget;
 			packageProductDependencies = (
-				2E6757C1B6854057FF54DCB2175246CD /* OuroHX */,
+				EA76D4FC514CE1D3A1EAB885452ED5BB /* OuroHX */,
 			);
 			productName = SpoonjoyCookTimerWidget;
 			productReference = 3C9F2DD36997BBE826C93657B765198F /* SpoonjoyCookTimerWidget.appex */;
@@ -971,8 +971,8 @@
 			);
 			name = SpoonjoyShoppingUITests;
 			packageProductDependencies = (
-				ADB96B9BCCFED387CF024BFDAADB1A2A /* OuroFeel */,
-				6D587D801A6796EFD2AD135A15B697A5 /* OuroFeelRecorderInjectable */,
+				A5741B9BC4B9EF97AE702D6411339553 /* OuroFeel */,
+				00CE16E3C2A6C4F272DD780CC835D796 /* OuroFeelRecorderInjectable */,
 				284AD5A03F1D0C9F65E80DE4C3ECB7EF /* SpoonjoyCore */,
 			);
 			productName = SpoonjoyShoppingUITests;
@@ -1021,7 +1021,7 @@
 			minimizedProjectReferenceProxies = 0;
 			packageReferences = (
 				511D6115DD7457AACCA4BB177D7D745F /* XCLocalSwiftPackageReference "." */,
-				D936D9A04EC578C8380BEF9749E31746 /* XCRemoteSwiftPackageReference "ouro-ui-apple" */,
+				1D9C9A8101463BD22562BFDD7FD95A0E /* XCRemoteSwiftPackageReference "ouro-ui-apple" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C6DBB773F29C483DBCCAEFD908E898F1 /* Products */;
@@ -2120,31 +2120,36 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		D936D9A04EC578C8380BEF9749E31746 /* XCRemoteSwiftPackageReference "ouro-ui-apple" */ = {
+		1D9C9A8101463BD22562BFDD7FD95A0E /* XCRemoteSwiftPackageReference "ouro-ui-apple" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ourostack/ouro-ui-apple.git";
 			requirement = {
-				kind = revision;
-				revision = fa6bb7df4fea7bc72ec0649f283304c6eb9ab1b1;
+				kind = exactVersion;
+				version = 0.3.5;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		00CE16E3C2A6C4F272DD780CC835D796 /* OuroFeelRecorderInjectable */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1D9C9A8101463BD22562BFDD7FD95A0E /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
+			productName = OuroFeelRecorderInjectable;
+		};
 		284AD5A03F1D0C9F65E80DE4C3ECB7EF /* SpoonjoyCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 511D6115DD7457AACCA4BB177D7D745F /* XCLocalSwiftPackageReference "." */;
 			productName = SpoonjoyCore;
 		};
-		2E6757C1B6854057FF54DCB2175246CD /* OuroHX */ = {
+		2D10D69A91A2D69D1C8270C6C9268D3A /* OuroHX */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D936D9A04EC578C8380BEF9749E31746 /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
+			package = 1D9C9A8101463BD22562BFDD7FD95A0E /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
 			productName = OuroHX;
 		};
-		6D587D801A6796EFD2AD135A15B697A5 /* OuroFeelRecorderInjectable */ = {
+		67AAC95A0864E13F3226DB5095B0C5DD /* OuroHX */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D936D9A04EC578C8380BEF9749E31746 /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
-			productName = OuroFeelRecorderInjectable;
+			package = 1D9C9A8101463BD22562BFDD7FD95A0E /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
+			productName = OuroHX;
 		};
 		91209B8A89A3C6B76F4EB759AC211C3E /* SpoonjoyCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -2156,25 +2161,15 @@
 			package = 511D6115DD7457AACCA4BB177D7D745F /* XCLocalSwiftPackageReference "." */;
 			productName = SpoonjoyCore;
 		};
-		ADB96B9BCCFED387CF024BFDAADB1A2A /* OuroFeel */ = {
+		A5741B9BC4B9EF97AE702D6411339553 /* OuroFeel */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D936D9A04EC578C8380BEF9749E31746 /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
+			package = 1D9C9A8101463BD22562BFDD7FD95A0E /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
 			productName = OuroFeel;
 		};
 		D0C9AB70D83EB4CD724C74E1554A2487 /* SpoonjoyCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 511D6115DD7457AACCA4BB177D7D745F /* XCLocalSwiftPackageReference "." */;
 			productName = SpoonjoyCore;
-		};
-		D1AF7BB19E18693965475D66718AEF7B /* OuroHX */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D936D9A04EC578C8380BEF9749E31746 /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
-			productName = OuroHX;
-		};
-		D73EE8CE96AE111681E36929743071CB /* OuroHX */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D936D9A04EC578C8380BEF9749E31746 /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
-			productName = OuroHX;
 		};
 		DCB910968A6C3B1B4D25CCE20FFAEEAF /* SpoonjoyCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -2185,6 +2180,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 511D6115DD7457AACCA4BB177D7D745F /* XCLocalSwiftPackageReference "." */;
 			productName = SpoonjoyCore;
+		};
+		EA76D4FC514CE1D3A1EAB885452ED5BB /* OuroHX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1D9C9A8101463BD22562BFDD7FD95A0E /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
+			productName = OuroHX;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
