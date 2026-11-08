@@ -25,7 +25,8 @@ struct NativeAuthSessionTests {
         }
         #expect(code.contains(".frame(maxWidth: .infinity, minHeight: 50, maxHeight: 50)"),
             "Sign in with Apple must be full width, as wide as the other sign-in buttons")
-        for entitlements in ["Apps/Spoonjoy/Shared/Spoonjoy.entitlements", "Apps/Spoonjoy/macOS/SpoonjoyMac.entitlements"] {
+        // The 1.0 release branch predates the Mac App Store target (#154), so it has only the shared entitlements file.
+        for entitlements in ["Apps/Spoonjoy/Shared/Spoonjoy.entitlements"] {
             #expect(try readRepoFile(entitlements).contains("com.apple.developer.applesignin"),
                 "\(entitlements) must carry com.apple.developer.applesignin")
         }
