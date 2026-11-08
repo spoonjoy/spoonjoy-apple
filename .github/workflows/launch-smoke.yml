@@ -19,10 +19,50 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  build:
+    # The three families install the same Release app, so it is built once and shared.
+    name: Launch smoke (build the Release app)
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/select-xcode
+      - name: Build the Release app for the simulator
+        timeout-minutes: 35
+        run: |
+          set -euo pipefail
+          # Sign ad hoc rather than not at all: an unsigned Release app has no keychain access, so a fresh install
+          # shows "We couldn't load your kitchen" instead of the sign-in screen the App Store build shows.
+          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/smoke-dd" \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= build 2>&1 | tail -20
+      - name: The Release app carries no Ouro Feel recorder
+        # The recorder is linked for the UI tests' feel checks, and only a DEBUG build installs it. Nothing of it may
+        # reach the App Store build.
+        run: |
+          set -euo pipefail
+          binary="$RUNNER_TEMP/smoke-dd/Build/Products/Release-iphonesimulator/Spoonjoy.app/Spoonjoy"
+          found="$(nm -U "$binary" | grep -c 'OuroFeelRecorder' || true)"
+          echo "OuroFeelRecorder symbols in the Release binary: $found"
+          if [ "$found" -gt 0 ]; then echo "::error::The Release app links the Ouro Feel recorder"; exit 1; fi
+      - name: Pack the app
+        # tar keeps the bundle's symlinks, modes and signature, which the artifact zip would not.
+        run: tar -C "$RUNNER_TEMP/smoke-dd/Build/Products/Release-iphonesimulator" -cf "$RUNNER_TEMP/Spoonjoy-app.tar" Spoonjoy.app
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: launch-smoke-app-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/Spoonjoy-app.tar
+          if-no-files-found: error
+          retention-days: 3
+          overwrite: true
+
   launch-smoke:
     name: Launch smoke (${{ matrix.family }})
+    needs: build
     runs-on: xcode-27
-    timeout-minutes: 65
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -42,24 +82,15 @@ jobs:
           set -euo pipefail
           .github/scripts/create-and-boot-simulator.sh "$FAMILY" "launch-smoke-${FAMILY// /-}" "$RUNNER_TEMP/sim.udid"
           echo "udid=$(cat "$RUNNER_TEMP/sim.udid")" >> "$GITHUB_OUTPUT"
-      - name: Build the Release app for the simulator
-        timeout-minutes: 35
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: launch-smoke-app-${{ github.run_attempt }}
+          path: ${{ runner.temp }}
+      - name: Unpack the app
         run: |
           set -euo pipefail
-          # Sign ad hoc rather than not at all: an unsigned Release app has no keychain access, so a fresh install
-          # shows "We couldn't load your kitchen" instead of the sign-in screen the App Store build shows.
-          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/smoke-dd" \
-            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= build 2>&1 | tail -20
-      - name: The Release app carries no Ouro Feel recorder
-        # The recorder is linked for the UI tests' feel checks, and only a DEBUG build installs it. Nothing of it may
-        # reach the App Store build.
-        run: |
-          set -euo pipefail
-          binary="$RUNNER_TEMP/smoke-dd/Build/Products/Release-iphonesimulator/Spoonjoy.app/Spoonjoy"
-          found="$(nm -U "$binary" | grep -c 'OuroFeelRecorder' || true)"
-          echo "OuroFeelRecorder symbols in the Release binary: $found"
-          if [ "$found" -gt 0 ]; then echo "::error::The Release app links the Ouro Feel recorder"; exit 1; fi
+          mkdir -p "$RUNNER_TEMP/smoke-dd/Build/Products/Release-iphonesimulator"
+          tar -C "$RUNNER_TEMP/smoke-dd/Build/Products/Release-iphonesimulator" -xf "$RUNNER_TEMP/Spoonjoy-app.tar"
       - name: Install fresh and launch three times
         timeout-minutes: 8
         env:
