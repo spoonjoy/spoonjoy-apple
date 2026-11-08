@@ -52,7 +52,7 @@ jobs:
         run: tar -C "$RUNNER_TEMP/smoke-dd/Build/Products/Release-iphonesimulator" -cf "$RUNNER_TEMP/Spoonjoy-app.tar" Spoonjoy.app
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: launch-smoke-app-${{ github.run_attempt }}
+          name: launch-smoke-app
           path: ${{ runner.temp }}/Spoonjoy-app.tar
           if-no-files-found: error
           retention-days: 3
@@ -84,7 +84,7 @@ jobs:
           echo "udid=$(cat "$RUNNER_TEMP/sim.udid")" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          name: launch-smoke-app-${{ github.run_attempt }}
+          name: launch-smoke-app
           path: ${{ runner.temp }}
       - name: Unpack the app
         run: |
