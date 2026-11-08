@@ -29,7 +29,9 @@ attempt() {
   echo "$udid" > "$out"
   date +%s > "$out.booted-at"
   limit 120 xcrun simctl boot "$udid" || { echo "booting $udid failed or hung (exit $?)" >&2; return 1; }
-  limit 150 xcrun simctl bootstatus "$udid" -b || { echo "waiting for $udid to boot failed or hung (exit $?)" >&2; return 1; }
+  # Its own allowance: a first boot on a fresh image builds the runtime's caches and can take minutes; only a device
+  # still not up after seven is hung.
+  limit 420 xcrun simctl bootstatus "$udid" -b || { echo "waiting for $udid to boot failed or hung (exit $?)" >&2; return 1; }
 }
 
 : > "$out"

@@ -255,6 +255,17 @@ publish summary. It fails the job if any of these validations fail:
 - `/v1/betaGroups/$ASC_INTERNAL_GROUP_ID/betaTesters` reports zero testers;
 - `/v1/buildBetaDetails/$ASC_BUILD_BETA_DETAIL_ID` is not `IN_BETA_TESTING`.
 
+### Release branches
+
+`main` always builds the next version. A version already with App Review gets its fixes from a `release/<version>` branch (for example `release/1.1`), cut from the commit that version shipped from, so a rebuild never picks up unreleased work from `main`.
+
+1. Open the fix as a pull request against `release/<version>`. Native runs on the PR and again on the push to the branch.
+2. Publish it: dispatch TestFlight from `main` with `release_branch: release/<version>`, `source_sha` set to the branch head, and `rollback_notes` holding the TestFlight notes. Both the iPhone build and the Mac build publish from the branch head, after `scripts/verify-testflight-release-candidate.rb` finds a green Native push run for it.
+3. Stage and submit it: dispatch "Stage App Store listing" and "Submit for App Review" with the same `release_branch`. They read `distribution/app-store/listing.json` and the screenshots from the branch head instead of `main`.
+4. If the fix still applies on `main`, port it there in its own pull request.
+
+The branch name must match `^release/[0-9][0-9A-Za-z.-]*$`; every workflow rejects anything else.
+
 ### CI signing
 
 CI signs with one long-lived Apple Distribution certificate, so a TestFlight run creates no certificate and `xcodebuild` makes no Apple network calls. Before this, each runner started with an empty keychain and `xcodebuild -allowProvisioningUpdates` with the App Store Connect API key minted a new "Created via API" Apple Development certificate on every run, which Apple emailed about on each create and revoke, and Xcode's own profile fetch failed on transient network loss.

@@ -41,7 +41,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "32B34A8210CCEC516E393050D67F3AC0"
+               BlueprintIdentifier = "E4546397A1816E5E58A93F4414630407"
                BuildableName = "SpoonjoyShoppingUITests.xctest"
                BlueprintName = "SpoonjoyShoppingUITests"
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
