@@ -2,6 +2,12 @@
 
 This repo contains the native iOS and macOS app for Spoonjoy.
 
+## Start here
+
+- Unit tests: `swift test --disable-xctest --parallel`. Build: `xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`.
+- The app talks to the web app's `/api/v1` API; the API and MCP server are described at [spoonjoy.app/developers](https://spoonjoy.app/developers), and their source is in [spoonjoy/spoonjoy-v2](https://github.com/spoonjoy/spoonjoy-v2).
+- Layout, CI and release: [README.md](README.md#layout).
+
 ## Pull requests merge within 30 minutes
 
 Spoonjoy follows ourostack's shared rule, [every PR merges within 30 minutes](https://github.com/ourostack/.github/blob/main/agents/prs-merge-within-30-minutes.md). Finish, review and validate on your branch first, then publish with `gh ouro-pr`, which turns auto-merge on so green means merged. When a PR here shows on the [PR clock](https://github.com/ourostack/.github/issues?q=is%3Aissue+is%3Aopen+label%3Apr-clock), act on it now: merge it if green, fix the cause if red (file an issue before any rerun), rebase it if conflicted, or close it with a reason if it isn't going anywhere.
@@ -23,7 +29,7 @@ Native value should come from platform capabilities:
 
 The app must feel native and still unmistakably Spoonjoy.
 
-- Preserve the Spoonjoy web product language documented in `spoonjoy-v2/docs/design-language.md`.
+- Preserve the Spoonjoy web product language documented in [`spoonjoy-v2/docs/design-language.md`](https://github.com/spoonjoy/spoonjoy-v2/blob/main/docs/design-language.md).
 - Treat the native translation in `docs/native-design-language.md` as the local design brief.
 - Use native controls for navigation, lists, toolbars, sheets, search, share, edit mode, steppers, disclosure, and confirmations when they feel premium and platform-correct.
 - Do not let default SwiftUI grouped screens erase Spoonjoy's authored cookbook feel.
@@ -39,8 +45,7 @@ The app must feel native and still unmistakably Spoonjoy.
 ## Work Suite Autopilot
 
 - Human gates are waived by default.
-- Use `$work-planner` for planning and planning-to-doing conversion.
-- Use `$work-doer` for execution.
+- Plan before coding: with the work-suite skills, `$work-planner` writes the planning doc and turns it into a doing doc, and `$work-doer` carries the doing doc out unit by unit. Without them, write the plan in the task's doc first.
 - Do not self-approve. When approval is needed, use unbiased harsh sub-agent reviewers.
 - Ask the human only for true human-only blockers: credentials, billing/subscription changes, private account actions, unavailable hardware, secrets, destructive production operations with no safe staged path, or product decisions the user has not already delegated.
 - While a version is with App Review, check for open `app-review` issues and the release workflow's `status` at the start of every session; see `docs/apple-distribution.md#app-review`.
@@ -51,7 +56,7 @@ The app must feel native and still unmistakably Spoonjoy.
 
 - Work on agent-scoped branches like `slugger/native-apple-bootstrap`.
 - Keep commits atomic and push after each commit.
-- Required checks on `main` intentionally mirror the native repo posture from `ourostack/ouro-md`: `Swift tests`, `Native scenario verifier`, `App bundle`, `Contracts`, and `Reins journeys`.
+- Required checks on `main` are `Swift tests`, `Native scenario verifier`, `App bundle`, `Contracts`, and `Reins journeys`.
 - Optional macOS checks never run beside the required ones on a pull request: Native calls them after every required check passes (README, CI). Never add a `pull_request` trigger to a macOS workflow; add a call in `native.yml` instead.
 
 ## Validation
