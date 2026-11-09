@@ -16,6 +16,7 @@ struct SpoonjoyiOSApp: App {
         if NativeJourneyAnimations.isRequested(arguments: ProcessInfo.processInfo.arguments) {
             UIView.setAnimationsEnabled(false)
         }
+        JourneyAppearanceOverride.install(arguments: ProcessInfo.processInfo.arguments)
         #endif
     }
 

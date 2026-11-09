@@ -4,6 +4,7 @@
 #        (the native run is the After TestFlight run on main, or the Native run on a pull request; both call Journeys)
 #        ruby scripts/parity-sheet.rb --web-dir <dir> --native-dir <dir> --out <dir>
 #        ruby scripts/parity-sheet.rb --export-xcresult <bundle> --out <dir>
+#        ruby scripts/parity-sheet.rb --check-shots <dir>
 #
 # Builds the web/native parity contact sheet in <dir>: one <screen>-<device>-<scheme>.jpg per canonical pair (web
 # left, native right, a grey panel for a missing side) and an index.html that labels every pair and gap. With run ids
@@ -12,7 +13,8 @@
 # `xcrun xcresulttool export attachments` too. Needs gh, Xcode and ImageMagick (`magick`).
 #
 # --export-xcresult copies a result bundle's parity shots into <dir> under their canonical names; the Journeys
-# workflow uploads that folder as a parity-shots artifact.
+# workflow uploads that folder as a parity-shots artifact. Both it and --check-shots (a folder of parity-*.png, such as
+# the Duo posture driver's) fail when a light shot's dark twin is missing or byte-identical to it.
 require "fileutils"
 require "optparse"
 require "tmpdir"
@@ -30,9 +32,20 @@ OptionParser.new do |parser|
   parser.on("--out DIR") { |value| options[:out] = value }
   parser.on("--title TEXT") { |value| options[:title] = value }
   parser.on("--export-xcresult BUNDLE") { |value| options[:export_xcresult] = value }
+  parser.on("--check-shots DIR") { |value| options[:check_shots] = value }
 end.parse!
 usage = "usage: parity-sheet.rb (--web-run ID | --web-dir DIR) (--native-run ID | --native-dir DIR) --out DIR, " \
-        "or --export-xcresult BUNDLE --out DIR"
+        "or --export-xcresult BUNDLE --out DIR, or --check-shots DIR"
+
+if options[:check_shots]
+  shots = ParitySheet.index(Dir.glob(File.join(File.expand_path(options[:check_shots]), "parity-*.png")))
+  abort("no parity shots in #{options[:check_shots]}") if shots.empty?
+  failure = ParitySheet.scheme_failure(shots)
+  abort(failure) if failure
+  puts "parity shots: #{shots.size} checked, every dark shot differs from its light shot"
+  exit
+end
+
 abort(usage) unless options[:out]
 
 out = File.expand_path(options[:out])
@@ -49,7 +62,10 @@ end
 
 if options[:export_xcresult]
   Dir.mktmpdir("parity-export") do |folder|
-    copied = ParitySheet.collect(export(options[:export_xcresult], folder), out)
+    shots = export(options[:export_xcresult], folder)
+    failure = ParitySheet.scheme_failure(shots)
+    abort(failure) if failure
+    copied = ParitySheet.collect(shots, out)
     puts "parity shots: #{copied.size} copied into #{out}"
   end
   exit
