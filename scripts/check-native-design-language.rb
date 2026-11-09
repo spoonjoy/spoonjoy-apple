@@ -8,7 +8,7 @@ require "pathname"
 ROOT = Pathname.new(__dir__).join("..").expand_path
 DEFAULT_NATIVE_DOC = ROOT.join("docs/native-design-language.md")
 DEFAULT_WEB_DOC = ROOT.join("docs/source/spoonjoy-v2-design-language.md")
-EXPECTED_WEB_DESIGN_SHA256 = "764b9749a614482ac75debefa06547f21fae09d35cb8be38a09a9879d6307dae"
+EXPECTED_WEB_DESIGN_SHA256 = "3e7cd48db32e9453fef9bd6566b83a7c84454d88e6d9feaaf311e49baeecbb5c"
 ENV_WEB_DOC = ENV["SPOONJOY_WEB_DESIGN_DOC"]
 
 options = {
