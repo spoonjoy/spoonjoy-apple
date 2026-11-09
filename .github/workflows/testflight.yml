@@ -408,8 +408,23 @@ jobs:
             --release-branch "$RELEASE_BRANCH" \
             --output-dir artifacts/apple/ci-mac-app-store/release-candidate
 
-      - name: Install pinned source Ruby bundle
+      # A release branch cut before the Mac App Store target (#154) has no Mac export options: publish iOS only (#255).
+      - name: Check the source has a Mac App Store target
+        id: mac_target
         if: steps.candidate.outputs.superseded != 'true'
+        env:
+          SOURCE_SHA: ${{ needs.release-gate.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          if [[ -f release-source/distribution/ExportOptions.mac-app-store.plist ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=Mac App Store upload skipped::$SOURCE_SHA has no distribution/ExportOptions.mac-app-store.plist, so it has no Mac App Store target. Only the iOS TestFlight build is published."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install pinned source Ruby bundle
+        if: steps.mac_target.outputs.build == 'true'
         uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
         with:
           ruby-version: '3.3'
@@ -417,7 +432,7 @@ jobs:
           working-directory: release-source
 
       - name: Check out pinned apple-distribution-kit
-        if: steps.candidate.outputs.superseded != 'true'
+        if: steps.mac_target.outputs.build == 'true'
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           repository: ourostack/apple-distribution-kit
@@ -426,7 +441,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up pinned Node runtime
-        if: steps.candidate.outputs.superseded != 'true'
+        if: steps.mac_target.outputs.build == 'true'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.17.1
@@ -434,7 +449,7 @@ jobs:
           cache-dependency-path: .ci/apple-distribution-kit/package-lock.json
 
       - name: Build pinned apple-distribution-kit
-        if: steps.candidate.outputs.superseded != 'true'
+        if: steps.mac_target.outputs.build == 'true'
         working-directory: .ci/apple-distribution-kit
         env:
           EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: 09e0dded99208496bd96cecc6edc067188ec49bae4486b83f90b85e57db954b9
@@ -451,7 +466,7 @@ jobs:
           echo "APPLE_DISTRIBUTION_KIT_BIN=$PWD/dist/cli.js" >> "$GITHUB_ENV"
 
       - name: Select and verify Xcode 27 runner
-        if: steps.candidate.outputs.superseded != 'true'
+        if: steps.mac_target.outputs.build == 'true'
         run: |
           set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_27.1.app
@@ -459,7 +474,7 @@ jobs:
           xcodebuild -version
 
       - name: Prepare App Store Connect credentials
-        if: steps.candidate.outputs.superseded != 'true'
+        if: steps.mac_target.outputs.build == 'true'
         id: asc_credentials
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
@@ -492,7 +507,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Import long-lived signing identity
-        if: steps.candidate.outputs.superseded != 'true'
+        if: steps.mac_target.outputs.build == 'true'
         id: signing_identity
         env:
           APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64 }}
@@ -508,7 +523,7 @@ jobs:
       # The kit imports code signing identities only, so the Mac Installer Distribution identity that signs the .pkg
       # gets its own temporary keychain. The keychain password is random and never leaves this step.
       - name: Import Mac installer identity
-        if: steps.candidate.outputs.superseded != 'true'
+        if: steps.mac_target.outputs.build == 'true'
         id: installer_identity
         env:
           MAC_INSTALLER_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_INSTALLER_CERTIFICATE_P12_BASE64 }}
@@ -548,7 +563,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Install Mac App Store provisioning profile
-        if: steps.candidate.outputs.superseded != 'true'
+        if: steps.mac_target.outputs.build == 'true'
         run: |
           set -euo pipefail
           node "$APPLE_DISTRIBUTION_KIT_BIN" signing profiles \
@@ -573,7 +588,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Upload exact candidate to App Store Connect
-        if: steps.candidate.outputs.superseded != 'true'
+        if: steps.mac_target.outputs.build == 'true'
         working-directory: release-source
         env:
           SPOONJOY_MAC_SOURCE_ROOT: ${{ github.workspace }}/release-source

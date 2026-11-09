@@ -133,7 +133,7 @@ struct TestFlightAutomationContractTests {
             "The iPhone and Mac jobs must each check out the toolkit pinned to the audited revision: \(toolkitRevisions)"
         )
 
-        let sourceRubyBundlePattern = /- name: Install pinned source Ruby bundle\n\s+if: steps\.candidate\.outputs\.superseded != 'true'\n\s+uses: ruby\/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1\n\s+with:\n\s+ruby-version: '3\.3'\n\s+bundler-cache: true\n\s+working-directory: release-source/
+        let sourceRubyBundlePattern = /- name: Install pinned source Ruby bundle\n\s+if: (?:steps\.candidate\.outputs\.superseded != 'true'|steps\.mac_target\.outputs\.build == 'true')\n\s+uses: ruby\/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1\n\s+with:\n\s+ruby-version: '3\.3'\n\s+bundler-cache: true\n\s+working-directory: release-source/
         let sourceRubyBundleMatches = testFlightWorkflow.matches(of: sourceRubyBundlePattern)
         #expect(
             sourceRubyBundleMatches.count == 2,
