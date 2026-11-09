@@ -3,14 +3,14 @@ name: App Intents X-ray
 # The behaviour stage of Ouro AX's X-ray (ourostack/ouro-ui-apple, the version Package.swift pins). Its metadata
 # stage runs on every pull request in Native's "App Intents X-ray" job.
 on:
-  push:
-    branches:
-      - main
+  # main runs this from after-testflight.yml, once TestFlight has had the runners.
+  workflow_call:
   workflow_dispatch:
 
 concurrency:
-  group: app-intents-xray-${{ github.ref }}
-  cancel-in-progress: true
+  # Every main commit keeps its own run; nothing on main is cancelled.
+  group: app-intents-xray-${{ github.sha }}
+  cancel-in-progress: false
 
 permissions:
   contents: read

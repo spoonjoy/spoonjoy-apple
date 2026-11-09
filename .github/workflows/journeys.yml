@@ -1,10 +1,9 @@
 name: Journeys
 
 on:
-  pull_request:
-  push:
-    branches:
-      - main
+  # Pull requests run this from Native, after every required check passes (see native.yml); main runs it from
+  # after-testflight.yml, once TestFlight has had the runners.
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -26,7 +25,7 @@ jobs:
     # get one more attempt, on fresh accounts and a rebooted simulator. An assertion failure is never retried.
     name: Live journeys
     runs-on: xcode-27
-    timeout-minutes: 125
+    timeout-minutes: 135
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -66,7 +65,8 @@ jobs:
           echo "booted-at=$booted_at" >> "$GITHUB_OUTPUT"
           xcrun simctl bootstatus "$udid" -b
       - name: Build for testing
-        timeout-minutes: 15
+        # 12 minutes is typical on hosted runners; a saturated pool pushed one past 15 (#232).
+        timeout-minutes: 25
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/journeys"
@@ -296,6 +296,10 @@ jobs:
             ${{ runner.temp }}/duo/driver.log
           if-no-files-found: warn
           retention-days: 30
+      - name: Check the Duo parity shots switched scheme
+        # As the iPhone/iPad export does: fails when a dark shot is missing or byte-identical to its light shot.
+        if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
+        run: ruby scripts/parity-sheet.rb --check-shots "$RUNNER_TEMP/duo/screens"
       - name: Upload the Duo parity shots
         # The posture driver's screenshots of the parity capture, for scripts/parity-sheet.rb. Same gate as the bundle.
         if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
@@ -423,7 +427,7 @@ jobs:
   shopping-ui-tests:
     name: Shopping UI tests
     runs-on: xcode-27
-    timeout-minutes: 50
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -457,10 +461,10 @@ jobs:
           echo "booted-at=$booted_at" >> "$GITHUB_OUTPUT"
           xcrun simctl bootstatus "$udid" -b
       - name: Build shopping UI tests
-        # Step limits sum to 47 of the job's 50 minutes, leaving room for checkout, setup and the upload. The settle
+        # Step limits sum to 57 of the job's 60 minutes, leaving room for checkout, setup and the upload. The settle
         # wait ends 8 minutes after boot at the latest, so most of it overlaps this build. The build takes 4 to 11.5
-        # minutes on hosted runners, so it gets the same 15 minutes as the journeys build.
-        timeout-minutes: 15
+        # minutes on hosted runners, so it gets the same 25 minutes as the journeys build (#232).
+        timeout-minutes: 25
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/shopping"

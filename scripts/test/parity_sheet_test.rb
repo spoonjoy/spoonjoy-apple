@@ -40,6 +40,23 @@ class ParitySheetTest < Minitest::Test
     refute index.key?("shopping-duo-open-dark")
   end
 
+  def test_web_open_duo_shots_are_plain_and_pair_with_the_native_inner_display
+    web = ParitySheet.index([
+      "/w/parity-kitchen-duo-open-light.png",
+      "/w/parity-kitchen-duo-open-light-inner.png",
+      "/w/parity-recipe-iphone-dark.png"
+    ], side: :web)
+    native = ParitySheet.index(["/n/parity-kitchen-duo-open-light-inner.png"])
+    assert_equal "/w/parity-kitchen-duo-open-light.png", web["kitchen-duo-open-light"]
+    assert_equal "/w/parity-recipe-iphone-dark.png", web["recipe-iphone-dark"]
+    pair = ParitySheet.pairs(web: web, native: native).find { |candidate| candidate.key == "kitchen-duo-open-light" }
+    assert pair.complete?
+  end
+
+  def test_index_rejects_an_unknown_side
+    assert_raises(ArgumentError) { ParitySheet.index(["/a/parity-chef-iphone-dark.png"], side: :desktop) }
+  end
+
   def test_pairs_keep_every_canonical_key_and_mark_missing_sides
     web = { "kitchen-iphone-light" => "/w/k.png", "recipe-desktop-dark" => "/w/r.png" }
     native = { "kitchen-iphone-light" => "/n/k.png" }
@@ -74,7 +91,7 @@ class ParitySheetTest < Minitest::Test
   def test_gap_labels_say_which_side_is_missing_and_why
     assert_equal "native: not captured", ParitySheet.gap_label("native", "recipe")
     assert_equal "web: Add to list is one tap, no sheet", ParitySheet.gap_label("web", "sheet-add-to-list", "iphone")
-    assert_equal "native: no Mac parity journey yet", ParitySheet.gap_label("native", "kitchen", "desktop")
+    assert_equal "native: Mac capture comes with the Mac store frames (Task 10)", ParitySheet.gap_label("native", "kitchen", "desktop")
   end
   
   def test_index_html_lists_every_pair_and_labels_each_gap
@@ -116,6 +133,52 @@ class ParitySheetTest < Minitest::Test
       ] }]
       File.write(File.join(dir, "manifest.json"), JSON.generate(manifest))
       assert_equal({ "chef-iphone-dark" => File.join(dir, "AAA.png") }, ParitySheet.index_export(dir))
+    end
+  end
+
+  def test_unswitched_schemes_finds_a_dark_shot_identical_to_its_light_shot
+    Dir.mktmpdir do |dir|
+      write = ->(name, bytes) { File.join(dir, name).tap { |path| File.binwrite(path, bytes) } }
+      index = {
+        "recipe-iphone-light" => write.("a.png", "same"),
+        "recipe-iphone-dark" => write.("b.png", "same"),
+        "chef-iphone-light" => write.("c.png", "light"),
+        "chef-iphone-dark" => write.("d.png", "dark"),
+        "shopping-iphone-light" => write.("e.png", "only light")
+      }
+      assert_equal ["recipe-iphone-light", "shopping-iphone-light"], ParitySheet.unswitched_schemes(index)
+      assert_match(/never switched: recipe-iphone-light, shopping-iphone-light\z/, ParitySheet.scheme_failure(index))
+      assert_nil ParitySheet.scheme_failure(index.slice("chef-iphone-light", "chef-iphone-dark"))
+    end
+  end
+
+  SCRIPT = File.expand_path("../parity-sheet.rb", __dir__)
+
+  def check_shots(dir)
+    output = IO.popen([RbConfig.ruby, SCRIPT, "--check-shots", dir], err: %i[child out], &:read)
+    [$?.success?, output]
+  end
+
+  def test_check_shots_fails_on_an_unswitched_duo_pair_and_passes_a_switched_one
+    Dir.mktmpdir do |dir|
+      File.binwrite(File.join(dir, "parity-recipe-duo-open-light-inner.png"), "same")
+      File.binwrite(File.join(dir, "parity-recipe-duo-open-dark-inner.png"), "same")
+      ok, output = check_shots(dir)
+      refute ok
+      assert_includes output, "never switched: recipe-duo-open-light"
+
+      File.binwrite(File.join(dir, "parity-recipe-duo-open-dark-inner.png"), "dark")
+      ok, output = check_shots(dir)
+      assert ok, output
+      assert_includes output, "2 checked"
+    end
+  end
+
+  def test_check_shots_fails_on_an_empty_folder
+    Dir.mktmpdir do |dir|
+      ok, output = check_shots(dir)
+      refute ok
+      assert_includes output, "no parity shots"
     end
   end
 end

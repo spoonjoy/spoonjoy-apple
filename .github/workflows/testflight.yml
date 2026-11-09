@@ -1,4 +1,7 @@
 name: TestFlight
+# The run's name carries the commit Native built. A workflow_run run's own head_sha is main's head when the run was
+# created, which can be newer; after-testflight.yml reads this name to know which commit TestFlight has finished with.
+run-name: TestFlight ${{ github.event.workflow_run.head_sha || inputs.source_sha || github.sha }}
 
 on:
   # Continuous delivery: every successful Native push run on main publishes that exact commit.

@@ -1,0 +1,49 @@
+name: Pull request closed
+
+# On a pull request, Native starts the optional macOS checks (Journeys, Launch smoke, Feel, Beta SDK, the App Intents
+# X-ray) only after every required check passes. With auto-merge, that is also the moment the pull request merges, and
+# the merge's own push to main runs the same checks. So when a pull request closes, merged or not, its unfinished
+# Native runs stop here instead of holding macOS runners that main's Native run (and then TestFlight) needs.
+# Only pull_request runs of the closed head are touched; main and release runs never are.
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  actions: write
+
+jobs:
+  stop-optional-checks:
+    name: Stop the closed pull request's optional checks
+    # A fork's pull request gets a read-only token, which cannot cancel runs.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Cancel unfinished Native runs for the closed head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          MERGED: ${{ github.event.pull_request.merged }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          # GitHub empties a run's pull_requests once the pull request merges, so the head branch and repository
+          # scope the cancel to this pull request's own runs. Both go into the filter as JSON strings.
+          HEAD_REF="$(jq -cn --arg v "$HEAD_BRANCH" '$v')"
+          REPO_JSON="$(jq -cn --arg v "$REPO" '$v')"
+          ids="$(gh api "repos/$REPO/actions/workflows/native.yml/runs?event=pull_request&head_sha=$HEAD_SHA&per_page=100" \
+            --jq ".workflow_runs[] | select(.status != \"completed\") | select(.head_branch == $HEAD_REF) | select(.head_repository.full_name == $REPO_JSON) | .id")"
+          if [[ -z "$ids" ]]; then
+            echo "No unfinished Native pull request run for $HEAD_SHA." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          for id in $ids; do
+            # A run that finished after the list answers 409; that is not a failure.
+            if ! gh api -X POST "repos/$REPO/actions/runs/$id/cancel" >/dev/null; then
+              echo "Native run $id had already finished." >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            echo "Cancelled Native run $id for $HEAD_SHA (merged: $MERGED); main's push runs the optional checks." >> "$GITHUB_STEP_SUMMARY"
+          done
