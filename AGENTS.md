@@ -34,7 +34,7 @@ The app must feel native and still unmistakably Spoonjoy.
 - Target iOS 27 and macOS 27 forward.
 - Use one SwiftUI project with shared domain/API/cache/App Intents code and separate iOS/macOS targets unless planning proves a split is necessary.
 - Use the reverse-DNS namespace for `spoonjoy.app`; use `app.spoonjoy` for both the iOS and macOS apps, so one App Store record sells them together (universal purchase).
-- Do not depend on paid Apple Developer Program signing before local simulator and device validation. TestFlight builds ship through `testflight.yml` (internal testing; not on the App Store yet).
+- Signing is live: TestFlight builds ship through `testflight.yml` (internal testing) and App Review submissions through `submit-app-store-review.yml`.
 
 ## Work Suite Autopilot
 
@@ -44,7 +44,7 @@ The app must feel native and still unmistakably Spoonjoy.
 - Do not self-approve. When approval is needed, use unbiased harsh sub-agent reviewers.
 - Ask the human only for true human-only blockers: credentials, billing/subscription changes, private account actions, unavailable hardware, secrets, destructive production operations with no safe staged path, or product decisions the user has not already delegated.
 - While a version is with App Review, check for open `app-review` issues and the release workflow's `status` at the start of every session; see `docs/apple-distribution.md#app-review`.
-- `main` builds the next version (1.2). A fix for a version already with App Review (1.1) goes by pull request to that version's `release/<version>` branch, never by holding `main` back; TestFlight, "Stage App Store listing" and "Submit for App Review" take `release_branch: release/1.1` to build, stage and submit from it on iOS and Mac. Port the fix to `main` too when it still applies. See `docs/apple-distribution.md#release-branches`.
+- `main` builds the next version (1.2). A fix for a release already with App Review (built from `release/1.1`; the open `app-review` issues show each platform's version) goes by pull request to that version's `release/<version>` branch, never by holding `main` back; TestFlight, "Stage App Store listing" and "Submit for App Review" take `release_branch: release/1.1` to build, stage and submit from it on iOS and Mac. Port the fix to `main` too when it still applies. See `docs/apple-distribution.md#release-branches`.
 - Completion standard is full moon: defer nothing that is part of the accepted scope. Use multiple atomic PRs until the app is complete and validated.
 
 ## Git Workflow
