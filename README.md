@@ -31,6 +31,7 @@ Internal testers get every green build of `main` through TestFlight. The app tal
 | `Apps/Spoonjoy/LiveActivity/` | The cook-timer Live Activity and widget. |
 | `Apps/Spoonjoy/Journeys/`, `Apps/Spoonjoy/UITests/` | XCUITest journeys that drive the real app against the web QA environment, and the shopping UI tests. |
 | `Spoonjoy.xcodeproj` | The Xcode project (schemes `Spoonjoy iOS` and `Spoonjoy macOS`). `scripts/generate-xcode-project.rb` generates it. |
+| `Sources/SpoonjoyReins/`, `Sources/spoonjoy-reins/`, `Tests/SpoonjoyReinsTests/` | Ouro Reins: Spoonjoy's shell driven headless over the fixture kitchen with the network blocked, its command-line runner, and the headless journeys behind the required `Reins journeys` check. |
 | `Sources/SpoonjoyScenarioVerifier/`, `SpoonjoyJourneyRules/`, `SpoonjoyNativeDogfood/` | Command-line tools: the scenario verifier, the lint for journey house rules, and the API dogfood client. |
 | `Tests/SpoonjoyCoreTests/` | Swift Testing suite for `SpoonjoyCore` and for the repository's own contracts. |
 | `scripts/` | Ruby and shell checks and tooling used by CI and by local validation. |
@@ -72,4 +73,4 @@ All workflows are in `.github/workflows/`. The jobs that need the iOS 27 SDK run
 
 Every green Native run on `main` publishes that exact commit to the internal TestFlight group. `docs/apple-distribution.md` describes the pipeline, the evidence it checks, and how to roll back with a manual dispatch.
 
-`main` is version 1.2. Fixes for the release with App Review go on the `release/1.1` branch (the open `app-review` issues show each platform's version under review): open the pull request against `release/1.1`, then dispatch TestFlight, "Stage App Store listing" or "Submit for App Review" with `release_branch: release/1.1`. All three build or read from that branch for iOS and Mac ([Release branches](docs/apple-distribution.md#release-branches)).
+`main` is version 1.2. A fix for a version with App Review goes on that version's release branch: today `release/1.0-resubmit` for iOS 1.0 and `release/1.1` for Mac 1.1 (the open `app-review` issues show each platform's version under review). Open the pull request against that branch, then dispatch TestFlight, "Stage App Store listing" or "Submit for App Review" with `release_branch` set to it; all three build or read from that branch ([Release branches](docs/apple-distribution.md#release-branches)).
