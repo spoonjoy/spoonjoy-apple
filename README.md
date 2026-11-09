@@ -19,7 +19,9 @@ The native SwiftUI app, with a cook mode that walks you through a recipe one ste
 swift test --disable-xctest --parallel
 ```
 
-The app is in internal TestFlight testing, and version 1.0 has been submitted to App Review; it is not on the App Store yet, and open [`app-review` issues](https://github.com/spoonjoy/spoonjoy-apple/issues?q=is%3Aopen+label%3Aapp-review) show where review stands. It talks to the [Spoonjoy](https://spoonjoy.app) web app's `/api/v1` API and signs in through its OAuth flow; the web app and API live in [spoonjoy/spoonjoy-v2](https://github.com/spoonjoy/spoonjoy-v2). `AGENTS.md` holds the product intent and the working rules for agents.
+Not on the App Store yet: the app is with App Review, and the open [`app-review` issues](https://github.com/spoonjoy/spoonjoy-apple/issues?q=is%3Aopen+label%3Aapp-review) show where each version stands. Until then, cook on [spoonjoy.app](https://spoonjoy.app).
+
+Internal testers get every green build of `main` through TestFlight. The app talks to the Spoonjoy web app's `/api/v1` API and signs in through its OAuth flow; the web app and API live in [spoonjoy/spoonjoy-v2](https://github.com/spoonjoy/spoonjoy-v2). `AGENTS.md` holds the product intent and the working rules for agents.
 
 ## Layout
 
