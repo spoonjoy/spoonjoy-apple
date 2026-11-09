@@ -8,6 +8,7 @@ struct SpoonjoyMacApp: App {
     @NSApplicationDelegateAdaptor(SpoonjoyMacAppDelegate.self) private var appDelegate
 
     init() {
+        SpoonjoyFonts.registerBundled()
         SpoonjoyMacLaunchProof.record("app-init")
         DispatchQueue.main.async {
             MainActor.assumeIsolated {

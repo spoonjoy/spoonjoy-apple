@@ -174,12 +174,10 @@ struct RecipeEditorView: View {
     private var recipeCardSection: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("RECIPE CARD")
-                    .font(KitchenTableTheme.runningHead)
-                    .tracking(1.2)
-                    .foregroundStyle(KitchenTableTheme.ink2)
+                Text("Recipe card")
+                    .kitchenEyebrow(KitchenTableTheme.ink2)
                 Text("Give the dish a home.")
-                    .font(Font.system(.largeTitle, design: .serif).weight(.semibold))
+                    .font(KitchenTableTheme.largeTitle)
                     .foregroundStyle(KitchenTableTheme.ink)
                     .accessibilityAddTraits(.isHeader)
                 Text("Capture the name, story, serving cue, and photo someone will need when they cook this later.")
@@ -210,7 +208,7 @@ struct RecipeEditorView: View {
     private func conflictBand(_ conflictBanner: RecipeEditorConflictBanner) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(conflictBanner.title)
-                .font(.headline)
+                .font(KitchenTableTheme.objectTitle)
                 .foregroundStyle(KitchenTableTheme.tomato)
             Text(conflictBanner.message)
                 .font(KitchenTableTheme.bodyNote)
@@ -237,12 +235,10 @@ struct RecipeEditorView: View {
     private var methodSection: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("METHOD")
-                    .font(KitchenTableTheme.runningHead)
-                    .tracking(1.2)
-                    .foregroundStyle(KitchenTableTheme.ink2)
+                Text("Method")
+                    .kitchenEyebrow(KitchenTableTheme.ink2)
                 Text("Build the cooking path.")
-                    .font(Font.system(.title, design: .serif).weight(.semibold))
+                    .font(KitchenTableTheme.recipeTitle)
                     .foregroundStyle(KitchenTableTheme.ink)
                     .accessibilityAddTraits(.isHeader)
             }
@@ -531,9 +527,9 @@ struct RecipeEditorView: View {
                     .accessibilityHidden(true)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
             .overlay(
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover)
                     .strokeBorder(KitchenTableTheme.lineStrong, style: StrokeStyle(lineWidth: 1, dash: hasPhoto ? [] : [5, 4]))
             )
 
@@ -1029,7 +1025,7 @@ private struct EditorField<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(Font.system(.subheadline, design: .rounded).weight(.semibold))
+                .font(KitchenTypeRole.uiLabel.font(relativeTo: .subheadline))
                 .foregroundStyle(KitchenTableTheme.ink)
                 .accessibilityHidden(true)
             if boxed {
@@ -1090,9 +1086,9 @@ private struct EditorInputStyle: ViewModifier {
             .padding(.vertical, 10)
             .frame(minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .topLeading)
             .background(KitchenTableTheme.raised)
-            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
             .overlay(
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover)
                     .strokeBorder(KitchenTableTheme.lineStrong, lineWidth: 1)
             )
             .contentShape(Rectangle())
@@ -1122,7 +1118,7 @@ private struct QuantityField: View {
         TextField("1 ½", text: $text)
             .editorInputStyle(focus: $isFocused)
             .overlay(
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover)
                     .strokeBorder(KitchenTableTheme.tomato, lineWidth: invalidRows.contains(rowID) ? 2 : 0)
             )
             .accessibilityLabel("Quantity")

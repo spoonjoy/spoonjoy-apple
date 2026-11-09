@@ -140,8 +140,8 @@ struct NativeMobileDesignContractTests {
             theme,
             in: themePath,
             contains: [
-                "static let instructionBody = Font.system(.body, design: .serif)",
-                "static let cookInstruction = Font.system(.title, design: .serif)",
+                "static let instructionBody = KitchenTypeRole.instructionBody.font",
+                "static let cookInstruction = KitchenTypeRole.cookInstruction.font",
                 "static let selectionWash = brass.opacity(0.09)"
             ],
             forbids: [".font(.system(size:"]
@@ -410,20 +410,26 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    /// The rule runs under the header, so it never squeezes the title; when the title and its meta don't fit on one
+    /// line, the meta drops under the title and the title wraps instead of ending in an ellipsis.
     @Test("Spoonjoy section headers keep titles legible before drawing dividers")
     func spoonjoySectionHeadersKeepTitlesLegibleBeforeDrawingDividers() throws {
-        let themePath = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
-        let theme = uncommentedSwift(try readRepoFile(themePath))
+        let headerPath = "Apps/Spoonjoy/Shared/Components/KitchenSectionHeader.swift"
+        let header = uncommentedSwift(try readRepoFile(headerPath))
 
         expectContent(
-            theme,
-            in: themePath,
+            header,
+            in: headerPath,
             contains: [
                 "Text(title)",
                 ".font(KitchenTableTheme.sectionTitle)",
-                ".lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)",
-                ".layoutPriority(1)",
+                "ViewThatFits(in: .horizontal)",
+                ".lineLimit(1)",
+                ".fixedSize(horizontal: false, vertical: true)",
                 "Rectangle()",
+                ".frame(maxWidth: .infinity, maxHeight: 1)"
+            ],
+            forbids: [
                 ".layoutPriority(-1)"
             ]
         )
@@ -899,7 +905,7 @@ struct NativeMobileDesignContractTests {
                 "isCookbookSaveSheetPresented",
                 "Label(\"Save\", systemImage: \"bookmark\")",
                 "stepsSection",
-                "KitchenTableSection(title: \"Steps\", subtitle: \"Tap ingredients as you go\")",
+                "KitchenTableSection(eyebrow: \"Cook mode\", title: \"Steps\", meta: \"Tap ingredients as you go\")",
                 "Text(\"Ingredients\")",
                 "RecipeStepDurationCue",
                 "RecipeStepChecklistRow",
@@ -1590,26 +1596,28 @@ struct NativeMobileDesignContractTests {
             theme,
             in: themePath,
             contains: [
-                "cookbookDay(\\.background, 0xFBFAF4) // --sj-bone",
-                "cookbookDay(\\.card, 0xFFFEFA) // --sj-bone-lift",
-                "cookbookDay(\\.muted, 0xE8E9DF) // --sj-vellum",
-                "cookbookDay(\\.foreground, 0x28231D) // --sj-charcoal",
-                "cookbookDay(\\.mutedForeground, 0x635D54) // --sj-charcoal-soft",
-                "cookbookDay(\\.primary, 0x9B6834) // --sj-brass",
-                "webColor(0x28231D) // --sj-action",
-                "webColor(0x1F1B17) // --sj-action-deep",
-                "cookbookDay(\\.destructive, 0xA24A38) // --sj-tomato",
-                "cookbookDay(\\.success, 0x596A4F) // --sj-herb",
+                "static let bone = cookbookDay(.sjBone)",
+                "static let paper = cookbookDay(.sjBoneLift)",
+                "static let vellum = cookbookDay(.sjVellum)",
+                "static let charcoal = cookbookDay(.sjCharcoal)",
+                "static let inkMuted = cookbookDay(.sjCharcoalSoft)",
+                "static let brass = cookbookDay(.sjBrass)",
+                "static let action = cookbookDay(.sjAction)",
+                "static let actionDeep = cookbookDay(.sjActionDeep)",
+                "static let tomato = cookbookDay(.sjTomato)",
+                "static let herb = cookbookDay(.sjHerb)",
                 "onPhoto = dynamic(Day.bone, Night.onPhotoNight) // --sj-on-photo",
-                "onPhotoMuted = onPhoto.opacity(0.76) // --sj-on-photo-muted",
-                "webColor(0x211F1B) // --sj-photo-charcoal",
-                "cookbookNight(\\.foreground, 0xF2EEE6) // .dark --sj-bone",
-                "webColor(0x1E1C19) // .dark --sj-page",
-                "webColor(0xF1E6D3) // .dark --sj-on-photo"
+                "static let onPhotoMuted = dynamic(Day.onPhotoMuted, Night.onPhotoMutedNight)",
+                "static let hairline = dynamic(Day.border, Night.borderNight)",
+                "static let lineStrong = dynamic(Day.borderStrong, Night.borderStrongNight)",
+                "static let photoCharcoal = cookbookDay(.sjPhotoCharcoal)",
+                "static let pageNight = cookbookNight(.sjPage)",
+                "static let onPhotoNight = cookbookNight(.sjOnPhoto)"
             ],
             forbids: [
                 "Color(red: 0.97, green: 0.95, blue: 0.90)",
-                "Color(red: 0.99, green: 0.98, blue: 0.94)"
+                "Color(red: 0.99, green: 0.98, blue: 0.94)",
+                "webColor("
             ]
         )
     }
@@ -1775,7 +1783,7 @@ struct NativeMobileDesignContractTests {
                 "CookbookFallbackCover",
                 "CookbookImageCover",
                 "@ScaledMetric(relativeTo: .largeTitle) private var initialSize: CGFloat = 64",
-                ".system(size: min(initialSize, 88), weight: .bold, design: .serif)",
+                "KitchenTypeRole.displayTitle.fixedFont(size: min(initialSize, 88))",
                 "title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1)",
                 "private var detailHeaderWidth",
                 "private var detailShareAction",

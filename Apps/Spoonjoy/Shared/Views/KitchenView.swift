@@ -404,10 +404,10 @@ struct KitchenIdentityLine: View {
                 .clipShape(Circle())
                 .overlay(Circle().strokeBorder(KitchenTableTheme.hairline, lineWidth: 1))
                 .accessibilityHidden(true)
-            Text("@\(chef.username)")
+            Text(ChefHandle.breakingAnywhere(chef.username))
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.brass)
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Chef \(chef.username)")
@@ -433,7 +433,7 @@ struct KitchenIdentityLine: View {
         ZStack {
             KitchenTableTheme.vellum
             Text(String(chef.username.prefix(1)).uppercased())
-                .font(.system(.subheadline, design: .serif).weight(.bold))
+                .font(KitchenTypeRole.recipeTitle.font(relativeTo: .subheadline))
                 .foregroundStyle(KitchenTableTheme.ink)
         }
     }
@@ -547,7 +547,7 @@ struct RecipeLead: View {
         VStack(alignment: .leading, spacing: 10) {
             Text((counterCook?.label ?? KitchenCounterCook.idleLabel).uppercased())
                 .font(KitchenTableTheme.uiLabel)
-                .tracking(1.6)
+                .kitchenEyebrowTracking()
                 .foregroundStyle(KitchenTableTheme.onPhotoMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityLabel(counterCook?.label ?? KitchenCounterCook.idleLabel)
@@ -561,6 +561,8 @@ struct RecipeLead: View {
                     .font(KitchenTableTheme.meta)
                     .foregroundStyle(KitchenTableTheme.onPhotoMuted)
                     .fixedSize(horizontal: false, vertical: true)
+                    // The handle's break points are for layout; VoiceOver reads the plain text.
+                    .accessibilityLabel(meta.replacingOccurrences(of: "\u{200B}", with: ""))
             }
         }
         .frame(maxWidth: 640, alignment: .leading)
@@ -571,7 +573,7 @@ struct RecipeLead: View {
         let parts = [
             RecipeCookTime.label(stepDurations: recipe.steps.map(\.duration)),
             recipe.servings.map { "Serves \($0)" },
-            "by \(recipe.chef.username)"
+            "by \(ChefHandle.wrapping(recipe.chef.username))"
         ]
         .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }
@@ -616,7 +618,7 @@ struct RecipeIndex: View {
     let seeAll: () -> Void
 
     var body: some View {
-        KitchenTableSection(title: "Your recipes", subtitle: summary) {
+        KitchenTableSection(title: "Your recipes", meta: summary) {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(recipes, id: \.id) { recipe in
                     if recipe.id != recipes.first?.id {

@@ -32,5 +32,39 @@ class Pick(unittest.TestCase):
             picker.pick("iPhone", LISTING, sdk="26.4")
 
 
+class ListSimulators(unittest.TestCase):
+    """The listing itself can hang (#218): one retry after a CoreSimulator restart, then a clear failure."""
+
+    def fake(self, *answers):
+        calls = []
+
+        def run(cmd, **kwargs):
+            calls.append(cmd)
+            answer = answers[len(calls) - 1]
+            if answer == "hang":
+                raise picker.subprocess.TimeoutExpired(cmd, kwargs["timeout"])
+            return picker.subprocess.CompletedProcess(cmd, 0, stdout=answer, stderr="")
+        return run, calls
+
+    def test_a_hang_then_an_answer(self):
+        run, calls = self.fake("hang", '{"runtimes": []}')
+        kicks = []
+        self.assertEqual(picker.list_simulators(run, kick=lambda: kicks.append(1)), {"runtimes": []})
+        self.assertEqual((len(calls), len(kicks)), (2, 1))
+
+    def test_two_hangs_fail_clearly(self):
+        run, calls = self.fake("hang", "hang")
+        with self.assertRaises(SystemExit) as raised:
+            picker.list_simulators(run, kick=lambda: None)
+        self.assertIn("hung past", str(raised.exception))
+        self.assertEqual(len(calls), 2)
+
+    def test_output_that_is_not_a_listing_is_retried(self):
+        run, calls = self.fake("not json", '{"devices": {}}')
+        with self.assertRaises(SystemExit) as raised:
+            picker.list_simulators(run, kick=lambda: None)
+        self.assertIn("answered without runtimes", str(raised.exception))
+
+
 if __name__ == "__main__":
     unittest.main()
