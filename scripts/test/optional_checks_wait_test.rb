@@ -137,7 +137,10 @@ class OptionalChecksWaitTest < Minitest::Test
     script = doc.fetch("jobs").fetch("stop-optional-checks").fetch("steps").map { |step| step["run"].to_s }.join("\n")
     assert_includes script, "actions/workflows/native.yml/runs?event=pull_request&head_sha=$HEAD_SHA"
     assert_includes script, 'select(.status != \\"completed\\")'
-    assert_includes script, "select(any(.pull_requests[]; .number == $PR_NUMBER))"
+    # GitHub empties a run's pull_requests once the pull request merges, so the head branch scopes the cancel.
+    refute_includes script, ".pull_requests", "a merged pull request's runs list no pull requests"
+    assert_includes script, "select(.head_branch == $HEAD_REF)"
+    assert_includes script, "select(.head_repository.full_name == $REPO_JSON)"
   end
 
   def test_testflight_still_waits_only_for_native_on_main

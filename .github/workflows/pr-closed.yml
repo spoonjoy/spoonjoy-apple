@@ -26,11 +26,15 @@ jobs:
           REPO: ${{ github.repository }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           MERGED: ${{ github.event.pull_request.merged }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
+          # GitHub empties a run's pull_requests once the pull request merges, so the head branch and repository
+          # scope the cancel to this pull request's own runs. Both go into the filter as JSON strings.
+          HEAD_REF="$(jq -cn --arg v "$HEAD_BRANCH" '$v')"
+          REPO_JSON="$(jq -cn --arg v "$REPO" '$v')"
           ids="$(gh api "repos/$REPO/actions/workflows/native.yml/runs?event=pull_request&head_sha=$HEAD_SHA&per_page=100" \
-            --jq ".workflow_runs[] | select(.status != \"completed\") | select(any(.pull_requests[]; .number == $PR_NUMBER)) | .id")"
+            --jq ".workflow_runs[] | select(.status != \"completed\") | select(.head_branch == $HEAD_REF) | select(.head_repository.full_name == $REPO_JSON) | .id")"
           if [[ -z "$ids" ]]; then
             echo "No unfinished Native pull request run for $HEAD_SHA." >> "$GITHUB_STEP_SUMMARY"
             exit 0
