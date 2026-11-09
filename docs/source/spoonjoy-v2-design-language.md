@@ -96,10 +96,10 @@ New structure:
 
 - Full-width bone page with a thin cookbook index rail.
 - Header is a quiet masthead: avatar, kitchen name, counts, actions.
-- Main area is an asymmetric spread:
-  - left column: "On the Counter" lead recipe with large photo, title, note/provenance/action.
-  - right column: compact recipe index with thumbnails, not cards.
-  - lower band: cookbook shelf, where each cookbook looks like a cover/spine object.
+- Main area reads like a cookbook's table of contents, not a feed:
+  - the recipe index gets the full page width: every recipe, newest update first, numbered, with a thumbnail, title and metadata (two columns on desktop, one on a phone). No recipe is held out as a lead, so there is no "Recently Updated" hero.
+  - a chef with no recipes sees "Create your first recipe" in the index's place.
+  - lower band: cookbooks, where each cookbook looks like a cover/spine object.
 - Tabs should be replaced with an index switch or segmented text control only if the content genuinely needs hiding. Prefer showing recipes and cookbooks together because they are different objects, not mutually exclusive dashboards.
 
 ### Main Kitchen Navigation
@@ -107,6 +107,7 @@ New structure:
 Signed-in navigation must use plain kitchen words and stable routes:
 
 - `Kitchen` -> `/`
+- `Recipes` -> `/recipes`
 - `My Recipes` -> `/my-recipes`
 - `Saved Recipes` -> `/saved-recipes`
 - `Cookbooks` -> `/cookbooks`
@@ -114,13 +115,15 @@ Signed-in navigation must use plain kitchen words and stable routes:
 - `Chefs` -> `/chefs`
 - `Kitchen Search` -> `/search`
 
-`/recipes` remains the broader `Explore Recipes` index, not the signed-in cook's authored drawer.
+`Recipes` (`/recipes`) is the broader index of every public recipe, not the signed-in cook's authored drawer; it stays reachable from the desktop navigation and, on a phone, from the Recipes switch's `Everyone`.
+
+Back means back: the recipe page's `Recipes` link returns to the nearest earlier in-app page that is not this recipe, its edit or step forms, its cook mode or the create form, and go to `/recipes` only when no such page is known (for example, the recipe was opened directly). It stays a real link to `/recipes`, so middle click and open-in-new-tab still work.
 
 Saved Recipes are recipes saved through cookbooks owned by the signed-in cook. That includes the cook's own recipes when they have saved them into one of their cookbooks. It does not mean every recipe the cook wrote.
 
 Global search stays at `/search` with scopes for all, recipes, cookbooks, chefs, and shopping list. The personal drawer filters are local filters for the current drawer; they do not create a second search system.
 
-The mobile dock stays small and glass/material-like: `My Kitchen`, create, `My Recipes`, `Shopping List`, and a `Pantry drawer` affordance. The Pantry drawer contains `My Recipes`, `Saved Recipes`, `Cookbooks`, `Shopping List`, `Chefs`, and `Kitchen Search`.
+The phone tab bar is navigation only and the same on every page, the iOS 26 tab bar pattern the iPhone app uses too. Signed in it holds four equal tabs, `Kitchen`, `Recipes`, `Cookbooks` and `Shopping`, each an icon over a short label, with `Search` in its own circle beside them; signed out it holds `Home`, `Recipes` and `Log in`, with `Search`. The tab that owns the page is current: Kitchen owns account settings, chefs and profiles, and Recipes owns every recipe list and recipe page. Both surfaces are solid charcoal, so no page text shows through. Page actions (create, add, save, share, edit, cook) live on the page, never in the tab bar, so a tab never changes meaning between pages. On a phone the Recipes tab opens `My Recipes`, and a switch at the top of each recipe list moves between `Mine`, `Saved` and `Everyone`; the Kitchen page links to `Chefs` and account settings, and account settings holds `Log out`.
 
 ### Recipe Detail
 
@@ -163,8 +166,7 @@ Settings can remain Catalyst-like:
 ## Components To Build
 
 - `KitchenMasthead`: identity, counts, primary actions.
-- `RecipeLead`: one dominant recipe object with large image and editorial caption.
-- `RecipeIndex`: compact thumb/title/metadata rows.
+- `RecipeIndex`: the kitchen's table of contents; numbered thumb/title/metadata rows, full width.
 - `CookbookShelf`: horizontal or wrapped shelf of cookbook cover objects.
 - `CookbookCover`: book-like object, not a card.
 - `ReceiptList`: shopping-list and ingredient-list primitive.
@@ -185,7 +187,7 @@ The first real slice should be the logged-in kitchen page because it is the page
 
 Scope:
 
-1. Replace the logged-in `/` layout with `KitchenMasthead`, `RecipeLead`, `RecipeIndex`, and `CookbookShelf`.
+1. Replace the logged-in `/` layout with `KitchenMasthead`, `RecipeIndex`, and `CookbookShelf`.
 2. Remove tab-first structure from the kitchen page.
 3. Remove `sj-photo-tile` as the generic recipe-card default on this route.
 4. Tighten radius tokens to the semantic scale above.
