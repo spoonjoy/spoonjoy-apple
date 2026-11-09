@@ -965,6 +965,8 @@ struct NativeSessionExpiryStoreTests {
             wallClockNow: true
         )
         defer { try? FileManager.default.removeItem(at: recent.directory) }
+        // #253 demonstration only: a slow runner between building the fixture and bootstrapping.
+        try await Task.sleep(for: .seconds(250))
         await recent.store.bootstrap()
         let recentContent = recent.store.bootstrapState.contentState
         #expect(recentContent.lastSyncedAt != nil)
