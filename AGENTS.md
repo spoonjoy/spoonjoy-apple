@@ -52,6 +52,7 @@ The app must feel native and still unmistakably Spoonjoy.
 - Work on agent-scoped branches like `slugger/native-apple-bootstrap`.
 - Keep commits atomic and push after each commit.
 - Required checks on `main` intentionally mirror the native repo posture from `ourostack/ouro-md`: `Swift tests`, `Native scenario verifier`, `App bundle`, `Contracts`, and `Reins journeys`.
+- Optional macOS checks never run beside the required ones on a pull request: Native calls them after every required check passes (README, CI). Never add a `pull_request` trigger to a macOS workflow; add a call in `native.yml` instead.
 
 ## Validation
 

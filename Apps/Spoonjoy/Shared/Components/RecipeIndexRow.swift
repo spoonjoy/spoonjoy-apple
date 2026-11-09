@@ -98,14 +98,12 @@ struct RecipeIndexRow: View {
                         .font(KitchenTableTheme.indexTitle)
                         .foregroundStyle(KitchenTableTheme.ink)
                         .multilineTextAlignment(.leading)
-                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 3)
                         .fixedSize(horizontal: false, vertical: true)
                     if let detail = content.detail {
                         Text(detail)
                             .font(KitchenTableTheme.meta)
                             .foregroundStyle(KitchenTableTheme.ink2)
                             .multilineTextAlignment(.leading)
-                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -148,8 +146,8 @@ extension RecipeIndexRow {
 
     private func ordinalText(_ ordinal: Int) -> some View {
         Text(ordinal < 10 ? "0\(ordinal)" : "\(ordinal)")
-            .font(.caption.weight(.bold).monospacedDigit())
-            .tracking(1.0)
+            .font(KitchenTableTheme.eyebrow.monospacedDigit())
+            .kitchenEyebrowTracking()
             .foregroundStyle(KitchenTableTheme.brass)
             .accessibilityHidden(true)
     }
@@ -267,7 +265,7 @@ struct RecipeInitialTile: View {
                 // The letter is decoration sized to the tile, not text to read, so it scales with the tile
                 // (a Large Title is 34 points at the default text size) instead of with Dynamic Type.
                 Text(initial)
-                    .font(.system(.largeTitle, design: .serif).weight(.semibold))
+                    .font(KitchenTableTheme.largeTitle)
                     .dynamicTypeSize(.large)
                     .foregroundStyle(KitchenTableTheme.brass)
                     .scaleEffect(proxy.size.height * 0.42 / 34)

@@ -23,7 +23,7 @@ struct SpoonjoyCookTimerLiveActivity: Widget {
                             .font(KitchenTableTheme.uiLabel)
                             .foregroundStyle(KitchenTableTheme.brass)
                         Text(context.attributes.metadata?.stepTitle ?? "Timer")
-                            .font(.subheadline.weight(.semibold))
+                            .font(KitchenTypeRole.objectTitle.font(relativeTo: .subheadline))
                             .foregroundStyle(KitchenTableTheme.onPhoto)
                             .lineLimit(2)
                     }
@@ -36,7 +36,7 @@ struct SpoonjoyCookTimerLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(context.attributes.metadata?.recipeTitle ?? "Spoonjoy")
-                        .font(.system(.footnote, design: .serif))
+                        .font(KitchenTypeRole.recipeTitle.font(relativeTo: .footnote))
                         .foregroundStyle(KitchenTableTheme.onPhotoMuted)
                         .lineLimit(1)
                         .environment(\.colorScheme, .dark)
@@ -84,7 +84,7 @@ private struct CookTimerLockScreenView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text(metadata?.recipeTitle ?? "Spoonjoy")
-                    .font(.system(.headline, design: .serif).weight(.bold))
+                    .font(KitchenTypeRole.recipeTitle.font(relativeTo: .headline))
                     .foregroundStyle(KitchenTableTheme.ink)
                     .lineLimit(1)
                 Spacer(minLength: 8)
@@ -95,7 +95,7 @@ private struct CookTimerLockScreenView: View {
 
             HStack(alignment: .center, spacing: 12) {
                 Text(metadata?.stepTitle ?? "Timer")
-                    .font(.system(.title3, design: .serif).weight(.semibold))
+                    .font(KitchenTableTheme.stepTitle)
                     .foregroundStyle(KitchenTableTheme.ink)
                     .lineLimit(2)
                 Spacer(minLength: 8)
