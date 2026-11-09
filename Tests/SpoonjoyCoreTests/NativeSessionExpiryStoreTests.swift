@@ -178,7 +178,6 @@ struct NativeSessionExpiryStoreTests {
         cachedRecipeIDs: [String] = ["recipe_cached"],
         lastOpenedRoute: AppRoute? = nil,
         checkpointUpdatedAt: String? = nil,
-        wallClockNow: Bool = false,
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
         queuedMutations: [NativeQueuedMutation] = [],
         fileBackedSync: Bool = false,
@@ -199,12 +198,7 @@ struct NativeSessionExpiryStoreTests {
         ))
         let script = RefreshScript(outcomes)
         let fixedNow = Self.now
-        let clock: @Sendable () -> Date
-        if wallClockNow {
-            clock = { Date() }
-        } else {
-            clock = { fixedNow }
-        }
+        let clock: @Sendable () -> Date = { fixedNow }
         let repository = NativeAuthSessionRepository(
             vault: vault,
             clientName: "Spoonjoy Apple Tests",
@@ -939,7 +933,7 @@ struct NativeSessionExpiryStoreTests {
     @MainActor
     @Test("Settings is not called out of date right after a live sync")
     func settingsFreshAfterLiveSync() async throws {
-        let fixture = try await Self.fixture(outcomes: [.success], wallClockNow: true)
+        let fixture = try await Self.fixture(outcomes: [.success])
         defer { try? FileManager.default.removeItem(at: fixture.directory) }
 
         await fixture.store.bootstrap()
@@ -949,7 +943,7 @@ struct NativeSessionExpiryStoreTests {
             return
         }
         #expect(content.lastSyncedAt != nil)
-        #expect(content.settingsSurfaceViewModel.offlineIndicator.display == .synced)
+        #expect(content.settingsSurfaceViewModel(now: { Self.now }).offlineIndicator.display == .synced)
     }
 
     @MainActor
@@ -958,11 +952,11 @@ struct NativeSessionExpiryStoreTests {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         // Both launches are online (the server answers, with an error), so Settings judges the saved
-        // kitchen by the age of its last sync alone.
+        // kitchen by the age of its last sync alone. Ages are measured on the fixture's fixed clock, so a
+        // slow runner between building the fixture and bootstrapping cannot add to them (#253).
         let recent = try await Self.fixture(
             outcomes: [.serverError],
-            checkpointUpdatedAt: formatter.string(from: Date().addingTimeInterval(-60)),
-            wallClockNow: true
+            checkpointUpdatedAt: formatter.string(from: Self.now.addingTimeInterval(-60))
         )
         defer { try? FileManager.default.removeItem(at: recent.directory) }
         // #253 demonstration only: a slow runner between building the fixture and bootstrapping.
@@ -970,16 +964,15 @@ struct NativeSessionExpiryStoreTests {
         await recent.store.bootstrap()
         let recentContent = recent.store.bootstrapState.contentState
         #expect(recentContent.lastSyncedAt != nil)
-        #expect(recentContent.settingsSurfaceViewModel.offlineIndicator.display == .synced)
+        #expect(recentContent.settingsSurfaceViewModel(now: { Self.now }).offlineIndicator.display == .synced)
 
         let old = try await Self.fixture(
             outcomes: [.serverError],
-            checkpointUpdatedAt: formatter.string(from: Date().addingTimeInterval(-3_600)),
-            wallClockNow: true
+            checkpointUpdatedAt: formatter.string(from: Self.now.addingTimeInterval(-3_600))
         )
         defer { try? FileManager.default.removeItem(at: old.directory) }
         await old.store.bootstrap()
-        #expect(old.store.bootstrapState.contentState.settingsSurfaceViewModel.offlineIndicator.display == .stale(domain: .settings))
+        #expect(old.store.bootstrapState.contentState.settingsSurfaceViewModel(now: { Self.now }).offlineIndicator.display == .stale(domain: .settings))
     }
 }
 

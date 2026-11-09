@@ -409,6 +409,11 @@ public struct NativeShellContentState {
     }
 
     public var settingsSurfaceViewModel: SettingsSurfaceViewModel {
+        settingsSurfaceViewModel(now: Date.init)
+    }
+
+    /// Settings as of `now`, which judges how old the saved kitchen is. Tests pass a fixed clock.
+    public func settingsSurfaceViewModel(now: @escaping @Sendable () -> Date) -> SettingsSurfaceViewModel {
         if let settingsSurfaceData {
             return SettingsSurfaceViewModel(
                 data: settingsSurfaceData,
@@ -416,7 +421,7 @@ public struct NativeShellContentState {
                 conflicts: syncConflicts,
                 connectivity: offlineIndicatorState.display == .offline ? .offline : .online,
                 secureHandoffRoutes: SettingsSecureHandoffRoutes(baseURL: configuration.baseURL),
-                now: Date.init
+                now: now
             )
         }
 
@@ -443,7 +448,7 @@ public struct NativeShellContentState {
             conflicts: syncConflicts,
             connectivity: offlineIndicatorState.display == .offline ? .offline : .online,
             secureHandoffRoutes: SettingsSecureHandoffRoutes(baseURL: configuration.baseURL),
-            now: Date.init,
+            now: now,
             showsPrimaryAuthActionWhenSignedOut: false
         )
     }
