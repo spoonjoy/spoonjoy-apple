@@ -369,11 +369,17 @@ class AppStoreListingTest < Minitest::Test
     [listing, mac_listing].each do |platform_listing|
       version = platform_listing["version"]
       assert_equal ["1.1", "AFTER_APPROVAL", true], version.values_at("versionString", "releaseType", "phasedRelease")
-      whats_new = platform_listing["localizations"]["en-US"]["whatsNew"].to_s
-      refute_empty whats_new
-      assert_operator whats_new.length, :<=, AppStoreListing::LIMITS.fetch("whatsNew")
     end
-    refute_equal listing["localizations"]["en-US"]["whatsNew"], mac_listing["localizations"]["en-US"]["whatsNew"]
+    whats_new = listing["localizations"]["en-US"]["whatsNew"].to_s
+    refute_empty whats_new
+    assert_operator whats_new.length, :<=, AppStoreListing::LIMITS.fetch("whatsNew")
+  end
+
+  # Mac 1.1 is the first Mac App Store version (1.0 was rejected and renamed), and App Store Connect answers
+  # HTTP 409 "Attribute 'whatsNew' cannot be edited at this time" on a platform's first version.
+  def test_the_first_mac_version_leaves_whats_new_out
+    assert mac_listing["localizations"]["en-US"].key?("whatsNew")
+    assert_nil mac_listing["localizations"]["en-US"]["whatsNew"]
   end
 
   # The build App Store Connect attaches must carry the listing's version, or the upload lands on the wrong version.
