@@ -32,6 +32,35 @@ class ReleaseBranchWorkflowTest < Minitest::Test
     refute_match(/iOS only/, dispatch_inputs("testflight.yml").fetch("release_branch").fetch("description"))
   end
 
+  # A release branch cut before the Mac App Store target (#154) has no Mac export options. Its dispatch publishes
+  # iOS and skips the Mac upload with a notice instead of failing the run (#255).
+  def test_mac_job_skips_a_source_without_a_mac_app_store_target
+    steps = workflow("testflight.yml").fetch("jobs").fetch("publish-mac-app-store").fetch("steps")
+    names = steps.map { |step| step["name"] }
+    gate_index = steps.index { |step| step["id"] == "mac_target" }
+    refute_nil gate_index, "the Mac job needs a mac_target step"
+    gate = steps[gate_index]
+    assert_operator gate_index, :>, names.index("Verify exact Native release evidence")
+    assert_includes gate.fetch("run"), "release-source/distribution/ExportOptions.mac-app-store.plist"
+    assert_includes gate.fetch("run"), "::notice"
+    assert_match(/-f release-source\/distribution\/ExportOptions\.mac-app-store\.plist \]\]; then\n\s+echo "build=true" >> "\$GITHUB_OUTPUT"\n\s*else\n/, gate.fetch("run"))
+    assert_match(/echo "build=false" >> "\$GITHUB_OUTPUT"\n\s*fi/, gate.fetch("run"))
+    assert_equal "steps.candidate.outputs.superseded != 'true'", gate.fetch("if")
+    steps[(gate_index + 1)..].each do |step|
+      condition = step.fetch("if", "")
+      if condition.start_with?("always()")
+        refute_includes condition, "mac_target", "#{step['name']} cleans up whether or not the Mac build ran"
+        next
+      end
+
+      assert_equal "steps.mac_target.outputs.build == 'true'", condition, "#{step['name']} must wait for the Mac target check"
+    end
+    ios = workflow("testflight.yml").fetch("jobs").fetch("publish-internal").fetch("steps")
+    assert_equal "steps.candidate.outputs.superseded != 'true'", ios.find { |step| step["name"] == "Install pinned source Ruby bundle" }.fetch("if"),
+                 "the iOS job never waits for the Mac target check"
+    refute_match(/steps\.candidate\.outputs\.superseded/, steps[(gate_index + 1)..].map { |step| step.fetch("if", "") }.join("\n"))
+  end
+
   def test_listing_workflows_accept_release_branch
     assert_includes source("testflight.yml"), BRANCH_PATTERN
     %w[stage-app-store-listing.yml submit-app-store-review.yml].each do |name|
