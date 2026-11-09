@@ -13,7 +13,7 @@
 
 The native SwiftUI app, with a cook mode that walks you through a recipe one step at a time.
 
-[spoonjoy.app](https://spoonjoy.app) · [Web app and API](https://github.com/spoonjoy/spoonjoy-v2) · [Design language](docs/native-design-language.md) · [AGENTS.md](AGENTS.md)
+[spoonjoy.app](https://spoonjoy.app) · [Web app and API](https://github.com/spoonjoy/spoonjoy-v2) · [API and MCP](https://spoonjoy.app/developers) · [Design language](docs/native-design-language.md) · [AGENTS.md](AGENTS.md)
 
 **Start:** with Xcode 27, run the core tests with `swift test --disable-xctest --parallel`, then open `Spoonjoy.xcodeproj` and run the `Spoonjoy iOS` scheme ([Build and test](#build-and-test)).
 
@@ -32,7 +32,7 @@ Internal testers get every green build of `main` through TestFlight. The app tal
 | `Apps/Spoonjoy/Journeys/`, `Apps/Spoonjoy/UITests/` | XCUITest journeys that drive the real app against the web QA environment, and the shopping UI tests. |
 | `Spoonjoy.xcodeproj` | The Xcode project (schemes `Spoonjoy iOS` and `Spoonjoy macOS`). `scripts/generate-xcode-project.rb` generates it. |
 | `Sources/SpoonjoyReins/`, `Sources/spoonjoy-reins/`, `Tests/SpoonjoyReinsTests/` | Ouro Reins: Spoonjoy's shell driven headless over the fixture kitchen with the network blocked, its command-line runner, and the headless journeys behind the required `Reins journeys` check. |
-| `Sources/SpoonjoyScenarioVerifier/`, `SpoonjoyJourneyRules/`, `SpoonjoyNativeDogfood/` | Command-line tools: the scenario verifier, the lint for journey house rules, and the API dogfood client. |
+| `Sources/SpoonjoyScenarioVerifier/`, `Sources/SpoonjoyJourneyRules/`, `Sources/SpoonjoyNativeDogfood/` | Command-line tools: the scenario verifier, the lint for journey house rules, and the API dogfood client. |
 | `Tests/SpoonjoyCoreTests/` | Swift Testing suite for `SpoonjoyCore` and for the repository's own contracts. |
 | `scripts/` | Ruby and shell checks and tooling used by CI and by local validation. |
 | `docs/` | Design language, Apple distribution, advisory policy and API dogfood notes. |
