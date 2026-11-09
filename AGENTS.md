@@ -1,9 +1,10 @@
 # AGENTS.md — Spoonjoy Apple
 
-This repo contains the native iOS and macOS app for Spoonjoy.
+This repo contains the native Spoonjoy app for iPhone, iPad and Mac.
 
 ## Start here
 
+- Needs Xcode 27, and Ruby 3.3 with `bundle install` for the scripts ([Requirements](README.md#requirements)).
 - Unit tests: `swift test --disable-xctest --parallel`. Build: `xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`.
 - The app talks to the web app's `/api/v1` API; the API and MCP server are described at [spoonjoy.app/developers](https://spoonjoy.app/developers), and their source is in [spoonjoy/spoonjoy-v2](https://github.com/spoonjoy/spoonjoy-v2).
 - Layout, CI and release: [README.md](README.md#layout).

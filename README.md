@@ -42,8 +42,10 @@ Xcode 27 (CI pins `/Applications/Xcode_27.1.app`; 27.0 works locally but compile
 
 ## Build and test
 
+CI runs the unit tests with coverage and requires every line of `Sources/SpoonjoyCore` to be covered.
+
 ```sh
-# Unit tests for SpoonjoyCore (CI runs this with coverage and requires 100% line coverage of Sources/SpoonjoyCore)
+# Unit tests for SpoonjoyCore
 swift test --disable-xctest --parallel
 
 # Build the apps
