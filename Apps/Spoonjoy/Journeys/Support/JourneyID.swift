@@ -83,6 +83,8 @@ enum JourneyID {
     /// button, which on a phone sits in the Steps heading and only exists for VoiceOver once there is progress.
     static let recipeDetailIngredient = "recipeDetail.ingredient"
     static let recipeDetailClearProgress = "recipeDetail.clearProgress"
+    /// Add to list in an ingredient row's context menu, which adds that one ingredient.
+    static let ingredientAddToList = "ingredient.addToList"
     /// The "Serves 4" chip in the recipe page's meta row, and the stepper in the popover it opens.
     static let recipeServes = "recipe.serves"
     static let recipeServesStepper = "recipe.serves.stepper"
@@ -196,6 +198,10 @@ enum JourneyID {
     static let blockedChefsRow = "blockedChefs.row"
     static let blockedChefsUnblock = "blockedChefs.unblock"
     static let blockedChefsEmpty = "blockedChefs.empty"
+
+    /// The Cookbooks tab's shelf, and a cookbook page's title block over its cover.
+    static let cookbookShelf = "cookbookShelf"
+    static let cookbookDetailHero = "CookbookDetailHero"
 
     /// The not-found page and its "Back to recipes" button.
     static let routeError = "route.error"

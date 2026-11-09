@@ -34,6 +34,8 @@ WIDE_JOURNEYS_TARGET = "SpoonjoyWideJourneys"
 WIDE_JOURNEYS_BUNDLE_ID = "app.spoonjoy.wide-journeys"
 DUO_JOURNEYS_TARGET = "SpoonjoyDuoJourneys"
 DUO_JOURNEYS_BUNDLE_ID = "app.spoonjoy.duo-journeys"
+PARITY_JOURNEYS_TARGET = "SpoonjoyParityJourneys"
+PARITY_JOURNEYS_BUNDLE_ID = "app.spoonjoy.parity-journeys"
 WIDGET_TARGET = "SpoonjoyCookTimerWidget"
 WIDGET_BUNDLE_ID = "app.spoonjoy.cook-timer-widget"
 WIDGET_INFO_PLIST = APP_ROOT.join("LiveActivity/Widget/Info.plist")
@@ -225,14 +227,19 @@ def swift_files_under(dir)
 end
 
 # The wide-screen journeys (Journeys/Wide) are their own target, which the Duo tour runs, and the iPhone Duo journey
-# (Journeys/Duo) is another, which the Duo journeys job runs; every target shares Journeys/Support.
+# (Journeys/Duo) is another, which the Duo journeys job runs, and the parity capture (Journeys/Parity) another, which
+# the Parity job runs; every target shares Journeys/Support.
 wide_journey_files = swift_files_under(APP_ROOT.join("Journeys/Wide"))
 duo_journey_files = swift_files_under(APP_ROOT.join("Journeys/Duo"))
+parity_journey_files = swift_files_under(APP_ROOT.join("Journeys/Parity"))
 support_journey_files = swift_files_under(APP_ROOT.join("Journeys/Support"))
+layout_audit_collector = APP_ROOT.join("UITests/LayoutAuditCollector.swift").to_s
 {
-  JOURNEYS_TARGET => [JOURNEYS_BUNDLE_ID, swift_files_under(APP_ROOT.join("Journeys")) - wide_journey_files - duo_journey_files, "Apps/Spoonjoy/Journeys/**/*.swift outside Wide/ and Duo/"],
-  WIDE_JOURNEYS_TARGET => [WIDE_JOURNEYS_BUNDLE_ID, (wide_journey_files + support_journey_files).sort, "Apps/Spoonjoy/Journeys/{Wide,Support}/**/*.swift"],
-  DUO_JOURNEYS_TARGET => [DUO_JOURNEYS_BUNDLE_ID, (duo_journey_files + support_journey_files).sort, "Apps/Spoonjoy/Journeys/{Duo,Support}/**/*.swift"]
+  # Every journey target also compiles the UI tests' layout audit, to hold screens to no truncated text.
+  JOURNEYS_TARGET => [JOURNEYS_BUNDLE_ID, (swift_files_under(APP_ROOT.join("Journeys")) - wide_journey_files - duo_journey_files - parity_journey_files + [layout_audit_collector]).sort, "Apps/Spoonjoy/Journeys/**/*.swift outside Wide/, Duo/ and Parity/, and UITests/LayoutAuditCollector.swift"],
+  WIDE_JOURNEYS_TARGET => [WIDE_JOURNEYS_BUNDLE_ID, (wide_journey_files + support_journey_files + [layout_audit_collector]).sort, "Apps/Spoonjoy/Journeys/{Wide,Support}/**/*.swift and UITests/LayoutAuditCollector.swift"],
+  DUO_JOURNEYS_TARGET => [DUO_JOURNEYS_BUNDLE_ID, (duo_journey_files + support_journey_files + [layout_audit_collector]).sort, "Apps/Spoonjoy/Journeys/{Duo,Support}/**/*.swift and UITests/LayoutAuditCollector.swift"],
+  PARITY_JOURNEYS_TARGET => [PARITY_JOURNEYS_BUNDLE_ID, (parity_journey_files + support_journey_files + [layout_audit_collector]).sort, "Apps/Spoonjoy/Journeys/{Parity,Support}/**/*.swift and UITests/LayoutAuditCollector.swift"]
 }.each do |name, (bundle_id, expected_sources, description)|
   target = target_by_name[name] || fail_check("missing target #{name}")
   fail_check("#{name} must be a UI test bundle") unless target.symbol_type == :ui_test_bundle
@@ -299,7 +306,7 @@ def assert_package_product(target, product_name)
   fail_check("#{target.name} has duplicate #{product_name} Frameworks entries") if framework_entries.length > 1
 end
 
-[ios_target, mac_target, target_by_name[JOURNEYS_TARGET], target_by_name[WIDE_JOURNEYS_TARGET], target_by_name[DUO_JOURNEYS_TARGET]].each { |target| assert_package_product(target, PACKAGE_PRODUCT) }
+[ios_target, mac_target, target_by_name[JOURNEYS_TARGET], target_by_name[WIDE_JOURNEYS_TARGET], target_by_name[DUO_JOURNEYS_TARGET], target_by_name[PARITY_JOURNEYS_TARGET]].each { |target| assert_package_product(target, PACKAGE_PRODUCT) }
 
 # OuroHX (ourostack/ouro-ui-apple) gives the apps and the widget their motion, haptics and cookbook colours. The
 # project pins the exact version Package.swift pins, so the app and `swift test` build against the same tokens.
@@ -351,6 +358,12 @@ app_swift_files = APP_ROOT.find.select do |path|
     !path.to_s.start_with?("#{APP_ROOT.join("Journeys")}/")
 end.map(&:to_s)
 
+# The widget draws with the app's theme and its bundled fonts, so it compiles these two shared design files too.
+WIDGET_SHARED_DESIGN = %w[
+  Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift
+  Apps/Spoonjoy/Shared/Design/SpoonjoyFonts.swift
+].freeze
+
 app_swift_files.each do |source|
   rel = relative(source)
   expected_targets =
@@ -371,24 +384,27 @@ app_swift_files.each do |source|
   fail_check("#{rel} missing from #{IOS_TARGET}") if expected_targets.include?(IOS_TARGET) && !ios_sources.include?(source)
   fail_check("#{rel} missing from #{MAC_TARGET}") if expected_targets.include?(MAC_TARGET) && !mac_sources.include?(source)
   fail_check("#{rel} missing from #{WIDGET_TARGET}") if expected_targets.include?(WIDGET_TARGET) && !widget_sources.include?(source)
-  fail_check("#{rel} unexpectedly in #{WIDGET_TARGET}") if !expected_targets.include?(WIDGET_TARGET) && widget_sources.include?(source) && !rel.end_with?("Shared/Design/KitchenTableTheme.swift")
+  fail_check("#{rel} unexpectedly in #{WIDGET_TARGET}") if !expected_targets.include?(WIDGET_TARGET) && widget_sources.include?(source) && !WIDGET_SHARED_DESIGN.include?(rel)
   fail_check("#{rel} unexpectedly in #{IOS_TARGET}") if !expected_targets.include?(IOS_TARGET) && ios_sources.include?(source)
   fail_check("#{rel} unexpectedly in #{MAC_TARGET}") if !expected_targets.include?(MAC_TARGET) && mac_sources.include?(source)
 end
 
 theme_source = APP_ROOT.join("Shared/Design/KitchenTableTheme.swift").to_s
 fail_check("#{WIDGET_TARGET} must reuse KitchenTableTheme.swift so the Live Activity matches the app palette") unless widget_sources.include?(theme_source)
-# The widget links only OuroHX (for the theme), so it compiles exactly these plain-Foundation SpoonjoyCore files for
-# the cook session.
+# The widget links only OuroHX (for the theme), so it compiles exactly these SpoonjoyCore files: the cook session's
+# and the fonts' and type roles' the theme draws on.
 widget_core_sources = %w[
   Sources/SpoonjoyCore/Features/CookMode/CookSessionSnapshot.swift
   Sources/SpoonjoyCore/Features/CookMode/CookTimerBoard.swift
   Sources/SpoonjoyCore/Features/CookMode/CookSessionIslandLayout.swift
+  Sources/SpoonjoyCore/Design/KitchenFontFiles.swift
+  Sources/SpoonjoyCore/Design/KitchenTypeRole.swift
+  Sources/SpoonjoyCore/Design/ChefHandle.swift
 ].map { |path| ROOT.join(path).to_s }
 widget_core_sources.each do |source|
   fail_check("#{relative(source)} missing from #{WIDGET_TARGET}") unless widget_sources.include?(source)
 end
-fail_check("#{WIDGET_TARGET} must not compile other Shared app code") unless (widget_sources - [theme_source] - widget_core_sources).all? { |source| relative(source).start_with?("Apps/Spoonjoy/LiveActivity/") }
+fail_check("#{WIDGET_TARGET} must not compile other Shared app code") unless (widget_sources - WIDGET_SHARED_DESIGN.map { |path| ROOT.join(path).to_s } - widget_core_sources).all? { |source| relative(source).start_with?("Apps/Spoonjoy/LiveActivity/") }
 
 # App Store review rejects uploads (ITMS-91053) whose bundle uses a required-reason API without declaring it.
 # The manifest must ship as a resource of both apps, and every required-reason API category the app or
@@ -402,6 +418,15 @@ fail_check("#{WIDGET_TARGET} must not compile other Shared app code") unless (wi
 end
 widget_resources = widget_target.resources_build_phase.files.map { |build_file| build_file.file_ref&.real_path&.to_s }.compact
 fail_check("#{WIDGET_TARGET} must not copy #{relative(SKILLS_BUNDLE)}; app skills belong to the apps") if widget_resources.include?(SKILLS_BUNDLE.to_s)
+# Every target that draws Spoonjoy type registers the bundled faces at launch, so each one copies them.
+font_files = APP_ROOT.join("Shared/Fonts").children.select { |path| path.extname == ".ttf" }.map(&:to_s)
+fail_check("Apps/Spoonjoy/Shared/Fonts must hold the bundled faces") if font_files.empty?
+[ios_target, mac_target, widget_target].each do |target|
+  resource_paths = target.resources_build_phase.files.map { |build_file| build_file.file_ref&.real_path&.to_s }.compact
+  font_files.each do |font|
+    fail_check("#{target.name} must copy #{relative(font)} as a resource") unless resource_paths.include?(font)
+  end
+end
 privacy_manifest = plist_json(PRIVACY_MANIFEST)
 fail_check("#{relative(PRIVACY_MANIFEST)} must declare NSPrivacyTracking false") unless privacy_manifest["NSPrivacyTracking"] == false
 fail_check("#{relative(PRIVACY_MANIFEST)} must declare an empty NSPrivacyTrackingDomains") unless privacy_manifest["NSPrivacyTrackingDomains"] == []

@@ -132,7 +132,7 @@ struct CookingNowSection: View {
     @Namespace private var transition
 
     var body: some View {
-        KitchenTableSection(title: "Cooking now", subtitle: subtitle) {
+        KitchenTableSection(eyebrow: "On the stove", title: "Cooking now", meta: meta) {
             if isWide {
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 200, maximum: 300), spacing: 24, alignment: .top)],
@@ -171,8 +171,9 @@ struct CookingNowSection: View {
         .accessibilityIdentifier("kitchen.cookingNow")
     }
 
-    private var subtitle: String {
-        entries.count == 1 ? "Pick up where you left off" : "\(entries.count) recipes on the go"
+    /// Web's count: "1 recipe", "3 recipes".
+    private var meta: String {
+        entries.count == 1 ? "1 recipe" : "\(entries.count) recipes"
     }
 }
 
@@ -217,12 +218,10 @@ struct CookingNowPlate: View {
                         RecipeInitialTile(title: entry.title)
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo))
                 .accessibilityHidden(true)
-            Text(entry.stepLabel.uppercased())
-                .font(KitchenTableTheme.runningHead)
-                .tracking(1.2)
-                .foregroundStyle(KitchenTableTheme.brass)
+            Text(entry.stepLabel)
+                .kitchenEyebrow()
             Text(entry.title)
                 .font(KitchenTableTheme.indexTitle)
                 .foregroundStyle(KitchenTableTheme.ink)
@@ -287,12 +286,12 @@ struct CookingNowAccessory: View {
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(lead.title)
-                                .font(.subheadline.weight(.semibold))
+                                .font(KitchenTypeRole.objectTitle.font(relativeTo: .subheadline))
                                 .foregroundStyle(KitchenTableTheme.ink)
                                 .lineLimit(1)
                             if placement != .inline {
                                 Text(lead.stepLabel)
-                                    .font(.caption)
+                                    .font(KitchenTableTheme.uiLabel)
                                     .foregroundStyle(KitchenTableTheme.ink2)
                                     .lineLimit(1)
                             }

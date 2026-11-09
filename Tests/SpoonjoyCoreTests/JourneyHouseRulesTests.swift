@@ -320,7 +320,7 @@ struct JourneyHouseRulesTests {
         ])
         #expect(found.first?.message == "`&&` after a test command stops its failure from failing the step")
         #expect(found.dropFirst(1).first?.message == "a shell loop re-runs `xcodebuild`; flaky is failing")
-        #expect(found.dropFirst(5).first?.message == "`-only-testing:SpoonjoyJourneys/SignInJourney` runs part of a target; select SpoonjoyJourneys, SpoonjoyShoppingUITests or SpoonjoyDuoJourneys whole")
+        #expect(found.dropFirst(5).first?.message == "`-only-testing:SpoonjoyJourneys/SignInJourney` runs part of a target; select SpoonjoyJourneys, SpoonjoyShoppingUITests, SpoonjoyDuoJourneys or SpoonjoyParityJourneys whole")
         #expect(found.dropFirst(9).first?.message == "a shell loop re-runs `scripts/run-journeys.sh`; flaky is failing")
     }
 
@@ -416,6 +416,7 @@ struct JourneyHouseRulesTests {
                     || { echo "::error::no DEBUG; stop"; exit 1; }
                   xcodebuild build-for-testing -destination "$d" -only-testing:SpoonjoyJourneys \
                     -only-testing:"SpoonjoyShoppingUITests" CODE_SIGNING_ALLOWED=NO
+                  xcodebuild test-without-building -only-testing:SpoonjoyParityJourneys
                   [[ -n "$a" ]] || [[ -n "$b" ]] || fail "missing"
                   n="${#items[@]}" # a comment mentioning xcodebuild || xcodebuild
                   for account in 1 2; do

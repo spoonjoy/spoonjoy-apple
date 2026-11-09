@@ -271,6 +271,29 @@ struct JourneyQAClient: Sendable {
         try await LiveShoppingSurfaceRepository(configuration: configuration).fetchShoppingList()
     }
 
+    /// Adds an item to this account's shopping list.
+    func addShoppingItem(name: String, quantity: Double, unit: String) async throws {
+        let builder = try ShoppingListRequests.addItem(
+            name: name,
+            quantity: quantity,
+            unit: unit,
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "journey-\(UUID().uuidString.lowercased())"
+        )
+        _ = try await Self.send(builder, configuration: configuration)
+    }
+
+    /// Reads QA's shopping list until an item whose name contains `name` arrives, or `attempts` reads have passed.
+    func shoppingList(waitingForItemNamed name: String, attempts: Int = 30) async throws -> ShoppingListState {
+        let list = try await shoppingList()
+        if attempts <= 1 || list.receiptItems.contains(where: { $0.name.localizedCaseInsensitiveContains(name) }) {
+            return list
+        }
+        try await Task.sleep(for: .seconds(1))
+        return try await shoppingList(waitingForItemNamed: name, attempts: attempts - 1)
+    }
+
     /// Network failures that say nothing about QA's answer: the runner's connection dropped or timed out before a
     /// response arrived. A journey checks the app against QA, not the CI runner's network, so these are tried again.
     private static let droppedConnectionCodes: Set<URLError.Code> = [

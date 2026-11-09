@@ -1,4 +1,7 @@
 import OuroHX
+#if !SPOONJOY_WIDGET_EXTENSION
+import SpoonjoyCore
+#endif
 import SwiftUI
 
 #if os(macOS)
@@ -8,42 +11,45 @@ import UIKit
 #endif
 
 enum KitchenTableTheme {
-    /// The web's light palette, verbatim from spoonjoy-v2 `:root`. Surfaces never use these directly; they use the
-    /// roles below, which pick the light or night value for the current appearance. A colour whose meaning and value
-    /// match OuroHX's cookbook theme comes from OuroHX, written with the hex it equals (`KitchenPaletteOuroTests`
-    /// holds each one to that hex); the rest are Spoonjoy's own.
+    /// The web's light palette. Every value comes from ouro-ui-core's cookbook theme (the `sj-*` tokens, the one
+    /// source web and native share) through OuroHX; `KitchenPaletteOuroTests` holds each one to web's hex. Surfaces
+    /// never use these directly; they use the roles below, which pick the light or night value for the appearance.
     enum Day {
         // Also the day value of `onInk` and `onPhoto` (text on a fill); same value, so it stays one constant.
-        static let bone = cookbookDay(\.background, 0xFBFAF4) // --sj-bone
-        static let paper = cookbookDay(\.card, 0xFFFEFA) // --sj-bone-lift / --sj-panel-solid
-        static let vellum = cookbookDay(\.muted, 0xE8E9DF) // --sj-vellum / --sj-flour
-        static let charcoal = cookbookDay(\.foreground, 0x28231D) // --sj-charcoal / --sj-action
-        static let inkMuted = cookbookDay(\.mutedForeground, 0x635D54) // --sj-charcoal-soft / --sj-ink-soft
-        static let brass = cookbookDay(\.primary, 0x9B6834) // --sj-brass
-        static let action = webColor(0x28231D) // --sj-action
-        static let actionDeep = webColor(0x1F1B17) // --sj-action-deep
-        static let tomato = cookbookDay(\.destructive, 0xA24A38) // --sj-tomato
-        static let herb = cookbookDay(\.success, 0x596A4F) // --sj-herb
-        static let photoCharcoal = webColor(0x211F1B) // --sj-photo-charcoal
+        static let bone = cookbookDay(.sjBone)
+        static let paper = cookbookDay(.sjBoneLift)
+        static let vellum = cookbookDay(.sjVellum)
+        static let charcoal = cookbookDay(.sjCharcoal)
+        static let inkMuted = cookbookDay(.sjCharcoalSoft)
+        static let brass = cookbookDay(.sjBrass)
+        static let action = cookbookDay(.sjAction)
+        static let actionDeep = cookbookDay(.sjActionDeep)
+        static let tomato = cookbookDay(.sjTomato)
+        static let herb = cookbookDay(.sjHerb)
+        static let photoCharcoal = cookbookDay(.sjPhotoCharcoal)
+        static let border = cookbookDay(.sjBorder)
+        static let borderStrong = cookbookDay(.sjBorderStrong)
+        static let onPhotoMuted = cookbookDay(.sjOnPhotoMuted)
     }
 
-    /// The web's designed `.dark` palette, verbatim from spoonjoy-v2 `.dark`: the night kitchen. `charcoalNight` has
-    /// OuroHX's dark `background` value but is ink on a fill here, and `pageNight` (#1E1C19) differs from that
-    /// background, so both stay Spoonjoy's own.
+    /// The web's designed `.dark` palette, the night kitchen, from the same cookbook tokens.
     enum Night {
-        static let boneNight = cookbookNight(\.foreground, 0xF2EEE6) // .dark --sj-bone
-        static let paperNight = cookbookNight(\.card, 0x282522) // .dark --sj-bone-lift
-        static let vellumNight = cookbookNight(\.muted, 0x34302B) // .dark --sj-vellum
-        static let charcoalNight = webColor(0x1F1D1A) // .dark --sj-charcoal
-        static let inkMutedNight = cookbookNight(\.mutedForeground, 0xC8C0B4) // .dark --sj-charcoal-soft
-        static let brassNight = cookbookNight(\.primary, 0xC4945C) // .dark --sj-brass
-        static let actionNight = webColor(0xB9854B) // .dark --sj-action
-        static let actionDeepNight = webColor(0x95683A) // .dark --sj-action-deep
-        static let tomatoNight = cookbookNight(\.destructive, 0xE58263) // .dark --sj-tomato
-        static let herbNight = cookbookNight(\.success, 0xA4B578) // .dark --sj-herb
-        static let photoCharcoalNight = webColor(0x1D1915) // .dark --sj-photo-charcoal
-        static let pageNight = webColor(0x1E1C19) // .dark --sj-page
-        static let onPhotoNight = webColor(0xF1E6D3) // .dark --sj-on-photo
+        static let boneNight = cookbookNight(.sjBone)
+        static let paperNight = cookbookNight(.sjBoneLift)
+        static let vellumNight = cookbookNight(.sjVellum)
+        static let charcoalNight = cookbookNight(.sjCharcoal)
+        static let inkMutedNight = cookbookNight(.sjCharcoalSoft)
+        static let brassNight = cookbookNight(.sjBrass)
+        static let actionNight = cookbookNight(.sjAction)
+        static let actionDeepNight = cookbookNight(.sjActionDeep)
+        static let tomatoNight = cookbookNight(.sjTomato)
+        static let herbNight = cookbookNight(.sjHerb)
+        static let photoCharcoalNight = cookbookNight(.sjPhotoCharcoal)
+        static let pageNight = cookbookNight(.sjPage)
+        static let onPhotoNight = cookbookNight(.sjOnPhoto)
+        static let borderNight = cookbookNight(.sjBorder)
+        static let borderStrongNight = cookbookNight(.sjBorderStrong)
+        static let onPhotoMutedNight = cookbookNight(.sjOnPhotoMuted)
     }
 
     // Roles. Each picks its light or night value from the current appearance, so every surface follows Dark Mode.
@@ -58,9 +64,9 @@ enum KitchenTableTheme {
     static let ink2 = dynamic(Day.inkMuted, Night.inkMutedNight)
     /// Text and symbols drawn on an `ink` or `action` fill.
     static let onInk = dynamic(Day.bone, Night.charcoalNight)
-    /// A rule between rows: 18% ink by day, 16% bone at night, as the web's `--sj-border`.
-    static let hairline = dynamic(Day.charcoal.opacity(0.18), Night.boneNight.opacity(0.16))
-    static let lineStrong = dynamic(Day.charcoal.opacity(0.32), Night.boneNight.opacity(0.28)) // --sj-border-strong
+    /// A rule between rows, web's `--sj-border`.
+    static let hairline = dynamic(Day.border, Night.borderNight)
+    static let lineStrong = dynamic(Day.borderStrong, Night.borderStrongNight)
     static let vellum = dynamic(Day.vellum, Night.vellumNight)
     static let brass = dynamic(Day.brass, Night.brassNight)
     static let action = dynamic(Day.action, Night.actionNight)
@@ -69,19 +75,28 @@ enum KitchenTableTheme {
     static let herb = dynamic(Day.herb, Night.herbNight)
     /// Text on a photo stays light in both appearances.
     static let onPhoto = dynamic(Day.bone, Night.onPhotoNight) // --sj-on-photo
-    static let onPhotoMuted = onPhoto.opacity(0.76) // --sj-on-photo-muted
+    static let onPhotoMuted = dynamic(Day.onPhotoMuted, Night.onPhotoMutedNight)
     static let photoCharcoal = dynamic(Day.photoCharcoal, Night.photoCharcoalNight)
     static let photoOverlay = Color.black.opacity(0.28)
     /// The soft shadow at a spread's fold: 10% ink by day. At night ink is light, so the fold darkens the paper with
     /// black instead, the same way a real crease shades in low light.
     static let foldShadow = dynamic(Day.charcoal.opacity(0.10), Color.black.opacity(0.32))
 
+    /// Corners from the cookbook tokens, as web draws them. Controls keep the platform's capsule.
     enum Radius {
         static let edge: CGFloat = 0
-        static let media: CGFloat = 4
-        static let panel: CGFloat = 8
+        /// Book covers and recipe thumbnails: `sj-radius-small`.
+        static let cover = cookbookLength(.sjRadiusSmall)
+        /// Photographs: `sj-radius-photo`.
+        static let photo = cookbookLength(.sjRadiusPhoto)
+        /// Panels, cards and sheets' inner surfaces: `sj-radius-surface`.
+        static let panel = cookbookLength(.sjRadiusSurface)
         static let control: CGFloat = 999
     }
+
+    /// The soft lift under a cover or photo that sits above the page: web's `sj-shadow-soft`, with its own reach at
+    /// night. Draw it with `kitchenLiftShadow()`.
+    static let liftShadow = cookbookShadow(.sjShadowSoft)
 
     static let pagePadding: CGFloat = 20
     static let pageSpacing: CGFloat = 24
@@ -100,7 +115,6 @@ enum KitchenTableTheme {
         /// The room above and below each row's text.
         static let rowVerticalPadding: CGFloat = 12
         static let checkColumn: CGFloat = 28
-        static let iconColumn: CGFloat = 20
         static let columnGap: CGFloat = 12
         /// The room under the list's "Ingredients" label.
         static let headingGap: CGFloat = 4
@@ -117,40 +131,43 @@ enum KitchenTableTheme {
     /// The 1.1 layout grid: every spacing value is a multiple of 4 pt. Screen margins are 24 pt on iPhone,
     /// 32 pt on iPad and Mac, and 40 pt on the side of a page that meets the iPhone Duo fold.
     enum Spacing {
-        static let unit: CGFloat = 4
-        static let marginCompact: CGFloat = 24
-        static let marginRegular: CGFloat = 32
-        static let marginFold: CGFloat = 40
+        static let unit = cookbookLength(.sjSpaceUnit)
+        static let marginCompact = cookbookLength(.sjMarginCompact)
+        static let marginRegular = cookbookLength(.sjMarginRegular)
+        static let marginFold = cookbookLength(.sjMarginFold)
     }
 
-    // 1.1 type roles. Serif roles use the system serif (New York); every role follows Dynamic Type.
-    static let largeTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
-    static let recipeTitle = Font.system(.title, design: .serif).weight(.semibold)
-    /// The cook step is read from arm's length, so it starts at the 34 pt large-title size (the closest Dynamic
-    /// Type style to the 33 pt the design asks for) and scales from there.
-    static let cookStep = Font.system(.largeTitle, design: .serif)
-    static let story = Font.system(.body, design: .serif)
-    static let control = Font.body.weight(.semibold)
-    static let meta = Font.footnote
+    // Type roles in web's faces (``KitchenTypeRole``): Fraunces titles, Source Serif 4 reading, IBM Plex Sans Condensed
+    // labels. Each is its `sj-type-*` token's size, scaled with Dynamic Type relative to the token's text style.
+    static let largeTitle = KitchenTypeRole.largeTitle.font
+    static let recipeTitle = KitchenTypeRole.recipeTitle.font
+    static let cookStep = KitchenTypeRole.cookStep.font
+    static let story = KitchenTypeRole.story.font
+    static let control = KitchenTypeRole.control.font
+    static let meta = KitchenTypeRole.meta.font
+    /// The timer's digits stay San Francisco, light and monospaced, so they never jump as they count.
     static let timer = Font.system(.largeTitle).weight(.light).monospacedDigit()
 
-    static let displayTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
-    static let sectionTitle = Font.system(.title2, design: .serif).weight(.bold)
-    static let objectTitle = Font.system(.headline, design: .rounded).weight(.semibold)
-    // Index entries are titles in a book's contents, so they take the serif voice the web gives them.
-    static let indexTitle = Font.system(.title3, design: .serif).weight(.semibold)
-    static let bodyNote = Font.body
-    static let uiLabel = Font.caption.weight(.semibold)
+    static let displayTitle = KitchenTypeRole.displayTitle.font
+    static let sectionTitle = KitchenTypeRole.sectionTitle.font
+    static let objectTitle = KitchenTypeRole.objectTitle.font
+    static let indexTitle = KitchenTypeRole.indexTitle.font
+    static let bodyNote = KitchenTypeRole.bodyNote.font
+    /// An ingredient's aisle under its name: the reading serif, a size down, as web sets a checklist item's description.
+    static let ingredientNote = KitchenTypeRole.bodyNote.font(relativeTo: .subheadline)
+    static let uiLabel = KitchenTypeRole.uiLabel.font
 
     // The cookbook spread: a recipe or cook mode laid open across a wide landscape screen, such as the inner
-    // screen of the iPhone Duo. Instructions are body serif, as the design language assigns them.
-    static let instructionBody = Font.system(.body, design: .serif)
-    static let spreadInstruction = Font.system(.title3, design: .serif)
-    static let cookInstruction = Font.system(.title, design: .serif)
-    static let stepNumeral = Font.system(.title, design: .serif).weight(.semibold)
-    /// A step's name beside its "STEP 1" eyebrow on the recipe page, set like a cookbook subhead.
-    static let stepTitle = Font.system(.title3, design: .serif).weight(.medium).italic()
-    static let runningHead = Font.caption2.weight(.bold)
+    // screen of the iPhone Duo.
+    static let instructionBody = KitchenTypeRole.instructionBody.font
+    static let spreadInstruction = KitchenTypeRole.spreadInstruction.font
+    static let cookInstruction = KitchenTypeRole.cookInstruction.font
+    static let stepNumeral = KitchenTypeRole.stepNumeral.font
+    /// A step's name beside its "STEP 1" eyebrow on the recipe page.
+    static let stepTitle = KitchenTypeRole.stepTitle.font
+    static let runningHead = KitchenTypeRole.runningHead.font
+    /// Web's eyebrow face (IBM Plex Sans Condensed bold); `.kitchenEyebrow()` adds its capitals, tracking and brass.
+    static let eyebrow = KitchenTypeRole.eyebrow.font
     static let selectionWash = brass.opacity(0.09)
     static let spreadGutterRule = hairline
 
@@ -166,22 +183,33 @@ enum KitchenTableTheme {
         #endif
     }
 
-    /// An OuroHX cookbook light colour. `hex` is the web value it equals; it documents the line and the tests check it.
-    private static func cookbookDay(_ token: KeyPath<OuroColors, Color>, _ hex: UInt32) -> Color {
-        OuroTokens.cookbook.light[keyPath: token]
+    /// A cookbook colour by day.
+    private static func cookbookDay(_ token: OuroExtraColor) -> Color { cookbookColor(token, .light) }
+
+    /// A cookbook colour at night.
+    private static func cookbookNight(_ token: OuroExtraColor) -> Color { cookbookColor(token, .dark) }
+
+    /// A cookbook token is part of the pinned OuroHX release, so a missing one means the pin dropped a Spoonjoy token:
+    /// stop at once (every test and launch reaches these) rather than draw a guessed colour.
+    private static func cookbookColor(_ token: OuroExtraColor, _ scheme: ColorScheme) -> Color {
+        guard let color = OuroTokens.cookbook.extras.color(token, scheme) else {
+            preconditionFailure("OuroHX's cookbook theme has no \(token.rawValue)")
+        }
+        return color
     }
 
-    /// An OuroHX cookbook dark colour. `hex` is the web value it equals; it documents the line and the tests check it.
-    private static func cookbookNight(_ token: KeyPath<OuroColors, Color>, _ hex: UInt32) -> Color {
-        OuroTokens.cookbook.dark[keyPath: token]
+    private static func cookbookLength(_ token: OuroExtraLength) -> CGFloat {
+        guard let length = OuroTokens.cookbook.extras.lengths[token] else {
+            preconditionFailure("OuroHX's cookbook theme has no \(token.rawValue)")
+        }
+        return CGFloat(length)
     }
 
-    private static func webColor(_ hex: UInt32) -> Color {
-        Color(
-            red: Double((hex >> 16) & 0xFF) / 255.0,
-            green: Double((hex >> 8) & 0xFF) / 255.0,
-            blue: Double(hex & 0xFF) / 255.0
-        )
+    private static func cookbookShadow(_ token: OuroExtraShadow) -> OuroShadow {
+        guard let shadow = OuroTokens.cookbook.extras.shadows[token] else {
+            preconditionFailure("OuroHX's cookbook theme has no \(token.rawValue)")
+        }
+        return shadow
     }
 }
 
@@ -272,6 +300,8 @@ struct KitchenTableHeader<Trailing: View>: View {
     let subtitle: String?
     let hidesTitleInCompactNavigation: Bool
     let titleFont: Font
+    /// The title is a chef's handle: shown with "@" and free to break between any two characters, as web's does.
+    let titleBreaksAnywhere: Bool
     @ViewBuilder let trailing: () -> Trailing
 
     /// `eyebrow` is a kicker that carries state, such as the day or a cookbook's owner; leave it empty when it would
@@ -282,9 +312,11 @@ struct KitchenTableHeader<Trailing: View>: View {
         subtitle: String? = nil,
         hidesTitleInCompactNavigation: Bool = false,
         titleFont: Font = KitchenTableTheme.displayTitle,
+        titleBreaksAnywhere: Bool = false,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) {
         self.titleFont = titleFont
+        self.titleBreaksAnywhere = titleBreaksAnywhere
         self.eyebrow = eyebrow
         self.title = title
         self.subtitle = subtitle
@@ -310,18 +342,17 @@ struct KitchenTableHeader<Trailing: View>: View {
     private var titleStack: some View {
         VStack(alignment: .leading, spacing: 6) {
             if !eyebrow.isEmpty {
-                Text(eyebrow.uppercased())
-                    .font(.caption2.weight(.bold))
-                    .tracking(1.4)
-                    .foregroundStyle(KitchenTableTheme.brass)
+                Text(eyebrow)
+                    .kitchenEyebrow()
             }
             // A page whose title the bar already shows leaves it out, so it never reads twice.
             if !(usesCompactNavigation || barShowsPageTitle) || !hidesTitleInCompactNavigation {
-                Text(title)
+                Text(titleBreaksAnywhere ? ChefHandle.breakingAnywhere(title) : title)
                     .font(titleFont)
                     .foregroundStyle(KitchenTableTheme.ink)
-                    .lineLimit(3)
+                    .lineLimit(titleBreaksAnywhere ? nil : 3)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(titleBreaksAnywhere ? "@\(title)" : title)
             }
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
@@ -340,14 +371,16 @@ extension KitchenTableHeader where Trailing == EmptyView {
         title: String,
         subtitle: String? = nil,
         hidesTitleInCompactNavigation: Bool = false,
-        titleFont: Font = KitchenTableTheme.displayTitle
+        titleFont: Font = KitchenTableTheme.displayTitle,
+        titleBreaksAnywhere: Bool = false
     ) {
         self.init(
             eyebrow: eyebrow,
             title: title,
             subtitle: subtitle,
             hidesTitleInCompactNavigation: hidesTitleInCompactNavigation,
-            titleFont: titleFont
+            titleFont: titleFont,
+            titleBreaksAnywhere: titleBreaksAnywhere
         ) {
             EmptyView()
         }
@@ -376,22 +409,31 @@ extension EnvironmentValues {
     }
 }
 
-/// A titled section. An accessory, such as a quiet control for the section, sits at the trailing end of the
-/// subtitle line, so it never adds a line of its own.
+#if !SPOONJOY_WIDGET_EXTENSION
+// The app's sections; the widget draws none, and the shared header lives with the app's components.
+/// A titled section. An accessory, such as a quiet control for the section, sits in the header beside the meta, as
+/// web's section action does, or at the trailing end of the subtitle line when there is one, so it never adds a line
+/// of its own.
 struct KitchenTableSection<Content: View, Accessory: View>: View {
+    let eyebrow: String?
     let title: String
+    /// Tracked at the title's trailing edge: a count or a short hint, as web's section headers carry.
+    let meta: String?
     let subtitle: String?
     @ViewBuilder let content: () -> Content
     @ViewBuilder let accessory: () -> Accessory
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(
+        eyebrow: String? = nil,
         title: String,
+        meta: String? = nil,
         subtitle: String? = nil,
         @ViewBuilder content: @escaping () -> Content,
         @ViewBuilder accessory: @escaping () -> Accessory
     ) {
+        self.eyebrow = eyebrow
         self.title = title
+        self.meta = meta
         self.subtitle = subtitle
         self.content = content
         self.accessory = accessory
@@ -399,43 +441,37 @@ struct KitchenTableSection<Content: View, Accessory: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: KitchenTableTheme.sectionSpacing) {
-            sectionHeader
+            if hasSubtitle || Accessory.self == EmptyView.self {
+                KitchenSectionHeader(eyebrow: eyebrow, title: title, meta: meta)
+                subtitleAndAccessory
+            } else {
+                KitchenSectionHeader(eyebrow: eyebrow, title: title, meta: meta, action: accessory)
+            }
             content()
         }
     }
 
-    private var sectionHeader: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(title)
-                    .font(KitchenTableTheme.sectionTitle)
-                    .foregroundStyle(KitchenTableTheme.ink)
-                    // One line beside the rule at the default sizes; at the accessibility sizes a title such as
-                    // "No recipes yet" wraps rather than ending in an ellipsis on a narrow screen.
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-                    .layoutPriority(1)
-                Rectangle()
-                    .fill(KitchenTableTheme.hairline.opacity(0.55))
-                    .frame(height: 1)
-                    .layoutPriority(-1)
-            }
-            if Accessory.self == EmptyView.self {
-                subtitleText
-            } else {
-                // At large text sizes the accessory drops under the subtitle instead of squeezing it.
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .center, spacing: 12) {
-                        subtitleText
-                        Spacer(minLength: 0)
-                        accessory()
-                    }
-                    VStack(alignment: .leading, spacing: 0) {
-                        subtitleText
-                        accessory()
-                    }
+    @ViewBuilder private var subtitleAndAccessory: some View {
+        if Accessory.self == EmptyView.self {
+            subtitleText
+        } else {
+            // At large text sizes the accessory drops under the subtitle instead of squeezing it.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 12) {
+                    subtitleText
+                    Spacer(minLength: 0)
+                    accessory()
+                }
+                VStack(alignment: .leading, spacing: 0) {
+                    subtitleText
+                    accessory()
                 }
             }
         }
+    }
+
+    private var hasSubtitle: Bool {
+        !(subtitle ?? "").isEmpty
     }
 
     @ViewBuilder private var subtitleText: some View {
@@ -449,12 +485,19 @@ struct KitchenTableSection<Content: View, Accessory: View>: View {
 }
 
 extension KitchenTableSection where Accessory == EmptyView {
-    init(title: String, subtitle: String? = nil, @ViewBuilder content: @escaping () -> Content) {
-        self.init(title: title, subtitle: subtitle, content: content) {
+    init(
+        eyebrow: String? = nil,
+        title: String,
+        meta: String? = nil,
+        subtitle: String? = nil,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.init(eyebrow: eyebrow, title: title, meta: meta, subtitle: subtitle, content: content) {
             EmptyView()
         }
     }
 }
+#endif
 
 struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
     let title: String
@@ -489,8 +532,8 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
             if let ordinal {
                 // The number sits beside the thumbnail, never on it.
                 Text(ordinal)
-                    .font(.caption.weight(.bold))
-                    .tracking(1.0)
+                    .font(KitchenTableTheme.eyebrow)
+                    .kitchenEyebrowTracking()
                     .foregroundStyle(KitchenTableTheme.brass)
                     .frame(width: 26, alignment: .leading)
                     .accessibilityHidden(true)
@@ -499,7 +542,7 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
             leading()
                 .frame(width: 56, height: 56)
                 .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -516,7 +559,7 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
                 }
                 if let detail, !detail.isEmpty {
                     Text(detail)
-                        .font(.footnote)
+                        .font(KitchenTableTheme.meta)
                         .foregroundStyle(KitchenTableTheme.ink2)
                         .lineLimit(lineLimit)
                 }
@@ -615,7 +658,7 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
         let shape = Capsule()
         // At the accessibility sizes a label wraps to a second line instead of truncating.
         let label = configuration.label
-            .font(.headline)
+            .font(KitchenTableTheme.control)
             .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
             .minimumScaleFactor(0.74)
             .multilineTextAlignment(.center)
@@ -715,5 +758,48 @@ extension KitchenTableEmptyTile where Action == EmptyView {
         self.init(systemImage: systemImage, title: title, message: message) {
             EmptyView()
         }
+    }
+}
+
+private struct KitchenLiftShadow: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        let layer = KitchenTableTheme.liftShadow.layer(colorScheme)
+        content.shadow(color: layer.color, radius: layer.radius, x: layer.x, y: layer.y)
+    }
+}
+
+extension View {
+    /// Lifts a cover or photo off the page with web's soft shadow, by day or by night.
+    func kitchenLiftShadow() -> some View { modifier(KitchenLiftShadow()) }
+}
+
+extension View {
+    /// Web's eyebrow: IBM Plex Sans Condensed bold capitals, tracked 0.18 em at every text size, in brass unless a
+    /// quieter ink is passed. VoiceOver reads the text as written, not spelled out in capitals.
+    func kitchenEyebrow(_ color: Color = KitchenTableTheme.brass) -> some View {
+        ouroType(KitchenTypeRole.eyebrow.token, in: OuroTokens.cookbook.extras)
+            .textCase(.uppercase)
+            .foregroundStyle(color)
+    }
+
+    /// The eyebrow token's letter spacing (`sj-tracking-eyebrow`, 0.18 em), scaled with Dynamic Type, for a tracked
+    /// uppercase label that keeps its own font. Letter spacing is never hand-set.
+    func kitchenEyebrowTracking() -> some View {
+        modifier(KitchenEyebrowTracking())
+    }
+}
+
+private struct KitchenEyebrowTracking: ViewModifier {
+    private let token = KitchenTypeRole.eyebrow.token
+    @ScaledMetric private var scale: Double
+
+    init() {
+        _scale = ScaledMetric(wrappedValue: 1, relativeTo: KitchenTypeRole.eyebrow.token.textStyle)
+    }
+
+    func body(content: Content) -> some View {
+        content.tracking(OuroFont.tracking(token, scale: scale))
     }
 }

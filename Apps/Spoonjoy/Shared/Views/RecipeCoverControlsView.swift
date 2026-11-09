@@ -300,7 +300,7 @@ struct RecipeCoverControlsView: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("AI placeholder")
-                    .font(.headline)
+                    .font(KitchenTableTheme.objectTitle)
                     .foregroundStyle(KitchenTableTheme.ink)
                 Text("Generate a temporary cover, then regenerate with direction when it needs tuning.")
                     .font(KitchenTableTheme.uiLabel)
@@ -323,7 +323,7 @@ struct RecipeCoverControlsView: View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("No cover selected")
-                    .font(.headline)
+                    .font(KitchenTableTheme.objectTitle)
                     .foregroundStyle(KitchenTableTheme.ink)
                 Text("Use an explicit empty state for this recipe.")
                     .font(KitchenTableTheme.uiLabel)
@@ -345,7 +345,7 @@ struct RecipeCoverControlsView: View {
     @ViewBuilder private var coverList: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Saved Covers")
-                .font(.title2)
+                .font(KitchenTableTheme.sectionTitle)
                 .foregroundStyle(KitchenTableTheme.ink)
 
             if data.covers.isEmpty {
@@ -369,7 +369,7 @@ struct RecipeCoverControlsView: View {
             HStack(alignment: .top, spacing: 12) {
                 RecipeCoverImage(url: cover.thumbnailURL)
                     .frame(width: 92, height: 92)
-                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
@@ -515,14 +515,14 @@ struct RecipeCoverControlsView: View {
         if !data.spoonImages.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Spoon Photos")
-                    .font(.title2)
+                    .font(KitchenTableTheme.sectionTitle)
                     .foregroundStyle(KitchenTableTheme.ink)
 
                 ForEach(data.spoonImages) { spoon in
                     HStack(spacing: 12) {
                         RecipeCoverImage(url: spoon.photoURL)
                             .frame(width: 76, height: 76)
-                            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
                         VStack(alignment: .leading, spacing: 4) {
                             Text(spoon.chef.username)
                                 .font(KitchenTableTheme.bodyNote)

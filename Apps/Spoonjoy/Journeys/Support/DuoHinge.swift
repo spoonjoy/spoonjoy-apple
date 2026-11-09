@@ -13,6 +13,8 @@ enum DuoHinge {
     }
 
     nonisolated static let directoryVariable = "SPOONJOY_DUO_POSTURE_DIR"
+    /// Where the posture driver saves its display screenshots.
+    nonisolated static let screensVariable = "SPOONJOY_DUO_SCREENS_DIR"
     /// A press reopens Device Hub, finds the button and waits eight seconds for the simulator to settle.
     private static let requestTimeout: TimeInterval = 90
     private static var sequence = 0
@@ -31,6 +33,29 @@ enum DuoHinge {
     /// Saves the Mac's screenshots of both Duo displays, which show every window of the app at once.
     static func shot(_ name: String, file: StaticString = #filePath, line: UInt = #line) throws {
         try send("shot \(name)", file: file, line: line)
+    }
+
+    /// Keeps the Mac's screenshots of both Duo displays from `shot(name)` in the result bundle, as `name` (the outer
+    /// display) and `name-inner`. Once the Duo is open, the app's own screenshot and `XCUIScreen`'s are black (every
+    /// frame of a77ceffb's duo-journeys-xcresult had mean 0), while the Mac's are not.
+    static func attachShot(_ name: String, to testCase: XCTestCase) throws {
+        let directory = try screensDirectory()
+        try attach(directory.appendingPathComponent("\(name).png"), named: name, to: testCase)
+        try attach(directory.appendingPathComponent("\(name)-inner.png"), named: "\(name)-inner", to: testCase)
+    }
+
+    private static func attach(_ file: URL, named name: String, to testCase: XCTestCase) throws {
+        let attachment = XCTAttachment(data: try Data(contentsOf: file), uniformTypeIdentifier: "public.png")
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        testCase.add(attachment)
+    }
+
+    private static func screensDirectory() throws -> URL {
+        guard let path = ProcessInfo.processInfo.environment[screensVariable], !path.isEmpty else {
+            throw DuoHingeError.missingScreensDirectory
+        }
+        return URL(fileURLWithPath: path, isDirectory: true)
     }
 
     /// Has the Mac install `session` as the app's saved sign-in (the DEBUG file vault in the app's data container),
@@ -80,8 +105,14 @@ enum DuoHinge {
 
 enum DuoHingeError: Error, CustomStringConvertible {
     case missingDirectory
+    case missingScreensDirectory
 
     var description: String {
-        "\(DuoHinge.directoryVariable) is not set. The Duo journeys job passes the posture driver's request directory as TEST_RUNNER_\(DuoHinge.directoryVariable)."
+        switch self {
+        case .missingDirectory:
+            "\(DuoHinge.directoryVariable) is not set. The Duo journeys job passes the posture driver's request directory as TEST_RUNNER_\(DuoHinge.directoryVariable)."
+        case .missingScreensDirectory:
+            "\(DuoHinge.screensVariable) is not set. The Duo journeys job passes the posture driver's screenshot directory as TEST_RUNNER_\(DuoHinge.screensVariable)."
+        }
     }
 }

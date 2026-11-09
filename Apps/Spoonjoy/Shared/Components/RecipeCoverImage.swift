@@ -285,24 +285,24 @@ struct KitchenTableNoPhotoView: View {
 
     private var noPhotoBackground: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover)
                 .fill(KitchenTableTheme.raised)
 
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover)
                 .fill(KitchenTableTheme.vellum.opacity(mode == .loading ? 0.30 : 0.18))
                 .padding(7)
 
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover)
                 .strokeBorder(KitchenTableTheme.hairline.opacity(0.58), lineWidth: 1)
         }
     }
 
     private var compactMark: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover)
                 .fill(KitchenTableTheme.raised.opacity(0.94))
                 .overlay {
-                    RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                    RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover)
                         .stroke(KitchenTableTheme.lineStrong.opacity(0.55), lineWidth: 1)
                 }
                 .frame(width: 38, height: 38)
@@ -310,18 +310,18 @@ struct KitchenTableNoPhotoView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(KitchenTableTheme.brass.opacity(mode == .loading ? 0.62 : 1))
         }
-        .shadow(color: KitchenTableTheme.ink.opacity(0.08), radius: 5, y: 3)
+        .kitchenLiftShadow()
         .frame(width: 44, height: 44)
     }
 
     private var fullLabel: some View {
         VStack(alignment: .center, spacing: 10) {
             ZStack {
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover)
                     .fill(KitchenTableTheme.raised.opacity(0.94))
                     .frame(width: 48, height: 48)
                     .overlay {
-                        RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                        RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover)
                             .stroke(KitchenTableTheme.lineStrong.opacity(0.55), lineWidth: 1)
                     }
                 Image(systemName: mode == .loading ? "photo" : "photo.badge.plus")
