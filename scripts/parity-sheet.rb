@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-# Usage: ruby scripts/parity-sheet.rb --web-run <spoonjoy-v2 Journeys run id> --native-run <spoonjoy-apple Journeys run id> --out <dir>
+# Usage: ruby scripts/parity-sheet.rb --web-run <spoonjoy-v2 Journeys run id> --native-run <spoonjoy-apple run id> --out <dir>
+#        (the native run is the After TestFlight run on main, or the Native run on a pull request; both call Journeys)
 #        ruby scripts/parity-sheet.rb --web-dir <dir> --native-dir <dir> --out <dir>
 #        ruby scripts/parity-sheet.rb --export-xcresult <bundle> --out <dir>
 #        ruby scripts/parity-sheet.rb --check-shots <dir>
@@ -85,7 +86,7 @@ if options[:native_run]
   run!("gh", "run", "download", options[:native_run], "-R", NATIVE_REPO, "-p", "parity-shots*", "-D", native_dir)
 end
 
-web = ParitySheet.index(Dir.glob(File.join(web_dir, "**", "parity-*.png")))
+web = ParitySheet.index(Dir.glob(File.join(web_dir, "**", "parity-*.png")), side: :web)
 native = ParitySheet.index(Dir.glob(File.join(native_dir, "**", "parity-*.png")))
 Dir.glob(File.join(native_dir, "**", "*.xcresult")).sort.each_with_index do |bundle, number|
   native.merge!(export(bundle, File.join(out, "exports", "#{number}-#{File.basename(bundle, ".xcresult")}")))

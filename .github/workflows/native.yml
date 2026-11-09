@@ -91,6 +91,7 @@ jobs:
           ruby scripts/test/live_journey_failure_test.rb
           ruby scripts/test/parity_sheet_test.rb
           ruby scripts/test/release_branch_workflow_test.rb
+          ruby scripts/test/optional_checks_wait_test.rb
           ruby scripts/test/no_design_hex_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
           ruby scripts/stage-app-store-listing.rb --validate-only --platform MAC_OS
@@ -285,7 +286,8 @@ jobs:
     # main (which TestFlight waits for) stays free of the network fetch this job makes.
     name: App Intents X-ray
     if: github.event_name == 'pull_request'
-    needs: app-bundle
+    # Not required, so like the optional workflows below it waits for every required check before taking a runner.
+    needs: [contracts, swift-tests, reins-journeys, native-scenario-verifier, app-bundle]
     runs-on: macos-26
     timeout-minutes: 20
     steps:
@@ -320,6 +322,35 @@ jobs:
           name: app-intents-xray-${{ github.sha }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/xray-report
           if-no-files-found: ignore
+
+  # Optional checks on a pull request. They start only after every required check (Contracts, Swift tests, Reins
+  # journeys, Native scenario verifier, App bundle) has passed, so they never hold a macOS runner that a required job
+  # is waiting for; the account has only a few. They show on the pull request as "Journeys / Live journeys" and so on.
+  # On main, after-testflight.yml runs the same workflows once TestFlight has finished, so TestFlight's publish jobs
+  # never queue behind them. Release branches don't run them.
+  journeys:
+    name: Journeys
+    if: github.event_name == 'pull_request'
+    needs: [contracts, swift-tests, reins-journeys, native-scenario-verifier, app-bundle]
+    uses: ./.github/workflows/journeys.yml
+
+  launch-smoke:
+    name: Launch smoke
+    if: github.event_name == 'pull_request'
+    needs: [contracts, swift-tests, reins-journeys, native-scenario-verifier, app-bundle]
+    uses: ./.github/workflows/launch-smoke.yml
+
+  feel:
+    name: Feel
+    if: github.event_name == 'pull_request'
+    needs: [contracts, swift-tests, reins-journeys, native-scenario-verifier, app-bundle]
+    uses: ./.github/workflows/feel.yml
+
+  beta-sdk:
+    name: Beta SDK
+    if: github.event_name == 'pull_request'
+    needs: [contracts, swift-tests, reins-journeys, native-scenario-verifier, app-bundle]
+    uses: ./.github/workflows/beta-sdk.yml
 
   testflight-release-note:
     name: TestFlight release note

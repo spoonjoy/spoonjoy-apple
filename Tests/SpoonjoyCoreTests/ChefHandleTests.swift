@@ -18,4 +18,14 @@ struct ChefHandleTests {
     func emptyHandle() {
         #expect(ChefHandle.breakingAnywhere("") == "@")
     }
+
+    @Test("a byline handle breaks anywhere too, with no at sign and nothing visible added")
+    func bylineHandleBreaksAnywhere() {
+        let handle = ChefHandle.wrapping("codex_native_r42")
+
+        #expect(handle.hasPrefix("c\u{200B}o\u{200B}d"))
+        #expect(handle.replacingOccurrences(of: "\u{200B}", with: "") == "codex_native_r42")
+        #expect(!handle.contains("@"))
+        #expect(ChefHandle.wrapping("") == "")
+    }
 }
