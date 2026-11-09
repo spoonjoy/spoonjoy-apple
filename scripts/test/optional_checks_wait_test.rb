@@ -70,11 +70,47 @@ class OptionalChecksWaitTest < Minitest::Test
     end
   end
 
-  def test_optional_workflows_are_callable_and_still_run_on_main
-    OPTIONAL_WORKFLOWS.each do |name|
+  MAIN_OPTIONAL_WORKFLOWS = (OPTIONAL_WORKFLOWS + %w[app-intents-xray.yml]).freeze
+
+  def test_optional_workflows_are_callable_and_never_start_on_their_own_for_main
+    MAIN_OPTIONAL_WORKFLOWS.each do |name|
       on = triggers(workflow(name))
-      assert on.key?("workflow_call"), "#{name} must be callable from Native"
-      assert_equal ["main"], on.fetch("push").fetch("branches"), "#{name} still runs on every main push"
+      assert on.key?("workflow_call"), "#{name} must be callable"
+      refute on.key?("push"), "#{name} runs on main from after-testflight.yml, not beside Native and TestFlight"
+      refute on.key?("schedule"), name
+    end
+  end
+
+  # Native -> TestFlight -> after-testflight.yml: on main, optional work takes a runner only once TestFlight is done.
+  def test_main_runs_optional_workflows_after_testflight
+    doc = workflow("after-testflight.yml")
+    assert_equal({ "workflows" => ["TestFlight"], "types" => ["completed"], "branches" => ["main"] }, triggers(doc).fetch("workflow_run"))
+    refute doc.key?("concurrency"), "main runs are never cancelled"
+    jobs = doc.fetch("jobs")
+    gate = jobs.fetch("commit")
+    assert_includes gate.fetch("if"), "github.event.workflow_run.event == 'workflow_run'"
+    assert_includes gate.fetch("if"), "github.event.workflow_run.head_branch == 'main'"
+    # A TestFlight run's own head_sha is main's head when it was created, not the commit Native built.
+    gate_script = gate.fetch("steps").map { |step| step["run"].to_s }.join("\n")
+    gate_env = gate.fetch("steps").map { |step| step.fetch("env", {}) }.reduce({}, :merge)
+    assert_equal "${{ github.event.workflow_run.display_title }}", gate_env.fetch("RUN_TITLE")
+    refute_includes gate_env.values.join("\n"), "workflow_run.head_sha"
+    assert_includes gate_script, '^TestFlight\\ ([0-9a-f]{40})$'
+    assert_equal "TestFlight ${{ github.event.workflow_run.head_sha || inputs.source_sha || github.sha }}",
+                 workflow("testflight.yml").fetch("run-name")
+    MAIN_OPTIONAL_WORKFLOWS.each do |name|
+      callers = jobs.select { |_, job| job["uses"] == "./.github/workflows/#{name}" }
+      assert_equal 1, callers.size, "after-testflight.yml calls #{name} once"
+      _, job = callers.first
+      assert_equal "commit", job.fetch("needs")
+      assert_equal "needs.commit.outputs.run == 'true'", job.fetch("if")
+    end
+  end
+
+  def test_nothing_on_main_is_cancelled_by_an_optional_workflow
+    MAIN_OPTIONAL_WORKFLOWS.each do |name|
+      concurrency = workflow(name).fetch("concurrency")
+      assert_includes ["${{ github.event_name == 'pull_request' }}", false], concurrency.fetch("cancel-in-progress"), name
     end
   end
 
@@ -101,7 +137,10 @@ class OptionalChecksWaitTest < Minitest::Test
     script = doc.fetch("jobs").fetch("stop-optional-checks").fetch("steps").map { |step| step["run"].to_s }.join("\n")
     assert_includes script, "actions/workflows/native.yml/runs?event=pull_request&head_sha=$HEAD_SHA"
     assert_includes script, 'select(.status != \\"completed\\")'
-    assert_includes script, "select(any(.pull_requests[]; .number == $PR_NUMBER))"
+    # GitHub empties a run's pull_requests once the pull request merges, so the head branch scopes the cancel.
+    refute_includes script, ".pull_requests", "a merged pull request's runs list no pull requests"
+    assert_includes script, "select(.head_branch == $HEAD_REF)"
+    assert_includes script, "select(.head_repository.full_name == $REPO_JSON)"
   end
 
   def test_testflight_still_waits_only_for_native_on_main
