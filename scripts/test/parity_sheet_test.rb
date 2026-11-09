@@ -135,4 +135,50 @@ class ParitySheetTest < Minitest::Test
       assert_equal({ "chef-iphone-dark" => File.join(dir, "AAA.png") }, ParitySheet.index_export(dir))
     end
   end
+
+  def test_unswitched_schemes_finds_a_dark_shot_identical_to_its_light_shot
+    Dir.mktmpdir do |dir|
+      write = ->(name, bytes) { File.join(dir, name).tap { |path| File.binwrite(path, bytes) } }
+      index = {
+        "recipe-iphone-light" => write.("a.png", "same"),
+        "recipe-iphone-dark" => write.("b.png", "same"),
+        "chef-iphone-light" => write.("c.png", "light"),
+        "chef-iphone-dark" => write.("d.png", "dark"),
+        "shopping-iphone-light" => write.("e.png", "only light")
+      }
+      assert_equal ["recipe-iphone-light", "shopping-iphone-light"], ParitySheet.unswitched_schemes(index)
+      assert_match(/never switched: recipe-iphone-light, shopping-iphone-light\z/, ParitySheet.scheme_failure(index))
+      assert_nil ParitySheet.scheme_failure(index.slice("chef-iphone-light", "chef-iphone-dark"))
+    end
+  end
+
+  SCRIPT = File.expand_path("../parity-sheet.rb", __dir__)
+
+  def check_shots(dir)
+    output = IO.popen([RbConfig.ruby, SCRIPT, "--check-shots", dir], err: %i[child out], &:read)
+    [$?.success?, output]
+  end
+
+  def test_check_shots_fails_on_an_unswitched_duo_pair_and_passes_a_switched_one
+    Dir.mktmpdir do |dir|
+      File.binwrite(File.join(dir, "parity-recipe-duo-open-light-inner.png"), "same")
+      File.binwrite(File.join(dir, "parity-recipe-duo-open-dark-inner.png"), "same")
+      ok, output = check_shots(dir)
+      refute ok
+      assert_includes output, "never switched: recipe-duo-open-light"
+
+      File.binwrite(File.join(dir, "parity-recipe-duo-open-dark-inner.png"), "dark")
+      ok, output = check_shots(dir)
+      assert ok, output
+      assert_includes output, "2 checked"
+    end
+  end
+
+  def test_check_shots_fails_on_an_empty_folder
+    Dir.mktmpdir do |dir|
+      ok, output = check_shots(dir)
+      refute ok
+      assert_includes output, "no parity shots"
+    end
+  end
 end

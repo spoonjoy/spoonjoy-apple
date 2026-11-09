@@ -295,6 +295,10 @@ jobs:
             ${{ runner.temp }}/duo/driver.log
           if-no-files-found: warn
           retention-days: 30
+      - name: Check the Duo parity shots switched scheme
+        # As the iPhone/iPad export does: fails when a dark shot is missing or byte-identical to its light shot.
+        if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
+        run: ruby scripts/parity-sheet.rb --check-shots "$RUNNER_TEMP/duo/screens"
       - name: Upload the Duo parity shots
         # The posture driver's screenshots of the parity capture, for scripts/parity-sheet.rb. Same gate as the bundle.
         if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}

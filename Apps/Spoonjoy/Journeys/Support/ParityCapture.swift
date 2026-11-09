@@ -59,13 +59,31 @@ struct ParityCapture {
 
     /// Shoots the screen as it stands in light, then in dark, and leaves the simulator light.
     func shootBothSchemes(_ screen: String) throws {
-        XCUIDevice.shared.appearance = .light
-        Thread.sleep(forTimeInterval: Self.schemeSettle)
+        Self.setAppearance(.light)
         try shoot(Self.shotName(screen, device: device, scheme: "light"))
-        XCUIDevice.shared.appearance = .dark
-        Thread.sleep(forTimeInterval: Self.schemeSettle)
+        Self.setAppearance(.dark)
         try shoot(Self.shotName(screen, device: device, scheme: "dark"))
         XCUIDevice.shared.appearance = .light
+        Self.post(.system)
+    }
+
+    /// Sets the simulator's appearance and tells the app to match, then lets it redraw. On CI the simulator setting
+    /// alone left every dark shot identical to the light one (Journeys run 42481642383), so the app's own override,
+    /// driven by `NativeJourneyAppearance`, is what makes the scheme certain.
+    private static func setAppearance(_ appearance: NativeJourneyAppearance) {
+        XCUIDevice.shared.appearance = appearance == .dark ? .dark : .light
+        post(appearance)
+        Thread.sleep(forTimeInterval: schemeSettle)
+    }
+
+    private static func post(_ appearance: NativeJourneyAppearance) {
+        CFNotificationCenterPostNotification(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            CFNotificationName(appearance.notificationName as CFString),
+            nil,
+            nil,
+            true
+        )
     }
 
     func signInScreen() throws {
