@@ -18,7 +18,7 @@ struct BookSpreadLayoutTests {
     @Test("a regular-width portrait screen reads as one page")
     func portraitIsOnePage() {
         #expect(BookSpreadLayout.resolve(width: 744, height: 1133, isRegularWidth: true) == .singlePage)
-        // A tall screen wide enough for two pages still reads as one: a spread is a landscape object.
+        // A tall screen wide enough for two pages reads as one unless the view allows a tall spread (the recipe does).
         #expect(BookSpreadLayout.resolve(width: 1032, height: 1376, isRegularWidth: true) == .singlePage)
     }
 
