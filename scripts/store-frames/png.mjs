@@ -58,6 +58,7 @@ export function decode(buffer) {
   const channels = colorType === 6 ? 4 : 3;
   const stride = width * channels;
   const raw = inflateSync(Buffer.concat(data));
+  if (raw.length !== (stride + 1) * height) throw new Error(`PNG data is ${raw.length} bytes; ${width}x${height} needs ${(stride + 1) * height}`);
   const pixels = Buffer.alloc(stride * height);
   for (let y = 0; y < height; y += 1) {
     const filter = raw[y * (stride + 1)];

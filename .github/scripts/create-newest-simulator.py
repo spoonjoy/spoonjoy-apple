@@ -39,7 +39,7 @@ def pick(family, listing, sdk=None):
         raise SystemExit(f"No available iOS runtime{f' up to {sdk}' if sdk else ''} supports a {family}.")
     runtime = max(runtimes, key=lambda r: version(r["version"]))
     candidates = [t for t in runtime["supportedDeviceTypes"] if matches(family, t)]
-    device_type = max(candidates, key=lambda t: t["name"]) if family.startswith("^") else candidates[0]
+    device_type = max(candidates, key=lambda t: [int(n) for n in re.findall(r"\d+", t["name"])]) if family.startswith("^") else candidates[0]
     return runtime["identifier"], device_type["identifier"]
 
 

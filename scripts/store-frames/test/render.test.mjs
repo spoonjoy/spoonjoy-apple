@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
+import * as zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { decode, encodeOpaque } from "../png.mjs";
 import { frameHtml, loadSpec, posterHtml, scenesFor, sha256, validateSpec } from "../render.mjs";
@@ -115,4 +116,49 @@ test("a poster without a caption puts the phones in the middle; with one, beside
   assert.match(captioned, /<h1>Recipes, passed<br>hand to hand<\/h1>/);
   const left = Number(captioned.match(/class="phone" style="left:([\d.]+)px/)[1]);
   assert.ok(left > search.size[0] * 0.42, "the phone stays right of the caption");
+});
+
+test("the scene key changes with the screens, not with captions or version numbers", async () => {
+  const { sceneKey } = await import("../scene-key.mjs");
+  const repo = mkdtempSync(join(tmpdir(), "scene-key-"));
+  const git = (...args) => execFileSync("git", ["-C", repo, ...args], { encoding: "utf8" });
+  const write = (path, text) => {
+    mkdirSync(dirname(join(repo, path)), { recursive: true });
+    writeFileSync(join(repo, path), text);
+  };
+  const commit = () => {
+    git("add", "-A");
+    git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-qm", "c", "--allow-empty");
+    return sceneKey("HEAD", repo);
+  };
+  git("init", "-q");
+  write("distribution/app-store/frames/spec.json", readFileSync(SPEC, "utf8"));
+  write("Spoonjoy.xcodeproj/project.pbxproj", "\t\t\t\tMARKETING_VERSION = 1.2;\n\t\t\t\tCURRENT_PROJECT_VERSION = 32;\n\t\t\t\tSWIFT_VERSION = 6.0;\n");
+  write("Apps/Spoonjoy/Shared/View.swift", "struct A {}\n");
+  const first = commit();
+  assert.match(first, /^store-scenes-[0-9a-f]{20}$/);
+  write("distribution/app-store/frames/spec.json", readFileSync(SPEC, "utf8").replace("One big step", "One huge step"));
+  write("Spoonjoy.xcodeproj/project.pbxproj", "\t\t\t\tMARKETING_VERSION = 1.3;\n\t\t\t\tCURRENT_PROJECT_VERSION = 40;\n\t\t\t\tSWIFT_VERSION = 6.0;\n");
+  assert.equal(commit(), first, "captions and version bumps keep the key");
+  write("Apps/Spoonjoy/Shared/View.swift", "struct B {}\n");
+  const screens = commit();
+  assert.notEqual(screens, first, "a screen change makes a new key");
+  write("Spoonjoy.xcodeproj/project.pbxproj", "\t\t\t\tMARKETING_VERSION = 1.3;\n\t\t\t\tCURRENT_PROJECT_VERSION = 40;\n\t\t\t\tSWIFT_VERSION = 6.1;\n");
+  assert.notEqual(commit(), screens, "a build setting change makes a new key");
+  write(".github/workflows/store-scenes.yml", "status bar 10:41\n");
+  assert.notEqual(commit(), screens, "a change to how scenes are taken makes a new key");
+});
+
+test("a truncated PNG fails instead of decoding as black", () => {
+  const png = encodeOpaque(solid(40, 40, [10, 20, 30, 255]));
+  const idat = png.indexOf("IDAT");
+  const length = png.readUInt32BE(idat - 4);
+  const { deflateSync, inflateSync } = zlib;
+  const short = deflateSync(inflateSync(png.subarray(idat + 4, idat + 4 + length)).subarray(0, 100));
+  const head = Buffer.from(png.subarray(0, idat - 4));
+  const chunk = Buffer.alloc(12 + short.length);
+  chunk.writeUInt32BE(short.length, 0);
+  chunk.write("IDAT", 4, "ascii");
+  short.copy(chunk, 8);
+  assert.throws(() => decode(Buffer.concat([head, chunk])), /PNG data is 100 bytes/);
 });

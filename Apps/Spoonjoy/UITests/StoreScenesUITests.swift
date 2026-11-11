@@ -21,13 +21,15 @@ final class StoreScenesUITests: XCTestCase {
     private static let fileVariable = "SPOONJOY_STORE_SCENES_FILE"
     private static let networkTimeout: TimeInterval = 45
     /// Long enough for covers to fade in and for scroll indicators and transitions to finish.
-    private static let settle: TimeInterval = 4
+    private static let settle: TimeInterval = 6
 
     /// Every scene the test knows. A scene ending in -dark is the same screen, taken in the dark appearance run.
     static let known = ["kitchen", "recipes", "recipe-detail", "cookbooks", "cookbook-detail", "shopping-list", "cook-mode"]
     private static let forkTitle = "Brown Butter Apple Crumble, with pecans"
     private static let cookTitle = "Honeycrisp Galette"
     private static let cookbookTitle = "The Orchard"
+    /// The first item on the demo kitchen's seeded shopping list, so the shot waits for the list itself, not its tab.
+    private static let shoppingItem = "Honeycrisp apples"
 
     private var app: XCUIApplication!
     private var shell: ShellNavigationDriver!
@@ -70,7 +72,8 @@ final class StoreScenesUITests: XCTestCase {
         case "kitchen":
             shell.go(to: .kitchen)
             XCTAssertTrue(element("kitchen.root").waitForExistence(timeout: Self.networkTimeout), "The kitchen did not open.")
-            XCTAssertFalse(element("kitchen.cookingNow").exists,
+            // Cooking now comes from the server after the kitchen appears, so give it time to show before ruling it out.
+            XCTAssertFalse(element("kitchen.cookingNow").waitForExistence(timeout: 8),
                            "The demo kitchen shows Cooking now, so an earlier run left cook progress; clear it on spoonjoy.app.")
         case "recipes":
             shell.go(to: .recipes)
@@ -82,16 +85,21 @@ final class StoreScenesUITests: XCTestCase {
             XCTAssertTrue(element("cookbookShelf").waitForExistence(timeout: Self.networkTimeout), "The cookbook shelf did not open.")
         case "cookbook-detail":
             shell.go(to: .cookbooks)
-            let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", Self.cookbookTitle)).firstMatch
+            let row = shell.element("cookbookShelf").buttons.matching(NSPredicate(format: "label BEGINSWITH %@", Self.cookbookTitle)).firstMatch
             XCTAssertTrue(row.waitForExistence(timeout: Self.networkTimeout), "The shelf does not list \(Self.cookbookTitle).")
             row.tap()
             XCTAssertTrue(element("CookbookDetailHero").waitForExistence(timeout: Self.networkTimeout), "\(Self.cookbookTitle) did not open.")
         case "shopping-list":
             shell.go(to: .shopping)
-            XCTAssertTrue(shell.text("Shopping").waitForExistence(timeout: Self.networkTimeout) || shell.text("Shopping List").exists,
-                          "The shopping list did not open.")
+            let item = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", Self.shoppingItem)).firstMatch
+            XCTAssertTrue(item.waitForExistence(timeout: Self.networkTimeout), "The shopping list does not show \(Self.shoppingItem).")
         case "cook-mode":
             openRecipe(Self.cookTitle)
+            // Clear progress a reviewer may have left, so the step shows unchecked.
+            let clear = element("recipeDetail.clearProgress")
+            if clear.waitForExistence(timeout: 5), clear.isHittable {
+                clear.tap()
+            }
             let cook = element("recipeDetail.cook")
             XCTAssertTrue(cook.waitForExistence(timeout: Self.networkTimeout), "\(Self.cookTitle) has no Cook button.")
             cook.tap()
@@ -108,7 +116,8 @@ final class StoreScenesUITests: XCTestCase {
     private func settleAndShoot(_ scene: String) {
         // Idle, then take the shot: nothing is mid-animation and every cover has loaded.
         _ = XCTWaiter.wait(for: [XCTestExpectation(description: "settle")], timeout: Self.settle)
-        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        // Always PNG: the exporter and the renderer read nothing else, whatever Xcode's default encoding becomes.
+        let attachment = XCTAttachment(data: XCUIScreen.main.screenshot().pngRepresentation, uniformTypeIdentifier: "public.png")
         attachment.name = "scene-\(scene)"
         attachment.lifetime = .keepAlways
         add(attachment)
