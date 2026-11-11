@@ -218,7 +218,9 @@ final class JourneyApp {
         let existing = current == field.placeholderValue ? "" : current
         if existing != identifier {
             // Tap past the end of the text so the caret lands after it, delete exactly that many
-            // characters, and prove the field is empty before typing. No edit menu is involved.
+            // characters, and prove the field is empty before typing. No edit menu is involved. A coordinate tap
+            // does not scroll, and at AX5 the field starts below the iPhone's first screen (Journeys run 42939123940).
+            scrollIntoView(field, dragsLeft: Self.scrollDrags)
             field.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
             assertKeyboardFocus(in: query(JourneyID.signInIdentifier), named: "The identifier field", file: file, line: line)
             if !existing.isEmpty {
@@ -709,6 +711,7 @@ final class JourneyApp {
         waitFor(JourneyID.signInPassword, timeout: Self.interactionTimeout, "The password field is missing.", file: file, line: line)
         UIPasteboard.general.string = password
         defer { UIPasteboard.general.items = [] }
+        scrollIntoView(field, dragsLeft: Self.scrollDrags)
         field.tap()
         field.press(forDuration: 1.2)
         let paste = editMenuItem(Self.pasteMenuTitle)
