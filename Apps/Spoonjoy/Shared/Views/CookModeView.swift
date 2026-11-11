@@ -748,6 +748,7 @@ struct CookModeView: View {
         let canvas = CookCanvas.page(
             width: Double(width),
             height: Double(height),
+            isPad: Self.isPad,
             isAccessibilityTextSize: dynamicTypeSize.isAccessibilitySize
         )
         // A neighbouring page is laid out exactly as it will be once current, only dimmed and inert, so nothing is
@@ -755,7 +756,7 @@ struct CookModeView: View {
         return ScrollView {
             Group {
                 if canvas.setsChecklistBesideStep {
-                    wideCookPageContent(step, model: model, isCurrent: isCurrent, canvas: canvas)
+                    wideCookPageContent(step, model: model, isCurrent: isCurrent, canvas: canvas, width: width)
                 } else {
                     VStack(alignment: .leading, spacing: 18) {
                         VStack(alignment: .leading, spacing: 10) {
@@ -776,7 +777,7 @@ struct CookModeView: View {
                     }
                 }
             }
-            .padding(canvas.isLarge ? 40 : 20)
+            .padding(canvas.interpolate(20, 40))
             .frame(maxWidth: .infinity, minHeight: height, alignment: .topLeading)
         }
         .scrollBounceBehavior(.basedOnSize)
@@ -802,7 +803,8 @@ struct CookModeView: View {
         _ step: RecipeStep,
         model: CookModeViewModel,
         isCurrent: Bool,
-        canvas: CookCanvas
+        canvas: CookCanvas,
+        width: CGFloat
     ) -> some View {
         let steppedType = dynamicTypeSize.stepped(up: canvas.typeSteps)
         return VStack(alignment: .leading, spacing: 0) {
@@ -825,18 +827,24 @@ struct CookModeView: View {
                     stepChecks(step, model: model, isCurrent: isCurrent)
                 }
                 .dynamicTypeSize(steppedType)
-                .frame(width: Self.wideChecklistWidth)
+                .frame(width: CGFloat(CookCanvas.checklistWidth(pageWidth: Double(width))))
             }
             Spacer(minLength: 32)
         }
     }
 
-    /// The checklist column of a wide cook page: enough for an ingredient, its amount and its aisle on one line each.
-    private static let wideChecklistWidth: CGFloat = 380
+    /// Only an iPad's cook page grows with its canvas; every iPhone, the Duo included, and the Mac keep their layout.
+    private static var isPad: Bool {
+#if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .pad
+#else
+        false
+#endif
+    }
 
     /// The step's title in brass and the step itself in large serif, both set `canvas.scale` times larger on a big page.
     private func stepInstruction(_ step: RecipeStep, isCurrent: Bool, canvas: CookCanvas) -> some View {
-        VStack(alignment: .leading, spacing: canvas.isLarge ? 16 : 10) {
+        VStack(alignment: .leading, spacing: canvas.interpolate(10, 16)) {
             stepHeading(step, scale: canvas.scale)
             Text(step.description)
                 .font(KitchenTypeRole.cookStep.font(scaledBy: canvas.scale))
@@ -1529,6 +1537,7 @@ extension CookModeView {
         CookCanvas.page(
             width: layout.trailingPage?.width ?? 0,
             height: Double(spreadStepRoom),
+            isPad: Self.isPad,
             isAccessibilityTextSize: dynamicTypeSize.isAccessibilitySize
         )
     }
@@ -1537,19 +1546,21 @@ extension CookModeView {
     /// and the page's foot, and the start hint while the ring can keep it. A step that leaves less than the ring's usual
     /// smallest size (the Duo held as a book) gets the compact ring, without the hint, so the ring stays whole above the
     /// controls instead of running under them. Nil until the page has been measured.
-    private var spreadRingLimit: CGFloat? {
+    /// On an iPad's larger page the gap above the ring and the hint under it grow with the page (`canvas`).
+    private func spreadRingLimit(_ canvas: CookCanvas) -> CGFloat? {
         guard spreadStepRoom > 0, spreadStepTextBottom > 0 else {
             return nil
         }
-        let withHint = spreadStepRoom - spreadStepTextBottom - (18 + 56 + 24)
+        let gap = 18 * canvas.scale
+        let withHint = spreadStepRoom - spreadStepTextBottom - (gap + 56 * canvas.scale + 24)
         if withHint >= CookTimerRingFace<EmptyView>.minimumDiameter {
             return withHint
         }
-        return max(CookTimerRingFace<EmptyView>.compactDiameter, spreadStepRoom - spreadStepTextBottom - (18 + 24))
+        return max(CookTimerRingFace<EmptyView>.compactDiameter, spreadStepRoom - spreadStepTextBottom - (gap + 24))
     }
 
-    private var spreadRingShowsHint: Bool {
-        (spreadRingLimit ?? .infinity) >= CookTimerRingFace<EmptyView>.minimumDiameter
+    private func spreadRingShowsHint(_ canvas: CookCanvas) -> Bool {
+        (spreadRingLimit(canvas) ?? .infinity) >= CookTimerRingFace<EmptyView>.minimumDiameter
     }
 
     /// While a finger drags the right page it lifts, short of edge-on; a turned step then plays the turn.
@@ -1597,7 +1608,7 @@ extension CookModeView {
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text("Gather")
-                        .font(KitchenTableTheme.displayTitle)
+                        .font(KitchenTypeRole.displayTitle.font(scaledBy: canvas.scale))
                         .foregroundStyle(KitchenTableTheme.ink)
                         .accessibilityAddTraits(.isHeader)
                 }
@@ -1661,8 +1672,8 @@ extension CookModeView {
                         try cancelSystemTimer(step: currentStep)
                     }
                     .id(timer.stepID)
-                    .environment(\.cookTimerRingLimit, spreadRingLimit)
-                    .environment(\.cookTimerShowsHint, spreadRingShowsHint)
+                    .environment(\.cookTimerRingLimit, spreadRingLimit(canvas))
+                    .environment(\.cookTimerShowsHint, spreadRingShowsHint(canvas))
                     .dynamicTypeSize(dynamicTypeSize.stepped(up: canvas.typeSteps))
                 }
             }
