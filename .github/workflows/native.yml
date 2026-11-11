@@ -2,6 +2,9 @@ name: Native
 
 on:
   pull_request:
+    # ready_for_review starts a full run on the same commit: a draft runs only lane b (see app-bundle below), so
+    # marking it ready is what builds App bundle and starts the optional jobs.
+    types: [opened, synchronize, reopened, ready_for_review]
   # main has a merge queue (ruleset "main merge queue"); branch protection is not strict, the queue keeps main current.
   # The merge queue tests each entry on top of main plus the entries ahead of it. Required checks report here;
   # the optional jobs below skip (they run on pull_request) and TestFlight ignores these branches.
@@ -109,6 +112,7 @@ jobs:
           ruby scripts/test/parity_sheet_test.rb
           ruby scripts/test/release_branch_workflow_test.rb
           ruby scripts/test/optional_checks_wait_test.rb
+          ruby scripts/test/draft_runs_lane_b_test.rb
           ruby scripts/test/no_design_hex_test.rb
           ruby scripts/test/app_shortcuts_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
@@ -237,6 +241,10 @@ jobs:
 
   app-bundle:
     name: App bundle
+    # A draft pull request skips App bundle, and with it every optional job (they need it), so drafts fill only
+    # lane b and never the 15-20 min App bundle lane. A skipped check can't merge a draft, and ready_for_review
+    # reruns Native on the same commit with App bundle. Re-running an old draft run replays draft: true, so it skips again.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: xcode-27
     # Lane a of 3: see the note on macOS lanes at the top of native.yml.
     concurrency:
