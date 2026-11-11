@@ -31,6 +31,13 @@ jobs:
     name: Live journeys
     if: ${{ !inputs.ax5 }}
     runs-on: xcode-27
+    # Lane c of 3: see the note on macOS lanes at the top of native.yml.
+    concurrency:
+      group: >-
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        && format('journeys-journeys-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || 'spoonjoy-macos-lane-c' }}
+      queue: max
     timeout-minutes: 135
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -202,6 +209,13 @@ jobs:
     # The iPhone Duo journey moves the simulator's hinge through Device Hub, so it runs on its own Duo simulator with
     # the posture driver beside it. Its screenshots of both Duo displays are the visual proof for the Duo.
     runs-on: xcode-27
+    # Lane c of 3: see the note on macOS lanes at the top of native.yml.
+    concurrency:
+      group: >-
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        && format('journeys-duo-journeys-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || 'spoonjoy-macos-lane-c' }}
+      queue: max
     timeout-minutes: 105
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -324,6 +338,13 @@ jobs:
     # shoots the open Duo. Not a required check. Dispatched with ax5, it runs alone at the largest accessibility text
     # size, for the "nothing truncates at AX5" check, and uploads only the light shots, named parity-<key>-light-ax5.png.
     runs-on: xcode-27
+    # Lane c of 3: see the note on macOS lanes at the top of native.yml.
+    concurrency:
+      group: >-
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        && format('journeys-parity-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || 'spoonjoy-macos-lane-c' }}
+      queue: max
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -460,6 +481,13 @@ jobs:
     name: Shopping UI tests
     if: ${{ !inputs.ax5 }}
     runs-on: xcode-27
+    # Lane c of 3: see the note on macOS lanes at the top of native.yml.
+    concurrency:
+      group: >-
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        && format('journeys-shopping-ui-tests-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || 'spoonjoy-macos-lane-c' }}
+      queue: max
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6

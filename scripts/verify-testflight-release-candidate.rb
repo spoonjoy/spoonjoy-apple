@@ -6,6 +6,7 @@ require "json"
 require "open3"
 require "optparse"
 require "time"
+require_relative "lib/green_commit"
 
 class CandidateVerificationError < StandardError; end
 
@@ -151,12 +152,8 @@ end
 class TestFlightReleaseCandidateVerifier
   SHA_PATTERN = /\A[0-9a-f]{40}\z/
   REPOSITORY_PATTERN = %r{\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z}
-  REQUIRED_NATIVE_JOBS = [
-    "Swift tests",
-    "Native scenario verifier",
-    "App bundle",
-    "Contracts"
-  ].freeze
+  # Every required check on main (scripts/lib/green_commit.rb). Release branches cut before Reins journeys may lack it.
+  REQUIRED_NATIVE_JOBS = GreenCommit::REQUIRED_CHECKS
   RELEASE_NOTE_JOB = "TestFlight release note"
   # A release branch carries a fix for a version already in App Review without the unreleased work on main.
   RELEASE_BRANCH_PATTERN = %r{\Arelease/[0-9][0-9A-Za-z.-]*\z}
@@ -201,7 +198,7 @@ class TestFlightReleaseCandidateVerifier
     rollback = validate_release_mode(main_sha)
     explicit_rollback_notes = rollback && !@rollback_notes.empty?
     run = select_native_run
-    validate_required_jobs(run.fetch("id"), require_release_note: !explicit_rollback_notes)
+    validate_required_jobs(run.fetch("id"), require_release_note: !explicit_rollback_notes, rollback: rollback)
     artifact, release_notes_path, release_notes = if explicit_rollback_notes
                                                      create_explicit_rollback_notes(run)
                                                    else
@@ -323,9 +320,10 @@ class TestFlightReleaseCandidateVerifier
     latest
   end
 
-  def validate_required_jobs(run_id, require_release_note:)
+  def validate_required_jobs(run_id, require_release_note:, rollback: false)
     jobs = Array(@evidence.jobs(run_id)["jobs"])
-    required_jobs = REQUIRED_NATIVE_JOBS.dup
+    required_jobs = GreenCommit.required_for(@release_branch.empty? ? "main" : @release_branch, jobs,
+                                             rollback: rollback).dup
     required_jobs << RELEASE_NOTE_JOB if require_release_note
     required_jobs.each do |required_name|
       matching = jobs.select { |job| job["name"] == required_name }
