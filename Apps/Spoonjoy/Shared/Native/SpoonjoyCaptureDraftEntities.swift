@@ -114,7 +114,7 @@ struct SpoonjoyCaptureDraftEntityQuery: EntityQuery, EntityStringQuery {
         let appDirectory = fileURL.deletingLastPathComponent()
         let syncStore = NativeProcessSyncStore.shared(appDirectory: appDirectory)
         let syncSnapshot = try await syncStore.loadSnapshot()
-        let scope = try await SpoonjoyIntentScopeProvider(authVault: KeychainTokenVault()).trustedIntentScope(from: syncSnapshot)
+        let scope = try await SpoonjoyIntentScopeProvider(authVault: SpoonjoyAppTokenVault.current()).trustedIntentScope(from: syncSnapshot)
         let appStateStore = NativeAppStateStore(fileURL: fileURL)
         let cacheStore = NativeDurableCacheStore(fileURL: appDirectory.appendingPathComponent("native-durable-cache.json"))
         return (appStateStore, cacheStore, scope)
