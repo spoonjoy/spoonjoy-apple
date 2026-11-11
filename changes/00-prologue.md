@@ -1,5 +1,6 @@
 ---
 kind: prologue
+platforms: [mac]
 ---
 Spoonjoy 1.2, or: The Night the Cookbook Got Its Clothes Back.
 

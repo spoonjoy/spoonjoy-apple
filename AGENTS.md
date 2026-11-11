@@ -57,7 +57,7 @@ The app must feel native and still unmistakably Spoonjoy.
 
 - Work on agent-scoped branches like `slugger/native-apple-bootstrap`.
 - Keep commits atomic and push after each commit.
-- Required checks on `main` are `Swift tests`, `Native scenario verifier`, `App bundle`, `Contracts`, and `Reins journeys`.
+- Required checks on `main` are `Swift tests`, `Native scenario verifier`, `App bundle`, `Contracts`, and `Reins journeys` from Native, and `Changelog fragment` from `changelog.yml`.
 - A pull request that changes what someone using the app could notice adds a changelog fragment in `changes/`: a short harrowing tale for What's New and one plain line for TestFlight ([changes/README.md](changes/README.md), voice in [docs/whats-new-voice.md](docs/whats-new-voice.md)). Every sentence must be true of the change. The `Changelog fragment` check (`changelog.yml`) fails an app change without one; label the pull request `no-user-facing-change` when nobody could notice it.
 - Optional macOS checks never run beside the required ones on a pull request: Native calls them after every required check passes (README, CI). Never add a `pull_request` trigger to a macOS workflow; add a call in `native.yml` instead.
 

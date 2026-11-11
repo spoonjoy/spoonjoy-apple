@@ -53,6 +53,37 @@ class ChangelogTest < Minitest::Test
     end
   end
 
+  # Front matter is read literally, so a PR number or a colon in the TestFlight line is never cut short.
+  def test_front_matter_is_read_literally
+    Dir.mktmpdir do |dir|
+      fragment(dir, "hash.md", "testflight: Fixes the crash in the #270 flow: shopping stays checked\nplatforms: ios, mac", "Fixed.")
+      fragment(dir, "quoted.md", "testflight: \"Quoted: still fine\"\nplatforms: [mac]\norder: -3", "Mac.")
+      fragments = Changelog.load!(dir)
+      assert_equal "Fixes the crash in the #270 flow: shopping stays checked", fragments.find { |f| f.slug == "hash" }.testflight
+      assert_equal %w[ios mac], fragments.find { |f| f.slug == "hash" }.platforms
+      quoted = fragments.find { |f| f.slug == "quoted" }
+      assert_equal ["Quoted: still fine", ["mac"], -3], [quoted.testflight, quoted.platforms, quoted.order]
+    end
+    assert_match(/look like key: value/, errors_for("testflight: ok\njust words").join)
+    assert_match(/testflight is set twice/, errors_for("testflight: ok\ntestflight: again").join)
+  end
+
+  def test_a_tale_the_mac_shows_uses_no_iphone_only_words
+    ["Tap Next.", "It shows on the Lock Screen.", "In the Dynamic Island.", "On iPhone Duo.", "Follows the hinge."].each do |body|
+      assert_match(/the Mac shows this tale/, errors_for("testflight: ok", body).join, body)
+      assert_equal [], errors_for("testflight: ok\nplatforms: [ios]", body), body
+    end
+    assert_equal [], errors_for("testflight: ok", "A tapestry of flavours.")
+  end
+
+  def test_dotfiles_in_changes_are_ignored
+    Dir.mktmpdir do |dir|
+      fragment(dir, "amber.md", "testflight: a")
+      File.write(File.join(dir, ".DS_Store"), "\x00\x01")
+      assert_equal [[], 1], [Changelog.load(dir).last, Changelog.load(dir).first.length]
+    end
+  end
+
   def test_whats_new_reads_prologue_tales_by_order_then_name_then_epilogue
     Dir.mktmpdir do |dir|
       fragment(dir, "zeta.md", "testflight: z\norder: 10", "Zeta.")
@@ -121,6 +152,7 @@ class ChangelogTest < Minitest::Test
     assert_match(/adds no fragment/, check(app + [%w[D changes/amber.md]]).join)
     assert_match(/adds no fragment/, check([%w[M Sources/SpoonjoyCore/Sync.swift]]).join)
     assert_match(/adds no fragment/, check([%w[M Package.resolved]]).join)
+    assert_match(/adds no fragment/, check([%w[M Spoonjoy.xcodeproj/project.pbxproj]]).join)
   end
 
   def test_changes_outside_the_app_need_nothing
@@ -137,6 +169,12 @@ class ChangelogTest < Minitest::Test
     assert_match(/archive --version 1.2 \(still waiting: amber, wrap\)/, errors.join)
     assert_equal [], check([%w[M distribution/app-store/listing.json]], base_version: "1.2", head_version: "1.3",
                                                                          base_fragments: %w[amber wrap], head_fragments: [])
+    # In the merge queue only the version rule runs.
+    queue = Changelog.check_pull_request(changes: [%w[M Apps/Spoonjoy/Shared/A.swift]], labels: [], base_version: "1.2",
+                                         head_version: "1.3", base_fragments: %w[late], head_fragments: %w[late],
+                                         require_fragment: false)
+    assert_equal 1, queue.length
+    assert_match(/still waiting: late/, queue.first)
   end
 
   def test_archive_moves_fragments_beside_the_text_each_platform_shipped

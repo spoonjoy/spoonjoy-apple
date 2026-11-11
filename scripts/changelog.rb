@@ -5,8 +5,9 @@
 #
 #   ruby scripts/changelog.rb validate                     every fragment, and each platform's What's New, fit the rules
 #   ruby scripts/changelog.rb whats-new --platform IOS     print What's New for IOS or MAC_OS
-#   ruby scripts/changelog.rb check-pr --base SHA --head SHA [--labels a,b]
-#                                                          the pull request carries a fragment if it changes the app
+#   ruby scripts/changelog.rb check-pr --base SHA --head SHA [--labels a,b] [--version-only]
+#                                                          the pull request carries a fragment if it changes the app,
+#                                                          and a version change archives the old version's fragments
 #   ruby scripts/changelog.rb testflight-notes [--since REV]
 #                                                          print TestFlight's What to Test for HEAD (REV defaults to HEAD^)
 #   ruby scripts/changelog.rb archive --version 1.2        move the waiting fragments to changes/released/1.2/
@@ -50,6 +51,7 @@ OptionParser.new do |opts|
   opts.on("--since REV") { |v| options[:since] = v }
   opts.on("--version V") { |v| options[:version] = v }
   opts.on("--subject TEXT") { |v| options[:subject] = v }
+  opts.on("--version-only") { options[:version_only] = true }
 end.parse!
 
 begin
@@ -70,7 +72,8 @@ begin
     errors += Changelog.check_pull_request(
       changes: name_status(base, options[:head]), labels: options[:labels],
       base_version: version_at(base), head_version: version_at(options[:head]),
-      base_fragments: fragments_at(base), head_fragments: fragments_at(options[:head])
+      base_fragments: fragments_at(base), head_fragments: fragments_at(options[:head]),
+      require_fragment: !options[:version_only]
     )
     if errors.empty?
       puts "Changelog: fine."

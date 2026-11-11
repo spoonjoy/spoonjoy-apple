@@ -38,6 +38,13 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
         run: ruby scripts/changelog.rb check-pr --base "$BASE_SHA" --head "$HEAD_SHA" --labels "$LABELS"
+      # A version change must archive every fragment main is holding, including ones that merged after the pull
+      # request branched, so the queue checks the version rule again against main as it really is.
+      - name: Check the version rule against main
+        if: github.event_name == 'merge_group'
+        env:
+          BASE_SHA: ${{ github.event.merge_group.base_sha }}
+        run: ruby scripts/changelog.rb check-pr --base "$BASE_SHA" --head HEAD --version-only
       - name: Validate the waiting fragments
         run: ruby scripts/changelog.rb validate
       - name: Show What's New as the App Store will

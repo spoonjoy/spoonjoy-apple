@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "fileutils"
-require "yaml"
 
 # Changelog fragments: every pull request that changes what someone sees in the app adds one file to changes/,
 # written as a short harrowing tale (changes/README.md has the format, docs/whats-new-voice.md the voice). At
@@ -28,7 +27,9 @@ module Changelog
     "Apps/Spoonjoy/LiveActivity/",
     "Sources/SpoonjoyCore/",
     "Package.swift",
-    "Package.resolved"
+    "Package.resolved",
+    # Build settings and package pins live in the project file too.
+    "Spoonjoy.xcodeproj/"
   ].freeze
   # The App Store shows What's New as plain text, so Markdown would show up as stray symbols.
   MARKDOWN = [
@@ -56,13 +57,8 @@ module Changelog
     match = text.match(/\A---\n(.*?)\n---\n(.*)\z/m)
     raise Error, "#{name}: start with a --- front matter block (changes/README.md shows one)" unless match
 
-    begin
-      meta = YAML.safe_load(match[1]) || {}
-    rescue Psych::Exception => e
-      raise Error, "#{name}: front matter is not YAML (#{e.message.lines.first.strip})"
-    end
-    raise Error, "#{name}: front matter must be key: value lines" unless meta.is_a?(Hash)
-
+    meta, line_errors = front_matter(name, match[1])
+    errors.concat(line_errors)
     unknown = meta.keys - KEYS
     errors << "#{name}: unknown front matter #{unknown.join(', ')}; use #{KEYS.join(', ')}" unless unknown.empty?
     kind = meta.fetch("kind", "tale")
@@ -88,12 +84,44 @@ module Changelog
     body = match[2].strip
     errors << "#{name}: the tale is empty" if body.empty?
     MARKDOWN.each { |pattern, what| errors << "#{name}: the App Store shows plain text, so drop #{what}" if body.match?(pattern) }
+    if platforms.include?("mac") && (word = body[IOS_ONLY_WORDS])
+      errors << "#{name}: the Mac shows this tale, so it can't say #{word.inspect}; give iPhone and iPad their own fragment (platforms: [ios])"
+    end
     errors.concat(Array(testflight).flat_map { |line| MARKDOWN.select { |pattern, _| line.to_s.match?(pattern) }.map { |_, what| "#{name}: testflight is plain text, so drop #{what}" } })
     raise Error, errors.join("\n") unless errors.empty?
 
     Fragment.new(slug: name.delete_suffix(".md"), path: path, testflight: testflight&.strip, platforms: platforms.uniq,
                  order: order, kind: kind, body: body)
   end
+
+  # Front matter is plain "key: value" lines, read literally: a # or a colon in the TestFlight line is text, never
+  # YAML syntax that would quietly cut the line short. Quotes around a value are optional. platforms reads
+  # [ios, mac] or ios, mac; order is a whole number.
+  def self.front_matter(name, text)
+    meta = {}
+    errors = []
+    text.each_line do |line|
+      next if line.strip.empty?
+
+      key, value = line.chomp.split(":", 2)
+      if value.nil? || !key.match?(/\A[a-z]+\z/)
+        errors << "#{name}: front matter lines look like key: value, not #{line.strip.inspect}"
+        next
+      end
+      errors << "#{name}: #{key} is set twice" if meta.key?(key)
+      value = value.strip
+      value = value[1..-2] if value.length >= 2 && value[0] == value[-1] && %w[" '].include?(value[0])
+      meta[key] = case key
+                  when "platforms" then value.delete_prefix("[").delete_suffix("]").split(",").map(&:strip).reject(&:empty?)
+                  when "order" then value.match?(/\A-?\d+\z/) ? value.to_i : value
+                  else value
+                  end
+    end
+    [meta, errors]
+  end
+
+  # Words that are true only on iPhone and iPad, so a tale the Mac shows can't use them.
+  IOS_ONLY_WORDS = /\b(Lock Screen|Dynamic Island|Duo|hinge|tap|taps|tapped|iPhone|iPad|Home Screen|swipe)\b/i.freeze
 
   # The fragments waiting in dir (top level only; released/ holds archived ones), and every problem with them.
   def self.load(dir)
@@ -103,7 +131,7 @@ module Changelog
 
     Dir.children(dir).sort.each do |name|
       path = File.join(dir, name)
-      next if File.directory?(path) || name == "README.md"
+      next if File.directory?(path) || name == "README.md" || name.start_with?(".")
 
       begin
         fragments << parse(path)
@@ -175,12 +203,14 @@ module Changelog
 
   # Problems with a pull request's change set. changes is [[status, path], ...] from git diff --name-status
   # (renames already split into a delete and an add). base_fragments are the fragments waiting on the base.
-  def self.check_pull_request(changes:, labels:, base_version:, head_version:, base_fragments:, head_fragments:)
+  # require_fragment is false in the merge queue, where only the version rule is checked again against the real base.
+  def self.check_pull_request(changes:, labels:, base_version:, head_version:, base_fragments:, head_fragments:,
+                              require_fragment: true)
     errors = []
     touched = changes.map(&:last)
     app = touched.select { |path| app_path?(path) }
     added = changes.select { |status, path| %w[A M].include?(status) && fragment_path?(path) }.map(&:last)
-    if !app.empty? && added.empty? && !labels.include?(SKIP_LABEL)
+    if require_fragment && !app.empty? && added.empty? && !labels.include?(SKIP_LABEL)
       errors << "This pull request changes the app (#{app.first(3).join(', ')}#{app.length > 3 ? ', …' : ''}) but adds no " \
                 "fragment in changes/. Add one (changes/README.md), or label the pull request #{SKIP_LABEL} if nobody " \
                 "using the app could notice."

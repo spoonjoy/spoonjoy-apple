@@ -6,4 +6,3 @@ The old look went first, and it did not go quietly. Spoonjoy now wears the same 
 
 • Ingredients tick off in warm brass.
 • Steps read in a bigger, friendlier serif you can follow from across the kitchen.
-• A recipe still waiting for its photo gets a golden monogram instead of staring at you from an empty frame.
