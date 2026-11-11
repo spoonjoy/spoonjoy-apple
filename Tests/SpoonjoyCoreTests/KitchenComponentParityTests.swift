@@ -146,7 +146,7 @@ struct KitchenComponentParityTests {
         #expect(plate.contains("RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo"))
         #expect(!plate.contains("cornerRadius: 14"))
         let spread = try Self.source("\(Self.views)/RecipeDetailView.swift")
-        #expect(Self.containsLines(spread, [".frame(height: 220)", ".clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo))"]))
+        #expect(Self.containsLines(spread, [".frame(height: CGFloat(BookSpreadLayout.coverHeight(pageWidth: Double(pageWidth))))", ".clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo))"]))
     }
 
     @Test("recipe titles and chef bylines wrap like web's instead of ending in an ellipsis")
