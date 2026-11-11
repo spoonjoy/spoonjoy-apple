@@ -3425,9 +3425,9 @@ struct CookSheetMorph: ViewModifier, Animatable {
             // shape behind the card: a shadow on the card itself would render the whole cook page off screen on every
             // frame of the flight.
             .background {
-                // Ink while the card is the button and paper once it is the page, so no other colour shows at its edge.
+                // The action fill while the card is the button and paper once it is the page, so no other colour shows at its edge.
                 shape
-                    .fill(KitchenTableTheme.ink)
+                    .fill(KitchenTableTheme.action)
                     .overlay(shape.fill(KitchenTableTheme.page).opacity(sheet).opacity(paper))
                     .shadow(color: .black.opacity(0.22 * Double(4 * p * (1 - p))), radius: 24, y: 8)
                     .allowsHitTesting(false)
