@@ -110,6 +110,7 @@ jobs:
           ruby scripts/test/release_branch_workflow_test.rb
           ruby scripts/test/optional_checks_wait_test.rb
           ruby scripts/test/no_design_hex_test.rb
+          ruby scripts/test/app_shortcuts_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
           ruby scripts/stage-app-store-listing.rb --validate-only --platform MAC_OS
           ruby scripts/seed-review-demo-account.rb --validate-only
@@ -275,6 +276,10 @@ jobs:
           cp -R "$app/Metadata.appintents" "$out/"
           (cd "$app" && find . -name '*.skillsbundle' -type d -prune -exec rsync -R -a {} "$out/" \;)
           ls -R "$out" | head -40
+      # Siri only offers a phrase that names the app and whose placeholders are entities; this holds what Xcode compiled
+      # to config/app-shortcuts.json, the list the device checklist reads out.
+      - name: Check the App Shortcuts Siri can reach
+        run: ruby scripts/check-app-shortcuts.rb "$RUNNER_TEMP/xray-input/Spoonjoy.app/Metadata.appintents/extract.actionsdata"
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: app-intents-metadata-${{ github.sha }}
