@@ -4,7 +4,8 @@
 // key show the same screens, so Store scenes photographs a key once and every later release reuses it; a caption
 // or palette change re-frames the same scenes without a Mac.
 //
-//   node scripts/store-frames/scene-key.mjs [REV]      prints store-scenes-<key> for REV (default HEAD)
+//   node scripts/store-frames/scene-key.mjs [REV] [--root DIR]   prints store-scenes-<key> for REV (default HEAD) of
+//                                                                the checkout at DIR (default this one)
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
@@ -31,6 +32,9 @@ export function sceneKey(rev = "HEAD", root = ROOT) {
   return `store-scenes-${createHash("sha256").update(tree).update(JSON.stringify(sets)).digest("hex").slice(0, 20)}`;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  console.log(sceneKey(process.argv[2] ?? "HEAD"));
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const args = process.argv.slice(2);
+  const at = args.indexOf("--root");
+  const root = at >= 0 ? resolve(args.splice(at, 2)[1]) : ROOT;
+  console.log(sceneKey(args[0] ?? "HEAD", root));
 }

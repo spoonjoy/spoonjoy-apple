@@ -27,6 +27,14 @@ class Pick(unittest.TestCase):
         self.assertEqual(picker.pick("iPhone Duo", LISTING, sdk="27.1"), ("iOS-27.1", "iPhone Duo"))
         self.assertEqual(picker.pick("iPad", LISTING, sdk="27.1"), ("iOS-27.0", "iPad Pro"))
 
+    def test_a_device_type_pattern_picks_the_newest_match(self):
+        listing = {"runtimes": [runtime("27.0", "iPhone 16 Pro Max", "iPhone 17 Pro Max", "iPhone 17 Pro", "iPad Pro 13-inch (M5)")]}
+        self.assertEqual(picker.pick(r"^iPhone \d+ Pro Max$", listing), ("iOS-27.0", "iPhone 17 Pro Max"))
+        self.assertEqual(picker.pick(r"^iPhone \d+ Pro$", listing), ("iOS-27.0", "iPhone 17 Pro"))
+        self.assertEqual(picker.pick("^iPad Pro 13-inch", listing), ("iOS-27.0", "iPad Pro 13-inch (M5)"))
+        with self.assertRaises(SystemExit):
+            picker.pick("^iPhone Air$", listing)
+
     def test_no_runtime_at_or_below_the_sdk(self):
         with self.assertRaises(SystemExit):
             picker.pick("iPhone", LISTING, sdk="26.4")

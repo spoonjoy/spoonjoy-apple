@@ -67,6 +67,7 @@ In short: a pull request runs five required checks, then the optional checks, th
 - `beta-sdk.yml` (**Beta SDK**): compiles the iOS app with newer beta Xcodes to catch API breakage early. Not a required check.
 - `app-intents-xray.yml` (**App Intents X-ray**): the X-ray's behaviour stage, signed out, on `main` after TestFlight. Evidence only, not a required check.
 - `testflight.yml` (**TestFlight**): publishes to internal TestFlight after Native succeeds on a `main` push.
+- `store-scenes.yml` (**Store scenes**) and `store-frames.yml` (**Store frames**): Store scenes photographs the App Store scenes in the App Store build on the review demo kitchen, on demand at release and only when the screens changed. Store frames tests the deterministic frame renderer when it or its spec changes ([App Store screenshots](docs/apple-distribution.md#app-store-screenshots)). Not required checks.
 - `submit-app-store-review.yml`, `app-store-release.yml` and `app-review-watch.yml` (**App Store**): submit a version to App Review, release it, and keep one `app-review` issue per platform and version while it is in review ([App Review](docs/apple-distribution.md#app-review)).
 
 To X-ray a local build:

@@ -3,18 +3,22 @@
 
 Usage: create-newest-simulator.py FAMILY NAME
 
-FAMILY is "iPhone Duo", "iPhone" (any iPhone but the Duo) or "iPad". The newest runtime differs per family: on the
+FAMILY is "iPhone Duo", "iPhone" (any iPhone but the Duo) or "iPad", or a regular expression starting with ^ that
+names device types, such as "^iPhone \\d+ Pro Max$" for the App Store's 6.9" screenshots (the newest match wins). The newest runtime differs per family: on the
 xcode-27 runners iOS 27.1 lists only the iPhone Duo, while other iPhones and iPads stop at iOS 27.0.
 
 Never a runtime newer than the selected Xcode's simulator SDK: an image can carry one ahead of its Xcode (iOS 27.2 beside
 Xcode 27.1), and a device on it hung booting twice (#218).
 """
 import json
+import re
 import subprocess
 import sys
 
 
 def matches(family, device_type):
+    if family.startswith("^"):
+        return re.search(family, device_type["name"]) is not None
     if family == "iPhone Duo":
         return "Duo" in device_type["name"]
     return device_type.get("productFamily") == family and "Duo" not in device_type["name"]
@@ -34,7 +38,8 @@ def pick(family, listing, sdk=None):
     if not runtimes:
         raise SystemExit(f"No available iOS runtime{f' up to {sdk}' if sdk else ''} supports a {family}.")
     runtime = max(runtimes, key=lambda r: version(r["version"]))
-    device_type = next(t for t in runtime["supportedDeviceTypes"] if matches(family, t))
+    candidates = [t for t in runtime["supportedDeviceTypes"] if matches(family, t)]
+    device_type = max(candidates, key=lambda t: t["name"]) if family.startswith("^") else candidates[0]
     return runtime["identifier"], device_type["identifier"]
 
 

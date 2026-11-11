@@ -5,10 +5,13 @@
 // is the one pinned in package-lock.json, and --check renders everything twice and fails on any byte that differs.
 //
 //   node scripts/store-frames/render.mjs --scenes DIR --out DIR [--spec PATH] [--sets iphone-69,ipad-13] [--check]
+//                                        [--keep-from DIR]
 //
-// DIR/<set>/<scene>.png in, OUT/<set>/<id>.png out, plus OUT/manifest.json with every frame's SHA-256.
+// DIR/<set>/<scene>.png in, OUT/<set>/<id>.png out, plus OUT/manifest.json with every frame's SHA-256. A set's
+// "keep" files (art no scene can make yet, such as the iPhone Duo spread) are copied as they are from --keep-from,
+// by default distribution/app-store/screenshots beside the spec.
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
@@ -36,11 +39,16 @@ export function validateSpec(spec) {
   for (const [name, set] of Object.entries(spec.sets)) {
     if (!Array.isArray(set.size) || set.size.length !== 2) errors.push(`${name}: size is [width, height]`);
     if (!["iphone", "ipad"].includes(set.device)) errors.push(`${name}: device is iphone or ipad`);
-    if (!set.shots.length || set.shots.length > 10) errors.push(`${name}: a set has 1 to 10 shots`);
+    if (!set.shots.length) errors.push(`${name}: a set has at least one shot`);
     const ids = new Set();
+    for (const file of set.keep ?? []) {
+      if (!/^\d\d-[a-z0-9-]+\.png$/.test(file)) errors.push(`${name}: keep ${file} looks like 05-duo.png`);
+      ids.add(file.replace(/\.png$/, ""));
+    }
+    if ((set.keep ?? []).length + set.shots.length > 10) errors.push(`${name}: the App Store takes at most 10 screenshots`);
     for (const shot of set.shots) {
       if (!/^\d\d-[a-z0-9-]+$/.test(shot.id)) errors.push(`${name}: shot id ${shot.id} looks like 01-cook`);
-      if (ids.has(shot.id)) errors.push(`${name}: shot id ${shot.id} is used twice`);
+      if (ids.has(shot.id) || [...ids].some((id) => id.slice(0, 2) === shot.id.slice(0, 2))) errors.push(`${name}: shot id ${shot.id} is used twice, or shares its number`);
       ids.add(shot.id);
       if (!spec.palettes[shot.palette]) errors.push(`${name}/${shot.id}: no palette ${shot.palette}`);
       if (!shot.headline) errors.push(`${name}/${shot.id}: no headline`);
@@ -111,7 +119,7 @@ export function scenePath(scenesDir, setName, set, scene) {
   return path;
 }
 
-async function renderAll({ spec, scenes, out, sets }) {
+async function renderAll({ spec, scenes, out, sets, keepFrom }) {
   const { chromium } = await import("playwright");
   // Fixed rendering: no GPU, no LCD text or hinting differences, sRGB.
   const browser = await chromium.launch({
@@ -139,6 +147,12 @@ async function renderAll({ spec, scenes, out, sets }) {
         manifest[`${setName}/${shot.id}.png`] = sha256(png);
       }
       await page.close();
+      for (const file of set.keep ?? []) {
+        const from = join(keepFrom, setName, file);
+        if (!existsSync(from)) throw new Error(`${setName} keeps ${file}, but ${from} is missing`);
+        copyFileSync(from, join(out, setName, file));
+        manifest[`${setName}/${file}`] = sha256(readFileSync(from));
+      }
     }
   } finally {
     await browser.close();
@@ -155,6 +169,7 @@ async function main() {
       sets: { type: "string" },
       check: { type: "boolean", default: false },
       "validate-only": { type: "boolean", default: false },
+      "keep-from": { type: "string" },
     },
   });
   const spec = loadSpec(values.spec);
@@ -165,9 +180,10 @@ async function main() {
   const sets = values.sets ? values.sets.split(",") : Object.keys(spec.sets);
   const unknown = sets.filter((s) => !spec.sets[s]);
   if (unknown.length) throw new Error(`no set ${unknown.join(", ")} in the spec`);
-  const manifest = await renderAll({ spec, scenes: values.scenes, out: values.out, sets });
+  const keepFrom = values["keep-from"] ?? join(dirname(values.spec), "../screenshots");
+  const manifest = await renderAll({ spec, scenes: values.scenes, out: values.out, sets, keepFrom });
   if (values.check) {
-    const again = await renderAll({ spec, scenes: values.scenes, out: join(values.out, ".again"), sets });
+    const again = await renderAll({ spec, scenes: values.scenes, out: join(values.out, ".again"), sets, keepFrom });
     const differ = Object.keys(manifest).filter((k) => manifest[k] !== again[k]);
     if (differ.length) throw new Error(`the same scenes rendered different pixels: ${differ.join(", ")}`);
     console.log(`check: ${Object.keys(manifest).length} frames rendered twice, byte for byte the same`);
@@ -180,7 +196,7 @@ async function main() {
   for (const [path, hash] of Object.entries(manifest)) console.log(`${hash}  ${path}`);
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
     for (const line of String(error.message).split("\n")) console.error(`::error::${line}`);
     process.exit(1);

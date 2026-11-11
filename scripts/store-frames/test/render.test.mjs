@@ -47,7 +47,10 @@ test("the checked-in spec is valid and matches the App Store sizes in listing.js
 test("the spec refuses bad shots", () => {
   const spec = { palettes: { a: ["#000", "#000", "#fff", "#eee"] },
     sets: { x: { size: [1, 2], device: "watch", shots: [{ id: "cook", scene: "Cook", palette: "b" }, { id: "cook", scene: "x", palette: "a", headline: "h" }] } } };
+  spec.sets.y = { size: [1, 2], device: "iphone", keep: ["05-duo.png", "duo.png"], shots: [{ id: "05-cook", scene: "x", palette: "a", headline: "h" }] };
   const errors = validateSpec(spec).join("\n");
+  assert.match(errors, /keep duo.png looks like 05-duo.png/);
+  assert.match(errors, /y: shot id 05-cook is used twice, or shares its number/);
   for (const what of ["device is iphone or ipad", "looks like 01-cook", "used twice", "no palette b", "no headline", "names a Store scene"]) {
     assert.match(errors, new RegExp(what));
   }

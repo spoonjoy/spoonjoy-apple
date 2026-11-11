@@ -1,0 +1,260 @@
+name: Store scenes
+
+# Photographs the App Store scenes (distribution/app-store/frames/spec.json) in the App Store build, signed in as the
+# App Review demo account on production, whose kitchen is seeded from review-demo-kitchen.json. Each simulator gets
+# 9:41, full bars and a full battery, en_US, and the light or dark appearance its scenes ask for. The scenes are kept
+# as an artifact named for their scene key (scripts/store-frames/scene-key.mjs): a commit whose screens have not
+# changed since the last photographs reuses them, so a Mac runs only when something on screen changed. Then the
+# scenes are framed twice and must match byte for byte. "Stage App Store listing" frames the same scenes at release.
+# Runs from main only, because the demo credentials live in the internal-testflight environment.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or commit to photograph (default main)
+        required: false
+        type: string
+      force:
+        description: Photograph again even if this scene key already has scenes
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: spoonjoy-store-scenes
+  cancel-in-progress: false
+
+jobs:
+  key:
+    name: Scene key
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      key: ${{ steps.key.outputs.key }}
+      sha: ${{ steps.key.outputs.sha }}
+      have: ${{ steps.key.outputs.have }}
+      sets: ${{ steps.key.outputs.sets }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+      - name: Work out the scene key
+        id: key
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          key="$(node scripts/store-frames/scene-key.mjs HEAD)"
+          have="$(gh api "repos/$REPO/actions/artifacts?name=$key&per_page=10" --jq '[.artifacts[] | select(.expired | not)] | length')"
+          sets="$(node --input-type=module -e '
+            import { loadSpec, scenesFor } from "./scripts/store-frames/render.mjs";
+            const spec = loadSpec("distribution/app-store/frames/spec.json");
+            console.log(JSON.stringify(Object.entries(spec.sets).map(([set, s]) => {
+              const scenes = scenesFor(s);
+              return { set, simulator: s.simulator, light: scenes.filter((x) => !x.endsWith("-dark")).join(" "), dark: scenes.filter((x) => x.endsWith("-dark")).join(" ") };
+            })));')"
+          { echo "key=$key"; echo "sha=$(git rev-parse HEAD)"; echo "have=$have"; echo "sets=$sets"; } >> "$GITHUB_OUTPUT"
+          echo "Scene key $key for $(git rev-parse HEAD): $have earlier photograph(s)" >> "$GITHUB_STEP_SUMMARY"
+
+  scenes:
+    name: Scenes (${{ matrix.set }})
+    needs: key
+    if: needs.key.outputs.have == '0' || inputs.force
+    runs-on: xcode-27
+    timeout-minutes: 75
+    environment: internal-testflight
+    strategy:
+      fail-fast: false
+      # One device at a time: every run signs in to the same demo kitchen, and cook mode touches its progress.
+      max-parallel: 1
+      matrix:
+        include: ${{ fromJSON(needs.key.outputs.sets) }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.key.outputs.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/select-xcode
+      - name: Create the ${{ matrix.set }} simulator
+        id: sim
+        timeout-minutes: 16
+        env:
+          SIMULATOR: ${{ matrix.simulator }}
+          SET: ${{ matrix.set }}
+        run: |
+          set -euo pipefail
+          .github/scripts/create-and-boot-simulator.sh "$SIMULATOR" "store-$SET" "$RUNNER_TEMP/sim.udid"
+          echo "udid=$(cat "$RUNNER_TEMP/sim.udid")" >> "$GITHUB_OUTPUT"
+          echo "booted-at=$(cat "$RUNNER_TEMP/sim.udid.booted-at")" >> "$GITHUB_OUTPUT"
+      - name: Build for testing
+        timeout-minutes: 30
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/store"
+          # Ad hoc signing, as in Review demo launch: an unsigned Release app has no keychain and cannot stay signed in.
+          xcodebuild build-for-testing -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release \
+            -destination "platform=iOS Simulator,id=$UDID" -only-testing:SpoonjoyShoppingUITests/StoreScenesUITests \
+            -derivedDataPath "$RUNNER_TEMP/store/DerivedData" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= 2>&1 | tee "$RUNNER_TEMP/store/build.log" | tail -30
+      - name: Wait for the simulator to settle
+        timeout-minutes: 8
+        run: python3 .github/scripts/wait-for-simulator-settle.py "${{ steps.sim.outputs.udid }}" --booted-at "${{ steps.sim.outputs.booted-at }}"
+      - name: Set the status bar, locale and text size
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          set -euo pipefail
+          xcrun simctl status_bar "$UDID" override --time 9:41 --dataNetwork wifi --wifiMode active --wifiBars 3 \
+            --cellularMode active --cellularBars 4 --operatorName '' --batteryState charged --batteryLevel 100
+          xcrun simctl ui "$UDID" content_size large
+          xcrun simctl spawn "$UDID" defaults write -g AppleLanguages -array en
+          xcrun simctl spawn "$UDID" defaults write -g AppleLocale -string en_US
+      - name: Write the scene requests
+        env:
+          SPOONJOY_REVIEW_DEMO_USERNAME: ${{ secrets.SPOONJOY_REVIEW_DEMO_USERNAME }}
+          SPOONJOY_REVIEW_DEMO_PASSWORD: ${{ secrets.SPOONJOY_REVIEW_DEMO_PASSWORD }}
+          LIGHT: ${{ matrix.light }}
+          DARK: ${{ matrix.dark }}
+        run: |
+          set -euo pipefail
+          echo "::add-mask::$SPOONJOY_REVIEW_DEMO_PASSWORD"
+          echo "::add-mask::$SPOONJOY_REVIEW_DEMO_USERNAME"
+          umask 077
+          mkdir -p "$RUNNER_TEMP/store-secrets"
+          python3 - "$RUNNER_TEMP/store-secrets" <<'PY'
+          import json, os, sys
+          user, password = os.environ["SPOONJOY_REVIEW_DEMO_USERNAME"], os.environ["SPOONJOY_REVIEW_DEMO_PASSWORD"]
+          if not user or not password:
+              raise SystemExit("The demo account secrets are empty.")
+          for appearance in ("light", "dark"):
+              scenes = os.environ[appearance.upper()].split()
+              if scenes:
+                  json.dump({"username": user, "password": password, "scenes": scenes},
+                            open(os.path.join(sys.argv[1], f"{appearance}.json"), "w"))
+          PY
+      - name: Photograph the scenes
+        timeout-minutes: 30
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          set -euo pipefail
+          for appearance in light dark; do
+            request="$RUNNER_TEMP/store-secrets/$appearance.json"
+            [ -f "$request" ] || continue
+            xcrun simctl ui "$UDID" appearance "$appearance"
+            # The test runner gets only the path of the 0600 file, so the result bundle records no credential.
+            export TEST_RUNNER_SPOONJOY_STORE_SCENES_FILE="$request"
+            xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release \
+              -destination "platform=iOS Simulator,id=$UDID" -only-testing:SpoonjoyShoppingUITests/StoreScenesUITests \
+              -derivedDataPath "$RUNNER_TEMP/store/DerivedData" -parallel-testing-enabled NO -collect-test-diagnostics never \
+              -resultBundlePath "$RUNNER_TEMP/store/$appearance.xcresult" 2>&1 | tee "$RUNNER_TEMP/store/test-$appearance.log"
+            if grep -E "Test Case .*StoreScenesUITests.* skipped" "$RUNNER_TEMP/store/test-$appearance.log"; then
+              echo "::error::The Store scenes test was skipped"
+              exit 1
+            fi
+          done
+      - name: Remove credentials
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/store-secrets"
+      - name: Scan for the demo password
+        id: scan
+        if: always()
+        env:
+          SPOONJOY_REVIEW_DEMO_PASSWORD: ${{ secrets.SPOONJOY_REVIEW_DEMO_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if grep -rlF -- "$SPOONJOY_REVIEW_DEMO_PASSWORD" "$RUNNER_TEMP/store" >/dev/null 2>&1; then
+            echo "::error::The demo password appears in an artifact; not uploading"
+            exit 1
+          fi
+      - name: Export the scenes
+        env:
+          SET: ${{ matrix.set }}
+          LIGHT: ${{ matrix.light }}
+          DARK: ${{ matrix.dark }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/export-store-scenes.py "$RUNNER_TEMP/store/light.xcresult" "$RUNNER_TEMP/scenes/$SET" $LIGHT
+          if [ -n "$DARK" ]; then
+            python3 .github/scripts/export-store-scenes.py "$RUNNER_TEMP/store/dark.xcresult" "$RUNNER_TEMP/scenes/$SET" $DARK
+          fi
+          for png in "$RUNNER_TEMP/scenes/$SET"/*.png; do
+            echo "$(basename "$png"): $(sips -g pixelWidth -g pixelHeight "$png" | awk '/pixel/ {printf "%s ", $2}')"
+          done
+      - name: Upload the scenes
+        if: steps.scan.outcome == 'success'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: scenes-${{ matrix.set }}
+          path: ${{ runner.temp }}/scenes
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload the result bundles
+        if: failure() && steps.scan.outcome == 'success'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: store-scenes-results-${{ matrix.set }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/store/*.xcresult
+            ${{ runner.temp }}/store/test-*.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Delete the simulator
+        if: always()
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          if [ -n "$UDID" ]; then xcrun simctl shutdown "$UDID" || true; xcrun simctl delete "$UDID" || true; fi
+
+  frames:
+    name: Frames
+    needs: [key, scenes]
+    if: always() && needs.key.result == 'success' && needs.scenes.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.key.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          pattern: scenes-*
+          path: ${{ runner.temp }}/scenes
+          merge-multiple: true
+      - name: Install the renderer
+        working-directory: scripts/store-frames
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Frame the scenes twice and compare
+        run: node scripts/store-frames/render.mjs --scenes "$RUNNER_TEMP/scenes" --out "$RUNNER_TEMP/frames" --check | tee "$RUNNER_TEMP/frames.txt"
+      - name: Keep the scenes under their key
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ${{ needs.key.outputs.key }}
+          path: ${{ runner.temp }}/scenes
+          if-no-files-found: error
+          retention-days: 90
+      - name: Upload the frames
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: store-frames-${{ needs.key.outputs.sha }}
+          path: |
+            ${{ runner.temp }}/frames/*/*.png
+            ${{ runner.temp }}/frames/manifest.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Summarize
+        env:
+          KEY: ${{ needs.key.outputs.key }}
+        run: |
+          { echo "### Store frames for $KEY"; echo '```text'; cat "$RUNNER_TEMP/frames.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
