@@ -46,4 +46,18 @@ final class ShoppingAisleColumnsTests: XCTestCase {
         XCTAssertEqual(ShoppingAisleColumns.split(heights: [3, 5], columns: 1), [0..<2])
         XCTAssertEqual(ShoppingAisleColumns.split(heights: [], columns: 2), [])
     }
+
+    func testThePageWidensOnlyWhenThreeColumnsAreDrawn() {
+        // The 13" iPad held sideways beside the sidebar and the recipes pane: about 1,000 pt of list container.
+        let three = ShoppingAisleColumns.count(containerWidth: 1000, aisles: 6, setsColumns: true)
+        XCTAssertEqual(three, 3)
+        XCTAssertEqual(ShoppingAisleColumns.pageWidth(columns: three), ShoppingAisleColumns.widePageWidth)
+        // Two columns fit the 760 pt page, so it keeps its width.
+        let two = ShoppingAisleColumns.count(containerWidth: 900, aisles: 6, setsColumns: true)
+        XCTAssertEqual(two, 2)
+        XCTAssertEqual(ShoppingAisleColumns.pageWidth(columns: two), ShoppingAisleColumns.narrowPageWidth)
+        // An empty list and accessibility sizes keep one column and the 760 pt page.
+        XCTAssertEqual(ShoppingAisleColumns.count(containerWidth: 1400, aisles: 0, setsColumns: true), 1)
+        XCTAssertEqual(ShoppingAisleColumns.count(containerWidth: 1400, aisles: 6, setsColumns: false), 1)
+    }
 }

@@ -17,7 +17,7 @@ struct ShoppingListView: View {
     @State private var checkHapticTick = 0
     @State private var remindersSender = SpoonjoyRemindersSender()
     /// The list's width, measured, for setting its aisles in columns on a wide iPad page.
-    @State private var listWidth: CGFloat = 0
+    @State private var containerWidth: CGFloat = 0
     @FocusState private var isItemFieldFocused: Bool
     @FocusState private var isRetryButtonFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -72,7 +72,7 @@ struct ShoppingListView: View {
     }
 
     var body: some View {
-        KitchenTablePage(maxContentWidth: Self.setsAislesInColumns ? CGFloat(ShoppingAisleColumns.widePageWidth) : 760, topPadding: usesCompactNavigation ? 4 : 20) {
+        KitchenTablePage(maxContentWidth: CGFloat(ShoppingAisleColumns.pageWidth(columns: aisleColumnCount)), topPadding: usesCompactNavigation ? 4 : 20) {
             shoppingRunHeader
             VStack(alignment: .leading, spacing: 10) {
                 shoppingReceiptComposer
@@ -81,6 +81,7 @@ struct ShoppingListView: View {
             }
             shoppingReceiptState
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { containerWidth = $0 }
         .spoonjoyRemindersSend(remindersSender)
         .onChange(of: remindersSender.statusMessage) { _, message in
             if let message {
@@ -492,7 +493,6 @@ struct ShoppingListView: View {
             )
         } else if let presentation = shoppingPresentation {
             aisleColumns(presentation.sections)
-                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { listWidth = $0 }
         } else if let receiptState = viewModel.shoppingReceiptState {
             ShoppingReceiptStateView(state: receiptState, clearChecked: clearCompleted)
         }
@@ -502,9 +502,7 @@ struct ShoppingListView: View {
     /// upright 13" iPad beside its recipes pane, or wider. A phone, the open Duo, the Mac, a narrow window and
     /// accessibility text sizes keep the one list.
     @ViewBuilder private func aisleColumns(_ sections: [ShoppingPresentationSection]) -> some View {
-        let columns = Self.setsAislesInColumns && !dynamicTypeSize.isAccessibilitySize
-            ? ShoppingAisleColumns.count(width: Double(listWidth), aisles: sections.count)
-            : 1
+        let columns = aisleColumnCount
         if columns > 1 {
             let ranges = ShoppingAisleColumns.split(heights: sections.map { $0.items.count + 1 }, columns: columns)
             HStack(alignment: .top, spacing: CGFloat(ShoppingAisleColumns.columnSpacing)) {
@@ -528,6 +526,17 @@ struct ShoppingListView: View {
                 deleteItem: deleteItem
             )
         }
+    }
+
+    /// How many columns the aisles take, worked out from the page's container before the page is capped, so the page
+    /// widens only when three columns are drawn. An empty list keeps one column and the 760 pt page.
+    private var aisleColumnCount: Int {
+        let aisles = shoppingPresentation.flatMap { $0.emptyTitle == nil ? $0.sections.count : nil } ?? 0
+        return ShoppingAisleColumns.count(
+            containerWidth: Double(containerWidth),
+            aisles: aisles,
+            setsColumns: Self.setsAislesInColumns && !dynamicTypeSize.isAccessibilitySize
+        )
     }
 
     /// Only the iPad sets its aisles in columns; every iPhone, the Duo included, keeps the one list.

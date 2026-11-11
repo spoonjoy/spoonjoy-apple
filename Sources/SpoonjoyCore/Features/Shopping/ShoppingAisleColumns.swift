@@ -13,6 +13,22 @@ public enum ShoppingAisleColumns {
     /// A phone's page keeps its 760 pt cap.
     public static let widePageWidth: Double = 3 * 300 + 2 * columnSpacing + 2 * 20
 
+    /// The page every other layout keeps.
+    public static let narrowPageWidth: Double = 760
+
+    /// How many columns the aisles take in a container `containerWidth` wide, decided before the page is capped so
+    /// the page widens only when three columns are drawn (two fit the 760 pt page). One column whenever columns are
+    /// off (`setsColumns`: not an iPad, or an accessibility text size).
+    public static func count(containerWidth: Double, aisles: Int, setsColumns: Bool) -> Int {
+        guard setsColumns else { return 1 }
+        return count(width: min(containerWidth, widePageWidth) - 2 * 20, aisles: aisles)
+    }
+
+    /// The page's widest content for that many columns.
+    public static func pageWidth(columns: Int) -> Double {
+        columns > 2 ? widePageWidth : narrowPageWidth
+    }
+
     /// How many columns fit `width` points of list. One below two columns' worth, so a phone, and any list narrower
     /// than two comfortable columns, keeps its single list.
     public static func count(width: Double, aisles: Int) -> Int {
