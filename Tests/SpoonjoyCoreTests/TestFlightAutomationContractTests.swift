@@ -946,6 +946,7 @@ private let requiredNativeJobNames = [
     "Native scenario verifier",
     "App bundle",
     "Contracts",
+    "Reins journeys",
     "TestFlight release note"
 ]
 

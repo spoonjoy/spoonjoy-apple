@@ -68,7 +68,8 @@ class ReleaseBranchWorkflowTest < Minitest::Test
       assert_equal false, input.fetch("required"), name
       text = source(name)
       assert_includes text, BRANCH_PATTERN, "#{name} must validate release_branch like testflight.yml"
-      assert_match(%r{ref: \$\{\{ inputs\.release_branch \|\| github\.sha \}\}}, text, "#{name} must check out the release branch head")
+      assert_match(/--branch "\$\{RELEASE_BRANCH:-main\}"/, text, "#{name} must gate the release branch head, or main")
+      assert_match(%r{ref: \$\{\{ steps\.green\.outputs\.sha \}\}}, text, "#{name} must check out the commit proven green")
       assert_match(%r{--listing release-source/distribution/app-store/listing\.json}, text,
                    "#{name} must read the release branch's listing")
     end
