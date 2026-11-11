@@ -54,7 +54,6 @@ REQUIRED_TOKENS = {
     "brass",
     "tomato",
     "herb",
-    "photoOverlay",
     "displayTitle",
     "bodyNote",
     "uiLabel",

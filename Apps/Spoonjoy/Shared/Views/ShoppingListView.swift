@@ -402,7 +402,7 @@ struct ShoppingListView: View {
                 .font(.headline.weight(.bold))
                 .frame(width: 48, height: 48)
                 .foregroundStyle(KitchenTableTheme.onInk)
-                .background(KitchenTableTheme.ink, in: Circle())
+                .background(KitchenTableTheme.action, in: Circle())
                 .glassEffect(.regular.interactive(), in: Circle())
         }
         .buttonStyle(.plain)
