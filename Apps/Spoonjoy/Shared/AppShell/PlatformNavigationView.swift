@@ -2860,6 +2860,8 @@ struct PlatformNavigationView: View {
                 captureDrafts: payload.captureDrafts.map(SpoonjoyCaptureDraftEntity.init),
                 chefProfiles: payload.chefProfiles.map(SpoonjoyChefProfileEntity.init)
             )
+            // "Cook <recipe> with Spoonjoy" names the recipes the query suggests; Siri learns new ones only when asked.
+            SpoonjoyAppShortcuts.updateAppShortcutParameters()
         }
 #endif
     }

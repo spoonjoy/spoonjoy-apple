@@ -1827,7 +1827,7 @@ if domain == "shopping-intents"
   {
     "AddShoppingListItemIntent" => {
       required: [
-        "@Parameter(title: \"Name\")",
+        "@Parameter(title: \"Name\", requestValueDialog: \"What should I add to your shopping list?\")",
         "@Parameter(title: \"Quantity\")",
         "@Parameter(title: \"Unit\")",
         "NativeIntentActionResolver().addShoppingListItem(",
@@ -2637,7 +2637,7 @@ if domain == "open-search-share-cook"
       forbidden: ["var profileID: String", "var chefID: String", "openProfile(profileID:", "openProfile(chefID:"]
     },
     "SearchSpoonjoyIntent" => {
-      required: ["@Parameter(title: \"Query\")", "var scope: SpoonjoySearchScopeOption", "NativeIntentActionResolver().searchSpoonjoy(query: query, scope: scope.searchScope)", "OpenURLIntent(action.url)"],
+      required: ["@Parameter(title: \"Query\", requestValueDialog: \"What should I look for in Spoonjoy?\")", "var scope: SpoonjoySearchScopeOption", "NativeIntentActionResolver().searchSpoonjoy(query: query, scope: scope.searchScope)", "OpenURLIntent(action.url)"],
       forbidden: ["var scope: String", "String-only search intent"]
     },
     "ShareRecipeIntent" => {
