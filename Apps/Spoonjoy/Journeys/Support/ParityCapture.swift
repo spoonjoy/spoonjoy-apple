@@ -57,8 +57,18 @@ struct ParityCapture {
         return Kitchen(recipeID: riceID, cookbookID: weeknightID, username: account.username)
     }
 
-    /// Shoots the screen as it stands in light, then in dark, and leaves the simulator light.
+    /// Shoots the screen as it stands in light, then in dark, and leaves the simulator light. On the iPad it then turns
+    /// the iPad on its side and shoots the same screen again as `ipad-landscape`, so every iPad layout is seen both ways,
+    /// and turns it back.
     func shootBothSchemes(_ screen: String) throws {
+        try shootSchemes(screen, device: device)
+        guard device == "ipad" else { return }
+        Self.turn(.landscapeLeft)
+        try shootSchemes(screen, device: "ipad-landscape")
+        Self.turn(.portrait)
+    }
+
+    private func shootSchemes(_ screen: String, device: String) throws {
         Self.setAppearance(.light)
         try shoot(Self.shotName(screen, device: device, scheme: "light"))
         Self.setAppearance(.dark)
@@ -66,6 +76,16 @@ struct ParityCapture {
         XCUIDevice.shared.appearance = .light
         Self.post(.system)
     }
+
+    /// Turns the device and lets the rotation and the relayout that follows it finish.
+    static func turn(_ orientation: UIDeviceOrientation) {
+        guard XCUIDevice.shared.orientation != orientation else { return }
+        XCUIDevice.shared.orientation = orientation
+        Thread.sleep(forTimeInterval: rotationSettle)
+    }
+
+    /// The rotation animation is about half a second; the relayout after it can run a moment longer.
+    private static let rotationSettle: TimeInterval = 1.5
 
     /// Sets the simulator's appearance and tells the app to match, then lets it redraw. On CI the simulator setting
     /// alone left every dark shot identical to the light one (Journeys run 42481642383), so the app's own override,

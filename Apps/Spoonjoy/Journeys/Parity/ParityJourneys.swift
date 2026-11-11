@@ -8,6 +8,8 @@ import XCTest
 final class ParityJourneys: JourneyTestCase {
     func testParityScreensJourney() async throws {
         let account = try JourneyAccounts.account(1)
+        // Every shot starts upright; on the iPad, ParityCapture turns it on its side for the landscape shot and back.
+        ParityCapture.turn(.portrait)
         let journey = JourneyApp.launchFresh()
         let capture = ParityCapture(journey: journey, device: ParityCapture.deviceName) { [self] name in
             journey.attachScreenshot(named: name, to: self)
