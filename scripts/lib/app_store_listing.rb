@@ -25,6 +25,16 @@ module AppStoreListing
   VERSION_LOCALIZATION_FIELDS = %w[description keywords promotionalText supportUrl marketingUrl whatsNew].freeze
   REVIEW_FIELDS = %w[contactFirstName contactLastName contactEmail contactPhone demoAccountName demoAccountRequired notes].freeze
   SCREENSHOT_NAME = /\A\d{2}-[a-z0-9-]+\.png\z/.freeze
+  # iOS 27 product page creative assets, one per page, placed through the Asset Library API. Image sizes are Apple's
+  # (GET /v1/appAssetLibraryRefData, read 2026-11-11); the 3:2 search results art may be any size in its range.
+  CREATIVE_ASSET_SIZES = {
+    "PRODUCT_PAGE_HEADER_ASSET" => ->(w, h) { [[5244, 2950], [3840, 1646]].include?([w, h]) },
+    "APP_STORE_SEARCH_RESULTS_ASSET" => ->(w, h) { [w, h] == [5244, 2950] || (w * 2 == h * 3 && w.between?(1920, 3840)) }
+  }.freeze
+  CREATIVE_ASSET_HINTS = {
+    "PRODUCT_PAGE_HEADER_ASSET" => "5244x2950 or 3840x1646",
+    "APP_STORE_SEARCH_RESULTS_ASSET" => "5244x2950, or 3:2 from 1920x1280 to 3840x2560"
+  }.freeze
   # listing.json describes the iOS version. Another platform's version reads its overrides from the named section.
   PLATFORM_SECTIONS = { "IOS" => nil, "MAC_OS" => "mac" }.freeze
   PLATFORM_NAMES = { "IOS" => "iOS", "MAC_OS" => "macOS" }.freeze
@@ -79,6 +89,7 @@ module AppStoreListing
       effective["localizations"][locale] = effective["localizations"].fetch(locale, {}).merge(fields)
     end
     effective["screenshots"] = section.fetch("screenshots")
+    effective["creativeAssets"] = section.fetch("creativeAssets", {})
     effective
   end
 
@@ -112,7 +123,28 @@ module AppStoreListing
     notes = listing.dig("review", "notes").to_s
     errors << "review notes are #{notes.length} characters; the limit is #{REVIEW_NOTES_LIMIT}" if notes.length > REVIEW_NOTES_LIMIT
     errors.concat(validate_screenshots(listing, screenshot_root))
+    errors.concat(validate_creative_assets(listing, screenshot_root))
     errors
+  end
+
+  # listing.json "creativeAssets": {placementType => PNG path relative to the screenshots folder}. Optional.
+  def self.validate_creative_assets(listing, screenshot_root)
+    listing.fetch("creativeAssets", {}).flat_map do |type, relative|
+      next ["unknown creative asset type #{type}; use #{CREATIVE_ASSET_SIZES.keys.join(' or ')}"] unless CREATIVE_ASSET_SIZES.key?(type)
+
+      path = File.join(screenshot_root, relative)
+      next ["#{type} #{relative} does not exist"] unless File.file?(path)
+
+      info = png_info(path)
+      errors = []
+      unless CREATIVE_ASSET_SIZES.fetch(type).call(info.width, info.height)
+        errors << "#{type} #{relative} is #{info.width}x#{info.height}; allowed: #{CREATIVE_ASSET_HINTS.fetch(type)}"
+      end
+      errors << "#{type} #{relative} has transparency; App Store creative assets must not" if info.alpha
+      errors
+    rescue Error => e
+      [e.message]
+    end
   end
 
   def self.validate_screenshots(listing, screenshot_root)
@@ -155,7 +187,7 @@ module AppStoreListing
   # app, appInfo, price and availability are app-level: only the iOS listing reads or writes them.
   #
   # Returns the writes needed, in order. Each step: {"action", "summary", ...data the executor needs}.
-  def self.plan(listing:, snapshot:, screenshots:, secrets:, locale: "en-US")
+  def self.plan(listing:, snapshot:, screenshots:, secrets:, locale: "en-US", creative_assets: {})
     steps = []
     fields = listing.fetch("localizations").fetch(locale)
     steps.concat(app_level_steps(listing, snapshot, fields, locale)) if app_level?(listing)
@@ -210,6 +242,14 @@ module AppStoreListing
                  "summary" => "Replace #{spec['displayType']} screenshots with #{files.length} from #{folder}",
                  "displayType" => spec["displayType"], "localizationId" => localization_ref,
                  "setId" => existing && existing["id"], "files" => files }
+    end
+    creative_assets.each do |type, file|
+      existing = (version["creativePlacements"] || {})[type]
+      next if existing && existing["referenceName"] == file["referenceName"]
+
+      steps << { "action" => "sync_creative_asset", "summary" => "Place #{type} #{File.basename(file['path'])}",
+                 "placementType" => type, "placementId" => existing && existing["id"], "localizationId" => localization_ref,
+                 "file" => file }
     end
     steps
   end
@@ -316,6 +356,16 @@ module AppStoreListing
       out[folder] = screenshot_files(screenshot_root, folder).map do |path|
         { "path" => path, "checksum" => Digest::MD5.file(path).hexdigest, "size" => File.size(path) }
       end
+    end
+  end
+
+  # The image's referenceName carries its MD5, because Asset Library images have no checksum App Store Connect echoes.
+  def self.local_creative_assets(listing, screenshot_root)
+    listing.fetch("creativeAssets", {}).to_h do |type, relative|
+      path = File.join(screenshot_root, relative)
+      checksum = Digest::MD5.file(path).hexdigest
+      [type, { "path" => path, "checksum" => checksum, "size" => File.size(path),
+               "referenceName" => "#{checksum}-#{File.basename(path)}" }]
     end
   end
 
@@ -495,12 +545,27 @@ module AppStoreListing
         "phasedRelease" => phased_release(id),
         "localization" => localization && { "id" => localization["id"], "attributes" => localization["attributes"] },
         "reviewDetail" => review && { "id" => review["id"], "attributes" => review["attributes"] },
-        "screenshotSets" => sets
+        "screenshotSets" => sets,
+        "creativePlacements" => localization ? creative_placements(localization["id"]) : {}
       }
     rescue Error => e
       raise unless e.message.include?("HTTP 404")
 
       nil
+    end
+
+    # {placementType => {id, referenceName}} for the version's creative asset placements (header, search results).
+    def creative_placements(localization_id)
+      placements = @client.get_all("/v1/appStoreVersionLocalizations/#{localization_id}/placements",
+                                   "filter[placementType]" => CREATIVE_ASSET_SIZES.keys.join(","))
+      placements.each_with_object({}) do |placement, out|
+        type = placement.dig("attributes", "placementType")
+        image_id = placement.dig("relationships", "image", "data", "id")
+        next unless CREATIVE_ASSET_SIZES.key?(type) && image_id
+
+        image = @client.get("/v1/appAssetLibraryImages/#{image_id}")["data"]
+        out[type] = { "id" => placement["id"], "referenceName" => image.dig("attributes", "referenceName") }
+      end
     end
 
     def phased_release(version_id)
@@ -709,6 +774,30 @@ module AppStoreListing
           }
         },
         included: included
+      })
+    end
+
+    # A page holds one placement per creative type, so the old one goes first. The new image is uploaded to the app's
+    # Asset Library (whose id is the app id) and then placed on the version localization.
+    def apply_sync_creative_asset(step)
+      @client.delete("/v1/appAssetLibraryPlacements/#{step['placementId']}") if step["placementId"]
+      file = step.fetch("file")
+      bytes = File.binread(file["path"])
+      image = @client.post("/v1/appAssetLibraryImages", data: {
+        type: "appAssetLibraryImages",
+        attributes: { category: "CREATIVE_ASSETS", fileName: File.basename(file["path"]), fileSize: bytes.bytesize,
+                      referenceName: file["referenceName"] },
+        relationships: { assetLibrary: { data: { type: "appAssetLibraries", id: @app_id } } }
+      })["data"]
+      image.dig("attributes", "uploadOperations").each { |operation| @client.upload(operation, bytes) }
+      @client.patch("/v1/appAssetLibraryImages/#{image['id']}", data: {
+        type: "appAssetLibraryImages", id: image["id"], attributes: { uploaded: true }
+      })
+      @client.post("/v1/appAssetLibraryPlacements", data: {
+        type: "appAssetLibraryPlacements",
+        attributes: { placementType: step["placementType"], placementGroup: "DEFAULT_PROFILE" },
+        relationships: { image: { data: { type: "appAssetLibraryImages", id: image["id"] } },
+                         appStoreVersionLocalization: { data: { type: "appStoreVersionLocalizations", id: ref(step["localizationId"]) } } }
       })
     end
 
