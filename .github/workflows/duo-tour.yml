@@ -70,21 +70,20 @@ jobs:
       - name: Wait for the simulator to settle
         timeout-minutes: 8
         run: python3 .github/scripts/wait-for-simulator-settle.py "${{ steps.sim.outputs.udid }}" --booted-at "${{ steps.sim.outputs.booted-at }}"
-      - name: Open the inner screen tall and half-open
+      - name: Build the DeviceHub driver
         timeout-minutes: 4
+        run: swiftc -O .github/scripts/duo/devicehub.swift -o "$RUNNER_TEMP/duo/devicehub"
+      - name: Open the inner screen tall and half-open
+        # DeviceHub can take a minute or more to launch and build its accessibility tree on a runner, so the driver
+        # waits for the pose buttons instead of sleeping, and presses the whole sequence from one process.
+        timeout-minutes: 6
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/duo/shots"
-          swiftc -O .github/scripts/duo/devicehub.swift -o "$RUNNER_TEMP/duo/devicehub"
           open -a "$(xcode-select -p)/../Applications/DeviceHub.app"
-          sleep 20
-          "$RUNNER_TEMP/duo/devicehub" dump
-          "$RUNNER_TEMP/duo/devicehub" press "Open"
-          sleep 4
-          "$RUNNER_TEMP/duo/devicehub" press "Rotate Right"
-          sleep 4
-          "$RUNNER_TEMP/duo/devicehub" press "Partially Open"
-          sleep 6
+          "$RUNNER_TEMP/duo/devicehub" wait "Partially Open" 180 || { "$RUNNER_TEMP/duo/devicehub" dump || true; exit 1; }
+          "$RUNNER_TEMP/duo/devicehub" press "Open" "Rotate Right" "Partially Open" || { "$RUNNER_TEMP/duo/devicehub" dump || true; exit 1; }
+          sleep 2
           screencapture -x "$RUNNER_TEMP/duo/shots/00-devicehub-half-open-tall.png" || true
           xcrun simctl io "${{ steps.sim.outputs.udid }}" enumerate || true
       - name: Create disposable QA accounts
