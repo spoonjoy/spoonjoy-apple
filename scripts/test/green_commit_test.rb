@@ -59,6 +59,17 @@ class GreenCommitTest < Minitest::Test
     assert_raises(GreenCommit::NotGreen) { GreenCommit.require_green!(run_for(branch: "release/1.0-resubmit"), failed) }
   end
 
+  # An explicit TestFlight rollback may select a main commit from before Reins journeys (#212).
+  def test_an_explicit_rollback_may_lack_reins_journeys_but_never_fail_it
+    old = green_jobs(GreenCommit::REQUIRED_CHECKS - ["Reins journeys"])
+    assert_equal GreenCommit::REQUIRED_CHECKS - ["Reins journeys"], GreenCommit.required_for("main", old, rollback: true)
+    assert_equal GreenCommit::REQUIRED_CHECKS, GreenCommit.required_for("main", old)
+    failed = old + [{ "name" => "Reins journeys", "status" => "completed", "conclusion" => "failure" }]
+    assert_includes GreenCommit.required_for("main", failed, rollback: true), "Reins journeys"
+    verifier = File.read(File.join(ROOT, "scripts/verify-testflight-release-candidate.rb"))
+    assert_match(/validate_required_jobs\(run\.fetch\("id"\), require_release_note: !explicit_rollback_notes, rollback: rollback\)/, verifier)
+  end
+
   def test_required_checks_match_natives_job_names
     native = YAML.safe_load(File.read(File.join(ROOT, ".github/workflows/native.yml")))
     names = native.fetch("jobs").values.map { |job| job["name"] }

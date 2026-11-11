@@ -12,8 +12,9 @@ module GreenCommit
     "Contracts",
     "Reins journeys"
   ].freeze
-  # Release branches cut before Reins journeys existed (release/1.0-resubmit) have no such job; there it may be
-  # absent, never skipped or failed. main always needs every check.
+  # Release branches cut before Reins journeys existed (release/1.0-resubmit), and main commits from before it
+  # (#212, 2026-11-06) that an explicit TestFlight rollback selects, have no such job; there it may be absent, never
+  # skipped or failed. Everything else on main needs every check.
   ADDED_LATER = ["Reins journeys"].freeze
   NATIVE_WORKFLOW_PATH = ".github/workflows/native.yml"
   SHA = /\A[0-9a-f]{40}\z/.freeze
@@ -31,9 +32,9 @@ module GreenCommit
     exact.max_by { |run| [run["run_number"].to_i, run["run_attempt"].to_i, run["id"].to_i] }
   end
 
-  # The checks a branch's Native run must carry.
-  def self.required_for(branch, jobs)
-    return REQUIRED_CHECKS if branch == "main"
+  # The checks a branch's Native run must carry. rollback: an explicit, reasoned rollback to an older main commit.
+  def self.required_for(branch, jobs, rollback: false)
+    return REQUIRED_CHECKS if branch == "main" && !rollback
 
     names = Array(jobs).map { |job| job["name"] }
     REQUIRED_CHECKS.reject { |name| ADDED_LATER.include?(name) && !names.include?(name) }

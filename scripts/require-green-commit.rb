@@ -40,7 +40,7 @@ begin
   runs = gh("repos/#{repository}/actions/workflows/native.yml/runs", "-f", "head_sha=#{sha}", "-f", "branch=#{branch}",
             "-f", "event=push", "-f", "per_page=100")
   run = GreenCommit.latest_run(runs["workflow_runs"], sha: sha, branch: branch)
-  jobs = gh("repos/#{repository}/actions/runs/#{run['id']}/attempts/#{run['run_attempt']}/jobs", "-f", "per_page=100")
+  jobs = gh("repos/#{repository}/actions/runs/#{run['id']}/jobs", "-f", "per_page=100")
   GreenCommit.require_green!(run, jobs["jobs"])
   puts "#{sha} on #{branch} is green: Native run #{run['id']} passed #{GreenCommit.required_for(branch, jobs['jobs']).join(', ')}."
   File.write(ENV["GITHUB_OUTPUT"], "sha=#{sha}\n", mode: "a") if ENV["GITHUB_OUTPUT"]

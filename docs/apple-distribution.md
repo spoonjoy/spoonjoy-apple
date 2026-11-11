@@ -220,7 +220,8 @@ For a last known-good commit whose Native run predates SHA-keyed note artifacts,
 also provide non-empty `rollback_notes`. The trusted verifier still requires the
 four successful protected Native jobs, then materializes and uploads a fresh
 `testflight-release-notes-<source_sha>` artifact before Apple credentials are
-prepared. `rollback_notes` is rejected for ordinary current-main releases and
+prepared. A rollback to a commit from before `Reins journeys` existed (#212,
+2026-11-06) passes without that job, but never with it skipped or failed. `rollback_notes` is rejected for ordinary current-main releases and
 cannot bypass a missing, failed, or superseded Native run.
 
 ```bash
@@ -264,11 +265,11 @@ publish summary. It fails the job if any of these validations fail:
 1. Open the fix as a pull request against `release/<version>`. Native runs on the PR and again on the push to the branch.
 2. Publish it: dispatch TestFlight from `main` with `release_branch: release/<version>`, `source_sha` set to the branch head, and `rollback_notes` holding the TestFlight notes. Both the iPhone build and the Mac build publish from the branch head, after `scripts/verify-testflight-release-candidate.rb` finds a green Native push run for it.
 3. Stage and submit it: dispatch "Stage App Store listing" and "Submit for App Review" with the same `release_branch`. They read `distribution/app-store/listing.json` and the screenshots from the branch head instead of `main`.
-
-Publish only from green: before either workflow sees an App Store Connect secret, `scripts/require-green-commit.rb` requires the source commit (main's head, or the release branch head) to have a green Native push run with every required check passed, and the job then checks out exactly that commit. A red, unfinished or never-built commit stops the run, dry runs included.
 4. If the fix still applies on `main`, port it there in its own pull request.
 
 The branch name must match `^release/[0-9][0-9A-Za-z.-]*$`; every workflow rejects anything else.
+
+Publish only from green: before "Stage App Store listing" or "Submit for App Review" sees an App Store Connect secret, `scripts/require-green-commit.rb` requires the source commit (main's head, or the release branch head) to have a green Native push run with every required check passed, and the job then checks out exactly that commit. A red, unfinished or never-built commit stops the run, dry runs included: wait for Native to finish on that commit, then dispatch.
 
 ### CI signing
 
