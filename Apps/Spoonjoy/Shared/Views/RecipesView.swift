@@ -129,17 +129,20 @@ struct RecipesView: View {
         .accessibilityIdentifier("recipes.emptyState")
     }
 
+    /// True when the page shows the index, not the loading view or an empty state.
+    private var showsIndex: Bool {
+        !(isLoading && state.rows.isEmpty) && state.resolvedEmptyState(overridingDefaultWith: emptyStateOverride) == nil
+    }
+
     /// How many columns the index takes: two on an iPad page with room for two 380 pt columns (an 11" or 13" iPad
-    /// held sideways beside the sidebar, the 11" upright with the sidebar hidden, or wider; `RecipeIndexColumns`),
+    /// held sideways beside the sidebar, the 11" iPad Pro upright with the sidebar hidden, or wider; `RecipeIndexColumns`),
     /// otherwise one. Worked out from the container, before the page is capped, so the page widens only when two
     /// columns are drawn: a loading, empty or one-recipe list, a phone, the Duo, the Mac and accessibility text sizes
     /// keep the 720 pt page.
     private var indexColumns: Int {
-        let showsRows = !(isLoading && state.rows.isEmpty)
-            && state.resolvedEmptyState(overridingDefaultWith: emptyStateOverride) == nil
-        return RecipeIndexColumns.count(
+        RecipeIndexColumns.count(
             containerWidth: Double(containerWidth),
-            rows: showsRows ? state.rows.count : 0,
+            rows: showsIndex ? state.rows.count : 0,
             setsColumns: Self.setsIndexInColumns && !dynamicTypeSize.isAccessibilitySize
         )
     }
@@ -153,13 +156,15 @@ struct RecipesView: View {
                 ForEach(Array(stride(from: 0, to: rows.count, by: columns)), id: \.self) { start in
                     GridRow(alignment: .top) {
                         ForEach(start..<min(start + columns, rows.count), id: \.self) { index in
+                            let row = rows[index]
                             VStack(alignment: .leading, spacing: 0) {
                                 if RecipeIndexColumns.hasRowAbove(index: index, columns: columns) {
                                     RecipeIndexRowSeparator()
                                 }
-                                indexRow(rows[index])
+                                indexRow(row, fillsHeight: true)
                             }
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .id(row.id)
                         }
                     }
                 }
@@ -176,9 +181,12 @@ struct RecipesView: View {
         }
     }
 
-    private func indexRow(_ row: RecipeCatalogRowViewModel) -> some View {
-        RecipeIndexRow(row: row, namespace: recipeTransition) {
+    @ViewBuilder private func indexRow(_ row: RecipeCatalogRowViewModel, fillsHeight: Bool = false) -> some View {
+        let indexRow = RecipeIndexRow(row: row, namespace: recipeTransition) {
             openRoute(row.openRoute)
+        }
+        Group {
+            if fillsHeight { indexRow.fillingHeight() } else { indexRow }
         }
         .accessibilityIdentifier("recipes.row")
     }

@@ -20,7 +20,7 @@ public enum RecipeIndexColumns {
         return max(1, min(fit, maximumColumns, rows))
     }
 
-    /// The page's side padding on each side, as `KitchenTablePage` sets it.
+    /// The page's side padding on each side: `KitchenTableTheme.pagePadding`, which `KitchenTablePage` sets. Keep the two equal.
     public static let pagePadding: Double = 20
     /// The page every other layout keeps.
     public static let narrowPageWidth: Double = 720
