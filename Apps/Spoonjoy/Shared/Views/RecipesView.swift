@@ -23,7 +23,7 @@ struct RecipesView: View {
     @State private var state: RecipeCatalogState
     @State private var query: String
     @State private var isLoading = false
-    @State private var indexWidth: CGFloat = 0
+    @State private var containerWidth: CGFloat = 0
     /// The tab stack's cover-zoom namespace, so a tapped cover grows into its recipe; its own outside a tab stack.
     @Environment(\.recipeZoomNamespace) private var tabRecipeTransition
     @Namespace private var localRecipeTransition
@@ -63,7 +63,7 @@ struct RecipesView: View {
     }
 
     var body: some View {
-        KitchenTablePage(maxContentWidth: Self.setsIndexInColumns ? CGFloat(RecipeIndexColumns.widePageWidth) : 720) {
+        KitchenTablePage(maxContentWidth: CGFloat(RecipeIndexColumns.pageWidth(columns: indexColumns))) {
             KitchenTableHeader(
                 eyebrow: headerEyebrow,
                 title: title,
@@ -81,6 +81,7 @@ struct RecipesView: View {
                 recipeIndex(rows: state.rows)
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { containerWidth = $0 }
         .reloadsOnPull { await loadCatalog(query: query) }
         .searchable(text: $query, prompt: searchPrompt)
         .onSubmit(of: .search) {
@@ -128,44 +129,51 @@ struct RecipesView: View {
         .accessibilityIdentifier("recipes.emptyState")
     }
 
-    /// The index, in two columns read across and then down when the iPad page is wide enough
-    /// (`RecipeIndexColumns`): the 13" iPad held sideways beside its sidebar, or the iPad with the sidebar hidden. A
-    /// phone, the Duo, the Mac, a narrow window and accessibility text sizes keep the one column.
-    private func recipeIndex(rows: [RecipeCatalogRowViewModel]) -> some View {
-        let columns = Self.setsIndexInColumns && !dynamicTypeSize.isAccessibilitySize
-            ? RecipeIndexColumns.count(width: Double(indexWidth), rows: rows.count)
-            : 1
-        return Group {
-            if columns > 1 {
-                LazyVGrid(
-                    columns: Array(
-                        repeating: GridItem(.flexible(), spacing: CGFloat(RecipeIndexColumns.columnSpacing), alignment: .top),
-                        count: columns
-                    ),
-                    alignment: .leading,
-                    spacing: 0
-                ) {
-                    ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                        VStack(alignment: .leading, spacing: 0) {
-                            if RecipeIndexColumns.hasRowAbove(index: index, columns: columns) {
-                                RecipeIndexRowSeparator()
+    /// How many columns the index takes: two on an iPad page with room for two 380 pt columns (an 11" or 13" iPad
+    /// held sideways beside the sidebar, the 11" upright with the sidebar hidden, or wider; `RecipeIndexColumns`),
+    /// otherwise one. Worked out from the container, before the page is capped, so the page widens only when two
+    /// columns are drawn: a loading, empty or one-recipe list, a phone, the Duo, the Mac and accessibility text sizes
+    /// keep the 720 pt page.
+    private var indexColumns: Int {
+        let showsRows = !(isLoading && state.rows.isEmpty)
+            && state.resolvedEmptyState(overridingDefaultWith: emptyStateOverride) == nil
+        return RecipeIndexColumns.count(
+            containerWidth: Double(containerWidth),
+            rows: showsRows ? state.rows.count : 0,
+            setsColumns: Self.setsIndexInColumns && !dynamicTypeSize.isAccessibilitySize
+        )
+    }
+
+    /// The index, in two columns read across and then down when `indexColumns` allows. The rows are built eagerly,
+    /// as in one column, so every row is in the accessibility tree.
+    @ViewBuilder private func recipeIndex(rows: [RecipeCatalogRowViewModel]) -> some View {
+        let columns = indexColumns
+        if columns > 1 {
+            Grid(alignment: .topLeading, horizontalSpacing: CGFloat(RecipeIndexColumns.columnSpacing), verticalSpacing: 0) {
+                ForEach(Array(stride(from: 0, to: rows.count, by: columns)), id: \.self) { start in
+                    GridRow(alignment: .top) {
+                        ForEach(start..<min(start + columns, rows.count), id: \.self) { index in
+                            VStack(alignment: .leading, spacing: 0) {
+                                if RecipeIndexColumns.hasRowAbove(index: index, columns: columns) {
+                                    RecipeIndexRowSeparator()
+                                }
+                                indexRow(rows[index])
                             }
-                            indexRow(row)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         }
-                    }
-                }
-            } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(rows) { row in
-                        if row.id != rows.first?.id {
-                            RecipeIndexRowSeparator()
-                        }
-                        indexRow(row)
                     }
                 }
             }
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(rows) { row in
+                    if row.id != rows.first?.id {
+                        RecipeIndexRowSeparator()
+                    }
+                    indexRow(row)
+                }
+            }
         }
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { indexWidth = $0 }
     }
 
     private func indexRow(_ row: RecipeCatalogRowViewModel) -> some View {

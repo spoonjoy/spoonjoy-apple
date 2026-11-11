@@ -20,6 +20,24 @@ public enum RecipeIndexColumns {
         return max(1, min(fit, maximumColumns, rows))
     }
 
+    /// The page's side padding on each side, as `KitchenTablePage` sets it.
+    public static let pagePadding: Double = 20
+    /// The page every other layout keeps.
+    public static let narrowPageWidth: Double = 720
+
+    /// How many columns the index takes in a container `containerWidth` wide, decided before the page is capped so
+    /// the page widens only when two columns are drawn. One column whenever columns are off (`setsColumns`: not an
+    /// iPad, or an accessibility text size).
+    public static func count(containerWidth: Double, rows: Int, setsColumns: Bool) -> Int {
+        guard setsColumns else { return 1 }
+        return count(width: min(containerWidth, widePageWidth) - 2 * pagePadding, rows: rows)
+    }
+
+    /// The page's widest content for that many columns: the Kitchen's wide page for two, 720 pt for one.
+    public static func pageWidth(columns: Int) -> Double {
+        columns > 1 ? widePageWidth : narrowPageWidth
+    }
+
     /// True when row `index` has a row above it in its column, and so a separator above it.
     public static func hasRowAbove(index: Int, columns: Int) -> Bool {
         index >= max(columns, 1)
