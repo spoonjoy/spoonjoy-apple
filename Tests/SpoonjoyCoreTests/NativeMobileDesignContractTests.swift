@@ -225,6 +225,42 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("iPhone and iPad screen titles such as Cookbooks and Shopping List are large titles in the display role")
+    func navigationBarLargeTitlesUseTheDisplayRole() throws {
+        let appPath = "Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift"
+        let fontsPath = "Apps/Spoonjoy/Shared/Design/SpoonjoyFonts.swift"
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let app = uncommentedSwift(try readRepoFile(appPath))
+        let fonts = uncommentedSwift(try readRepoFile(fontsPath))
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+
+        expectContent(app, in: appPath, contains: ["SpoonjoyFonts.styleNavigationBarLargeTitles()"])
+        expectContent(
+            fonts,
+            in: fontsPath,
+            contains: [
+                "UINavigationBar.appearance().largeTitleTextAttributes",
+                "KitchenTypeRole.largeTitle.token",
+                "UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for:"
+            ],
+            forbids: [
+                "UINavigationBar.appearance().titleTextAttributes",
+                "UINavigationBarAppearance"
+            ]
+        )
+        expectContent(
+            navigation,
+            in: navigationPath,
+            contains: [
+                ".navigationBarTitleDisplayMode(tab == .kitchen ? .inline : .large)",
+                ".navigationBarTitleDisplayMode(barShowsLargeTitle(for: route) ? .large : .inline)"
+            ],
+            forbids: [
+                "tab == .shopping || tab == .kitchen ? .inline : .large"
+            ]
+        )
+    }
+
     @Test("screenshot proof waits for terminal media and the route matrix covers iPad")
     func screenshotProofWaitsForTerminalMediaAndRouteMatrixCoversIPad() throws {
         let imagePath = "Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift"
