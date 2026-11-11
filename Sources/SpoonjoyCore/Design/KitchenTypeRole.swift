@@ -50,6 +50,17 @@ public enum KitchenTypeRole: String, CaseIterable, Sendable {
             in: OuroTokens.cookbook.extras)
     }
 
+    /// The role at `scale` times its token's size, still scaled with Dynamic Type relative to its own text style: a
+    /// cook step set larger on a big canvas, which keeps the person's text size setting in proportion.
+    public func font(scaledBy scale: Double) -> Font {
+        guard scale != 1 else { return font }
+        let token = token
+        return .ouro(
+            OuroTypeToken(family: token.family, weight: token.weight, size: token.size * scale, textStyle: token.textStyle,
+                          tracking: token.tracking * scale, lineHeight: token.lineHeight),
+            in: OuroTokens.cookbook.extras)
+    }
+
     /// The role's face and weight at a fixed size that doesn't follow Dynamic Type, for a letter drawn as decoration
     /// at a size its view already scales. Without the face, the system serif or sans.
     public func fixedFont(size: Double, registered: (String) -> Bool = OuroFont.isRegistered) -> Font {
