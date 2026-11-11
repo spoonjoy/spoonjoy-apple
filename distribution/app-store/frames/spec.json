@@ -39,6 +39,14 @@
       ]
     }
   },
+  "creative": {
+    "about": "The iOS 27 product page header and search results art, made from the iphone-69 scenes and staged as creativeAssets (creative/header.png, creative/search.png).",
+    "source_set": "iphone-69",
+    "posters": [
+      { "id": "header", "size": [3840, 1646], "palette": "tomato", "scenes": ["recipe-detail", "cook-mode", "kitchen"] },
+      { "id": "search", "size": [3840, 2560], "palette": "brass", "kicker": "Spoonjoy", "headline": "Recipes, passed\nhand to hand", "subline": "Cook one big step at a time. Say “next” when your hands are messy.", "scenes": ["cook-mode", "recipe-detail", "shopping-list"] }
+    ]
+  },
   "palettes": {
     "tomato": ["#A24A38", "#7E3628", "#FBFAF4", "#F3D9CF"],
     "herb": ["#596A4F", "#3F4C38", "#FBFAF4", "#DCE4D3"],

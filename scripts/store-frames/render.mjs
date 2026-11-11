@@ -55,6 +55,20 @@ export function validateSpec(spec) {
       if (!/^[a-z-]+$/.test(shot.scene ?? "")) errors.push(`${name}/${shot.id}: scene names a Store scene`);
     }
   }
+  if (spec.creative) {
+    const source = spec.sets[spec.creative.source_set];
+    if (!source) errors.push(`creative: source_set ${spec.creative.source_set} is not a set`);
+    for (const poster of spec.creative.posters ?? []) {
+      const sizes = POSTER_SIZES[poster.id];
+      if (!sizes) errors.push(`creative: poster ${poster.id} is header or search`);
+      else if (!sizes.some(([sw, sh]) => sw === poster.size?.[0] && sh === poster.size?.[1])) errors.push(`creative/${poster.id}: size is one of ${sizes.map((s) => s.join("x")).join(", ")}`);
+      if (!spec.palettes[poster.palette]) errors.push(`creative/${poster.id}: no palette ${poster.palette}`);
+      if (poster.id === "header" && poster.headline) errors.push("creative/header: no caption; the App Store sets the app's name over the header");
+      if (!poster.scenes?.length || poster.scenes.length > 5) errors.push(`creative/${poster.id}: 1 to 5 scenes`);
+      const known = source ? scenesFor(source) : [];
+      for (const scene of poster.scenes ?? []) if (!known.includes(scene)) errors.push(`creative/${poster.id}: ${spec.creative.source_set} takes no scene ${scene}`);
+    }
+  }
   return errors;
 }
 
@@ -107,6 +121,55 @@ p{margin:${30 * u}px 0 0;font:500 ${46 * u}px/1.25 'Source Serif 4',serif;color:
 </div></body></html>`;
 }
 
+// Apple's sizes for the iOS 27 product page header and search results art (GET /v1/appAssetLibraryRefData).
+export const POSTER_SIZES = {
+  header: [[5244, 2950], [3840, 1646]],
+  search: [[5244, 2950], [3840, 2560], [3000, 2000], [1920, 1280]],
+};
+
+/**
+ * A wide poster: the palette, an optional caption on the left, and the scenes as phones fanned across the right.
+ * The header carries no caption, because the App Store sets the app's name and icon over it.
+ */
+export function posterHtml(poster, palettes, scenePaths) {
+  const [w, h] = poster.size;
+  const [top, bottom, ink, soft] = palettes[poster.palette];
+  const u = h / 1646;
+  const caption = Boolean(poster.headline);
+  // The phones share the space the caption leaves: the right 56% beside a caption, the middle 70% without one.
+  const [from, to] = caption ? [0.42 * w, 0.98 * w] : [0.15 * w, 0.85 * w];
+  const n = scenePaths.length;
+  const phoneW = Math.min(560 * u, (to - from) / (n * 0.92 + 0.3), (h * 0.8) / 2.2);
+  const radius = phoneW * 0.15;
+  const bezel = phoneW * 0.032;
+  const phoneH = phoneW * 2.17 + 2 * bezel;
+  const phones = scenePaths.map((path, i) => {
+    const offset = i - (n - 1) / 2;
+    const x = (from + to) / 2 + offset * phoneW * 0.92 - phoneW / 2;
+    const y = (h - phoneH) / 2 + Math.abs(offset) * phoneW * 0.16;
+    const tilt = offset * 4;
+    return `<div class="phone" style="left:${x}px;top:${y}px;transform:rotate(${tilt}deg);z-index:${10 - Math.abs(offset) * 2}"><img src="${pathToFileURL(path).href}"><div class="island"></div></div>`;
+  });
+  const headline = caption ? escape(poster.headline).replace(/\n/g, "<br>") : "";
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+${fontFaces()}
+*{-webkit-font-smoothing:antialiased}
+html,body{margin:0;width:${w}px;height:${h}px;overflow:hidden;background:${top}}
+.canvas{position:relative;width:${w}px;height:${h}px;background:radial-gradient(120% 140% at 70% 30%,${top} 0%,${bottom} 100%);overflow:hidden}
+.grain{position:absolute;inset:0;opacity:.07;background-image:radial-gradient(rgba(0,0,0,.6) 1px,transparent 1px);background-size:${6 * u}px ${6 * u}px}
+.copy{position:absolute;left:${180 * u}px;top:50%;transform:translateY(-50%);width:${w * 0.36}px;color:${ink};z-index:20}
+.kicker{font:600 ${44 * u}px/1 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:${soft};margin-bottom:${36 * u}px}
+h1{margin:0;font-family:'Fraunces',serif;font-variation-settings:'opsz' 144,'SOFT' 30;font-weight:800;font-size:${150 * u}px;line-height:.98;letter-spacing:-.02em}
+p{margin:${40 * u}px 0 0;font:500 ${58 * u}px/1.25 'Source Serif 4',serif;color:${soft}}
+.phone{position:absolute;width:${phoneW}px;border-radius:${radius}px;background:#0d0c0b;padding:${bezel}px;box-shadow:0 ${50 * u}px ${140 * u}px rgba(0,0,0,.45),0 0 0 ${3 * u}px rgba(255,255,255,.08) inset}
+.phone img{display:block;width:100%;border-radius:${radius - bezel}px}
+.island{position:absolute;left:50%;transform:translateX(-50%);top:${bezel + phoneW * 0.04}px;width:${phoneW * 0.23}px;height:${phoneW * 0.068}px;border-radius:${phoneW * 0.034}px;background:#000}
+</style></head><body><div class="canvas"><div class="grain"></div>
+${caption ? `<div class="copy">${poster.kicker ? `<div class="kicker">${escape(poster.kicker)}</div>` : ""}<h1>${headline}</h1>${poster.subline ? `<p>${escape(poster.subline)}</p>` : ""}</div>` : ""}
+${phones.join("\n")}
+</div></body></html>`;
+}
+
 export const sha256 = (buffer) => createHash("sha256").update(buffer).digest("hex");
 
 /** Checks a raw scene is there and was taken on the set's device; returns its path. */
@@ -117,6 +180,22 @@ export function scenePath(scenesDir, setName, set, scene) {
   const [sw, sh] = set.scene_size ?? set.size;
   if (width !== sw || height !== sh) throw new Error(`${path} is ${width}x${height}; ${setName} scenes are ${sw}x${sh}`);
   return path;
+}
+
+/** Loads the page, waits for its fonts and images, and writes it as an opaque PNG; returns the PNG's SHA-256. */
+async function shoot(page, html, png) {
+  await page.goto(pathToFileURL(html).href, { waitUntil: "load" });
+  await page.evaluate(async () => {
+    // Load every face even where a page sets no text in it, so a missing font file fails here, not as a fallback.
+    await Promise.all(["Fraunces", "Source Serif 4", "IBM Plex Sans Condensed"].map((f) => document.fonts.load(`600 20px '${f}'`)));
+    await document.fonts.ready;
+    await Promise.all([...document.images].map((img) => img.decode()));
+  });
+  const missing = await page.evaluate(() => ["Fraunces", "Source Serif 4", "IBM Plex Sans Condensed"].filter((f) => !document.fonts.check(`600 20px '${f}'`)));
+  if (missing.length) throw new Error(`fonts did not load: ${missing.join(", ")}`);
+  const bytes = encodeOpaque(decode(await page.screenshot({ type: "png", animations: "disabled" })));
+  writeFileSync(png, bytes);
+  return sha256(bytes);
 }
 
 async function renderAll({ spec, scenes, out, sets, keepFrom }) {
@@ -135,16 +214,7 @@ async function renderAll({ spec, scenes, out, sets, keepFrom }) {
       for (const shot of set.shots) {
         const html = join(out, setName, `${shot.id}.html`);
         writeFileSync(html, frameHtml(set, shot, spec.palettes, scenePath(scenes, setName, set, shot.scene)));
-        await page.goto(pathToFileURL(html).href, { waitUntil: "load" });
-        await page.evaluate(async () => {
-          await document.fonts.ready;
-          await Promise.all([...document.images].map((img) => img.decode()));
-        });
-        const missing = await page.evaluate(() => ["Fraunces", "Source Serif 4", "IBM Plex Sans Condensed"].filter((f) => !document.fonts.check(`600 20px '${f}'`)));
-        if (missing.length) throw new Error(`fonts did not load: ${missing.join(", ")}`);
-        const png = encodeOpaque(decode(await page.screenshot({ type: "png", animations: "disabled" })));
-        writeFileSync(join(out, setName, `${shot.id}.png`), png);
-        manifest[`${setName}/${shot.id}.png`] = sha256(png);
+        manifest[`${setName}/${shot.id}.png`] = await shoot(page, html, join(out, setName, `${shot.id}.png`));
       }
       await page.close();
       for (const file of set.keep ?? []) {
@@ -152,6 +222,20 @@ async function renderAll({ spec, scenes, out, sets, keepFrom }) {
         if (!existsSync(from)) throw new Error(`${setName} keeps ${file}, but ${from} is missing`);
         copyFileSync(from, join(out, setName, file));
         manifest[`${setName}/${file}`] = sha256(readFileSync(from));
+      }
+    }
+    const creative = spec.creative;
+    if (creative && sets.includes(creative.source_set)) {
+      const source = spec.sets[creative.source_set];
+      mkdirSync(join(out, "creative"), { recursive: true });
+      for (const poster of creative.posters) {
+        const [w, h] = poster.size;
+        const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
+        const html = join(out, "creative", `${poster.id}.html`);
+        const paths = poster.scenes.map((scene) => scenePath(scenes, creative.source_set, source, scene));
+        writeFileSync(html, posterHtml(poster, spec.palettes, paths));
+        manifest[`creative/${poster.id}.png`] = await shoot(page, html, join(out, "creative", `${poster.id}.png`));
+        await page.close();
       }
     }
   } finally {

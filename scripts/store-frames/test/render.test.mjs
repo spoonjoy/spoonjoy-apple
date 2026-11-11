@@ -6,7 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { decode, encodeOpaque } from "../png.mjs";
-import { frameHtml, loadSpec, scenesFor, sha256, validateSpec } from "../render.mjs";
+import { frameHtml, loadSpec, posterHtml, scenesFor, sha256, validateSpec } from "../render.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "../../..");
@@ -90,4 +90,29 @@ test("a scene taken on the wrong device is refused", { timeout: 60000 }, () => {
   writeFileSync(join(dir, "scenes/iphone-69/cook-mode.png"), encodeOpaque(solid(10, 10, [0, 0, 0, 255])));
   assert.throws(() => execFileSync(process.execPath, [join(HERE, "../render.mjs"), "--scenes", join(dir, "scenes"), "--out", join(dir, "out"), "--sets", "iphone-69"], { encoding: "utf8", stdio: "pipe" }),
     (error) => /is 10x10; iphone-69 scenes are 1320x2868/.test(error.stderr));
+});
+
+test("the header and search art use Apple's sizes and scenes the source set takes", () => {
+  const spec = loadSpec(SPEC);
+  assert.deepEqual(spec.creative.posters.map((p) => p.id), ["header", "search"]);
+  const broken = structuredClone(spec);
+  broken.creative.posters[0].size = [4000, 2000];
+  broken.creative.posters[0].headline = "Hi";
+  broken.creative.posters[1].scenes = ["cook-mode", "settings"];
+  const errors = validateSpec(broken).join("\n");
+  assert.match(errors, /creative\/header: size is one of 5244x2950, 3840x1646/);
+  assert.match(errors, /creative\/header: no caption/);
+  assert.match(errors, /iphone-69 takes no scene settings/);
+});
+
+test("a poster without a caption puts the phones in the middle; with one, beside it", () => {
+  const spec = loadSpec(SPEC);
+  const [header, search] = spec.creative.posters;
+  const bare = posterHtml(header, spec.palettes, ["/a.png", "/b.png", "/c.png"]);
+  assert.doesNotMatch(bare, /<h1>/);
+  assert.equal((bare.match(/class="phone"/g) ?? []).length, 3);
+  const captioned = posterHtml(search, spec.palettes, ["/a.png"]);
+  assert.match(captioned, /<h1>Recipes, passed<br>hand to hand<\/h1>/);
+  const left = Number(captioned.match(/class="phone" style="left:([\d.]+)px/)[1]);
+  assert.ok(left > search.size[0] * 0.42, "the phone stays right of the caption");
 });
