@@ -381,7 +381,16 @@ class AppStoreListingTest < Minitest::Test
       expected = raw.key?("whatsNew") ? raw["whatsNew"] : Changelog.whats_new(fragments, platform)
       assert_equal expected, platform_listing["localizations"]["en-US"]["whatsNew"], platform
     end
-    refute raw_listing["mac"]["localizations"]["en-US"].key?("whatsNew"), "Mac 1.2's What's New comes from changes/"
+    mac_own = JSON.parse(JSON.generate(raw_listing))
+    mac_own["mac"]["localizations"]["en-US"]["whatsNew"] = "Mac's own."
+    assert_equal "Mac's own.", AppStoreListing.for_platform(mac_own, "MAC_OS").dig("localizations", "en-US", "whatsNew")
+    mac_own["mac"]["localizations"]["en-US"]["whatsNew"] = nil
+    assert_nil AppStoreListing.with_whats_new(AppStoreListing.for_platform(mac_own, "MAC_OS"), CHANGES_DIR)
+                             .dig("localizations", "en-US", "whatsNew"), "a Mac null survives"
+    other_locale = JSON.parse(JSON.generate(raw_listing))
+    other_locale["localizations"]["fr-FR"] = { "whatsNew" => "Seulement iOS." }
+    refute AppStoreListing.for_platform(other_locale, "MAC_OS")["localizations"]["fr-FR"].key?("whatsNew"),
+           "no locale passes the iOS tale to the Mac"
     ios_only = JSON.parse(JSON.generate(raw_listing))
     ios_only["localizations"]["en-US"]["whatsNew"] = "iOS only."
     refute_equal "iOS only.", AppStoreListing.with_whats_new(AppStoreListing.for_platform(ios_only, "MAC_OS"), CHANGES_DIR)

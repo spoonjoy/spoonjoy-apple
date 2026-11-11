@@ -205,8 +205,9 @@ module Changelog
   # Problems with a pull request's change set. changes is [[status, path], ...] from git diff --name-status
   # (renames already split into a delete and an add). base_fragments are the fragments waiting on the base.
   # require_fragment is false in the merge queue, where only the version rule is checked again against the real base.
+  # base_written and head_written map a platform to the whatsNew listing.json writes for it ({"ios" => "..."}).
   def self.check_pull_request(changes:, labels:, base_version:, head_version:, base_fragments:, head_fragments:,
-                              require_fragment: true)
+                              require_fragment: true, base_written: {}, head_written: {})
     errors = []
     touched = changes.map(&:last)
     app = touched.select { |path| app_path?(path) }
@@ -222,13 +223,23 @@ module Changelog
         errors << "The version moves from #{base_version} to #{head_version}, so #{base_version}'s fragments must be " \
                   "archived first: ruby scripts/changelog.rb archive --version #{base_version} (still waiting: #{left.join(', ')})"
       end
+      stale = PLATFORMS.select { |p| base_written[p].is_a?(String) && head_written[p] == base_written[p] }
+      unless stale.empty?
+        errors << "The version moves from #{base_version} to #{head_version}, but listing.json still writes " \
+                  "#{base_version}'s What's New for #{stale.join(' and ')}, which would win over the new fragments. " \
+                  "Archive it: ruby scripts/changelog.rb archive --version #{base_version}"
+      end
     end
     errors
   end
 
-  # Moves every waiting fragment to changes/released/<version>/ beside the What's New each platform shipped.
   # Where each platform's en-US What's New sits in listing.json.
   LISTING_WHATS_NEW = { "ios" => %w[localizations en-US], "mac" => %w[mac localizations en-US] }.freeze
+
+  # The whatsNew a listing writes for each platform: a string, nil (left out of a first version) or absent.
+  def self.written_whats_new(listing)
+    PLATFORMS.to_h { |platform| [platform, listing.dig(*LISTING_WHATS_NEW.fetch(platform), "whatsNew")] }
+  end
 
   # Moves the waiting fragments to released/<version>/ beside the What's New each platform shipped. A whatsNew
   # written in the listing (listing_path) is what that platform shipped, since it wins over the fragments; it is
@@ -238,8 +249,8 @@ module Changelog
 
     fragments = load!(dir)
     listing = listing_path && JSON.parse(File.read(listing_path))
-    written = PLATFORMS.to_h { |platform| [platform, listing&.dig(*LISTING_WHATS_NEW.fetch(platform), "whatsNew")] }
-    raise Error, "No fragments are waiting in #{dir}" if fragments.empty? && written.values.none?(String)
+    written = listing ? written_whats_new(listing) : {}
+    raise Error, "Nothing to archive: no fragments wait in #{dir} and the listing writes no What's New" if fragments.empty? && written.values.none?(String)
 
     target = File.join(dir, "released", version)
     FileUtils.mkdir_p(target)
@@ -250,7 +261,7 @@ module Changelog
     fragments.each { |f| FileUtils.mv(f.path, File.join(target, File.basename(f.path))) }
     if written.values.any?(String)
       written.each { |platform, text| listing.dig(*LISTING_WHATS_NEW.fetch(platform)).delete("whatsNew") if text.is_a?(String) }
-      File.write(listing_path, "#{JSON.pretty_generate(listing)}\n")
+      File.write(listing_path, "#{JSON.pretty_generate(listing, ascii_only: true)}\n")
     end
     target
   end

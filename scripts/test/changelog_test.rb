@@ -210,6 +210,34 @@ class ChangelogTest < Minitest::Test
     end
   end
 
+  def test_archive_keeps_a_null_whats_new_and_runs_for_a_written_tale_alone
+    Dir.mktmpdir do |dir|
+      listing = File.join(Dir.mktmpdir, "listing.json")
+      File.write(listing, JSON.pretty_generate("localizations" => { "en-US" => { "whatsNew" => "SHIPPED \u2022 TALE" } },
+                                                "mac" => { "localizations" => { "en-US" => { "whatsNew" => nil } } },
+                                                "arrow" => "\u2192") + "\n")
+      target = Changelog.archive(dir, "1.2", listing_path: listing)
+      assert_equal %w[whats-new-ios.txt], Dir.children(target)
+      assert_equal "SHIPPED \u2022 TALE\n", File.read(File.join(target, "whats-new-ios.txt"))
+      kept = File.read(listing)
+      assert_includes kept, '"whatsNew": null', "a first version's null is neither recorded nor removed"
+      assert_includes kept, '"\\u2192"', "the listing keeps its escapes"
+      refute_includes kept, "SHIPPED"
+      assert_raises(Changelog::Error) { Changelog.archive(dir, "1.3", listing_path: listing) }
+    end
+  end
+
+  def test_a_version_change_must_not_leave_a_written_whats_new_behind
+    written = { "ios" => "THE TALE", "mac" => nil }
+    base = { changes: [%w[M distribution/app-store/listing.json]], labels: [], base_version: "1.2", head_version: "1.3",
+             base_fragments: [], head_fragments: [], base_written: written }
+    errors = Changelog.check_pull_request(**base, head_written: written)
+    assert_equal 1, errors.length
+    assert_match(/still writes 1.2's What's New for ios/, errors.first)
+    assert_empty Changelog.check_pull_request(**base, head_written: { "mac" => nil })
+    assert_empty Changelog.check_pull_request(**base, base_version: "1.3", head_written: written), "no version change"
+  end
+
   def test_the_command_line_validates_and_prints
     out, status = Open3.capture2e(RbConfig.ruby, File.join(ROOT, "scripts/changelog.rb"), "validate")
     assert status.success?, out

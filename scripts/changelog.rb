@@ -31,6 +31,10 @@ def version_at(rev)
   JSON.parse(git("show", "#{rev}:#{LISTING}")).dig("version", "versionString")
 end
 
+def written_at(rev)
+  Changelog.written_whats_new(JSON.parse(git("show", "#{rev}:#{LISTING}")))
+end
+
 def fragments_at(rev)
   git("ls-tree", "--name-only", rev, "changes/").lines.map(&:strip)
                                               .select { |path| Changelog.fragment_path?(path) }
@@ -73,7 +77,8 @@ begin
       changes: name_status(base, options[:head]), labels: options[:labels],
       base_version: version_at(base), head_version: version_at(options[:head]),
       base_fragments: fragments_at(base), head_fragments: fragments_at(options[:head]),
-      require_fragment: !options[:version_only]
+      require_fragment: !options[:version_only],
+      base_written: written_at(base), head_written: written_at(options[:head])
     )
     if errors.empty?
       puts "Changelog: fine."
@@ -89,7 +94,7 @@ begin
                                     version: options[:version] || version_at("HEAD"), subject: subject)
   when "archive"
     abort "archive needs --version" unless options[:version]
-    puts "Archived into #{Changelog.archive(DIR, options[:version], listing_path: LISTING)}"
+    puts "Archived into #{Changelog.archive(DIR, options[:version], listing_path: File.join(ROOT, LISTING))}"
   else
     abort File.read(__FILE__).lines.grep(/^#   /).join
   end
