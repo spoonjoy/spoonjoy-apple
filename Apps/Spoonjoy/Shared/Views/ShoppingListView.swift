@@ -16,6 +16,8 @@ struct ShoppingListView: View {
     @State private var activeCategory = "all"
     @State private var checkHapticTick = 0
     @State private var remindersSender = SpoonjoyRemindersSender()
+    /// The list's width, measured, for setting its aisles in columns on a wide iPad page.
+    @State private var listWidth: CGFloat = 0
     @FocusState private var isItemFieldFocused: Bool
     @FocusState private var isRetryButtonFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -489,15 +491,50 @@ struct ShoppingListView: View {
                 message: presentation.emptyMessage!
             )
         } else if let presentation = shoppingPresentation {
+            aisleColumns(presentation.sections)
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { listWidth = $0 }
+        } else if let receiptState = viewModel.shoppingReceiptState {
+            ShoppingReceiptStateView(state: receiptState, clearChecked: clearCompleted)
+        }
+    }
+
+    /// The aisles in columns, down then across, when the list is wide enough for two (`ShoppingAisleColumns`): the
+    /// upright 13" iPad beside its recipes pane, or wider. A phone, the open Duo, the Mac, a narrow window and
+    /// accessibility text sizes keep the one list.
+    @ViewBuilder private func aisleColumns(_ sections: [ShoppingPresentationSection]) -> some View {
+        let columns = Self.setsAislesInColumns && !dynamicTypeSize.isAccessibilitySize
+            ? ShoppingAisleColumns.count(width: Double(listWidth), aisles: sections.count)
+            : 1
+        if columns > 1 {
+            let ranges = ShoppingAisleColumns.split(heights: sections.map { $0.items.count + 1 }, columns: columns)
+            HStack(alignment: .top, spacing: CGFloat(ShoppingAisleColumns.columnSpacing)) {
+                ForEach(ranges, id: \.lowerBound) { range in
+                    ReceiptListView(
+                        sections: Array(sections[range]),
+                        pendingItemIDs: pendingItemIDs,
+                        setChecked: settingChecked,
+                        deleteItem: deleteItem
+                    )
+                    .frame(maxWidth: .infinity, alignment: .top)
+                }
+            }
+        } else {
             ReceiptListView(
-                sections: presentation.sections,
+                sections: sections,
                 pendingItemIDs: pendingItemIDs,
                 setChecked: settingChecked,
                 deleteItem: deleteItem
             )
-        } else if let receiptState = viewModel.shoppingReceiptState {
-            ShoppingReceiptStateView(state: receiptState, clearChecked: clearCompleted)
         }
+    }
+
+    /// Only the iPad sets its aisles in columns; every iPhone, the Duo included, keeps the one list.
+    private static var setsAislesInColumns: Bool {
+#if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .pad
+#else
+        false
+#endif
     }
 
     private func shoppingMarketEmptyState(title: String, message: String) -> some View {
