@@ -92,7 +92,7 @@ struct ShoppingIntentTests {
                     label: "AddShoppingListItemIntent",
                     pattern: #"struct\s+AddShoppingListItemIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "@Parameter(title: \"Name\")",
+                        "@Parameter(title: \"Name\", requestValueDialog: \"What should I add to your shopping list?\")",
                         "@Parameter(title: \"Quantity\")",
                         "@Parameter(title: \"Unit\")",
                         "NativeIntentActionResolver().addShoppingListItem(",
