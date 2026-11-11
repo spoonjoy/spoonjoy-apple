@@ -162,7 +162,9 @@ this lane.
 For an ordinary release, `source_sha` must equal the current `main` head. The
 verifier checks out that exact SHA and requires a successful `Native` push run
 whose head is that exact SHA. All protected jobs must be present and successful: `Swift
-tests`, `Native scenario verifier`, `App bundle`, and `Contracts`. A fifth job,
+tests`, `Native scenario verifier`, `App bundle`, `Contracts` and `Reins journeys`
+(`scripts/lib/green_commit.rb` holds the list; a release branch cut before `Reins
+journeys` existed may lack that one job, but never skip or fail it). A fifth job,
 `TestFlight release note`, runs only after those checks and uploads
 `testflight-release-notes-<source_sha>`. The note JSON embeds its source SHA,
 Native run ID and attempt, generation time, and current commit subject. The
@@ -218,7 +220,8 @@ For a last known-good commit whose Native run predates SHA-keyed note artifacts,
 also provide non-empty `rollback_notes`. The trusted verifier still requires the
 four successful protected Native jobs, then materializes and uploads a fresh
 `testflight-release-notes-<source_sha>` artifact before Apple credentials are
-prepared. `rollback_notes` is rejected for ordinary current-main releases and
+prepared. A rollback to a commit from before `Reins journeys` existed (#212,
+2026-11-06) passes without that job, but never with it skipped or failed. `rollback_notes` is rejected for ordinary current-main releases and
 cannot bypass a missing, failed, or superseded Native run.
 
 ```bash
@@ -265,6 +268,8 @@ publish summary. It fails the job if any of these validations fail:
 4. If the fix still applies on `main`, port it there in its own pull request.
 
 The branch name must match `^release/[0-9][0-9A-Za-z.-]*$`; every workflow rejects anything else.
+
+Publish only from green: before "Stage App Store listing" or "Submit for App Review" sees an App Store Connect secret, `scripts/require-green-commit.rb` requires the source commit (main's head, or the release branch head) to have a green Native push run with every required check passed, and the job then checks out exactly that commit. A red, unfinished or never-built commit stops the run, dry runs included: wait for Native to finish on that commit, then dispatch.
 
 ### CI signing
 
