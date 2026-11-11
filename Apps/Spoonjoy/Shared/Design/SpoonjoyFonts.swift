@@ -37,7 +37,7 @@ enum SpoonjoyFonts {
     /// as web sets its page titles and the Mac sets its page headers. The bar itself stays the system's: the title
     /// still collapses inline on scroll (in the system face, like the bar's other chrome), names the back button and
     /// carries the header trait. Only the large title's font and ink change.
-    static func styleNavigationBarLargeTitles() {
+    @MainActor static func styleNavigationBarLargeTitles() {
         guard let font = navigationBarLargeTitleFont() else {
             return
         }
