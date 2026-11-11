@@ -72,7 +72,7 @@ struct ShoppingListView: View {
     }
 
     var body: some View {
-        KitchenTablePage(maxContentWidth: 760, topPadding: usesCompactNavigation ? 4 : 20) {
+        KitchenTablePage(maxContentWidth: Self.setsAislesInColumns ? CGFloat(ShoppingAisleColumns.widePageWidth) : 760, topPadding: usesCompactNavigation ? 4 : 20) {
             shoppingRunHeader
             VStack(alignment: .leading, spacing: 10) {
                 shoppingReceiptComposer
@@ -508,7 +508,9 @@ struct ShoppingListView: View {
         if columns > 1 {
             let ranges = ShoppingAisleColumns.split(heights: sections.map { $0.items.count + 1 }, columns: columns)
             HStack(alignment: .top, spacing: CGFloat(ShoppingAisleColumns.columnSpacing)) {
-                ForEach(ranges, id: \.lowerBound) { range in
+                // Columns are named by position, so checking an item that moves an aisle to the next column keeps each
+                // column's List (its measured height and any open swipe) and only moves rows.
+                ForEach(Array(ranges.enumerated()), id: \.offset) { _, range in
                     ReceiptListView(
                         sections: Array(sections[range]),
                         pendingItemIDs: pendingItemIDs,

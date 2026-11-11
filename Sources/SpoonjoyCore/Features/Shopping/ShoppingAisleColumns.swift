@@ -9,6 +9,9 @@ public enum ShoppingAisleColumns {
     public static let columnSpacing: Double = 32
     /// More columns than this make a list read like a spreadsheet.
     public static let maximumColumns = 3
+    /// The iPad shopping page's widest content: three columns of 300 pt and their gaps, plus the page's 20 pt sides.
+    /// A phone's page keeps its 760 pt cap.
+    public static let widePageWidth: Double = 3 * 300 + 2 * columnSpacing + 2 * 20
 
     /// How many columns fit `width` points of list. One below two columns' worth, so a phone, and any list narrower
     /// than two comfortable columns, keeps its single list.
@@ -41,7 +44,7 @@ public enum ShoppingAisleColumns {
             for i in k...count {
                 for start in (k - 1)..<i where best[k - 1][start] != Int.max {
                     let tallest = max(best[k - 1][start], height(start..<i))
-                    // Ties go to the later cut, so earlier columns run longer and the last column is the shortest.
+                    // Ties go to the later cut, so earlier columns tend to run longer than later ones.
                     if tallest <= best[k][i] {
                         best[k][i] = tallest
                         cut[k][i] = start

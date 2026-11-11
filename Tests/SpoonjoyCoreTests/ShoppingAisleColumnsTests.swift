@@ -14,6 +14,11 @@ final class ShoppingAisleColumnsTests: XCTestCase {
         XCTAssertEqual(ShoppingAisleColumns.count(width: 2000, aisles: 6), ShoppingAisleColumns.maximumColumns)
     }
 
+    func testTheWideIPadPageHoldsThreeColumns() {
+        // The page's content is its width less its 20 pt sides.
+        XCTAssertEqual(ShoppingAisleColumns.count(width: ShoppingAisleColumns.widePageWidth - 40, aisles: 6), 3)
+    }
+
     func testNeverMoreColumnsThanAisles() {
         XCTAssertEqual(ShoppingAisleColumns.count(width: 960, aisles: 2), 2)
         XCTAssertEqual(ShoppingAisleColumns.count(width: 960, aisles: 1), 1)
