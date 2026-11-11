@@ -640,8 +640,9 @@ extension KitchenTableReceiptRow where Leading == EmptyView {
 }
 
 /// Kitchen action buttons on Liquid Glass. `.primary` is the screen's one filled action, in `action` (charcoal by day,
-/// amber at night, as web's `--sj-action`); `.destructive` is the same shape in tomato for a confirmed delete; `.secondary` is clear glass; `.quiet` is text only. The fills sit
-/// on interactive glass, so every glass-backed button gets the system press response.
+/// amber at night, as web's `--sj-action`); `.destructive` is the same shape in tomato for a confirmed delete;
+/// `.secondary` is clear glass; `.quiet` is text only. The fills sit on interactive glass, so every glass-backed button
+/// gets the system press response.
 struct KitchenTableActionButtonStyle: ButtonStyle {
     enum Prominence {
         case primary
