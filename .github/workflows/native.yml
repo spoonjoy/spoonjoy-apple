@@ -19,6 +19,17 @@ concurrency:
   group: native-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# macOS lanes. The spoonjoy org (GitHub Free) runs at most 5 macOS jobs at once, xcode-27 included. On 2026-11-11 pull
+# request jobs held all 5 for over 90 minutes while a merge-queue entry's jobs, queued earlier, got none. So the macOS
+# jobs of pull request, after-TestFlight and dispatch runs join one of three shared lanes and run one at a time within
+# it, waiting (queue: max) instead of queueing for a runner:
+#   lane a: App bundle (required)
+#   lane b: Swift tests, Native scenario verifier, Reins journeys (required, short)
+#   lane c: every optional job: App Intents X-ray, Journeys, Launch smoke, Feel, Beta SDK, Duo tour
+# Required checks never wait behind optional work. Merge-queue and main or release push jobs take a group of their own,
+# so at least 2 slots stay outside the lanes; TestFlight, the signing dry run and the review demo launch share those 2
+# and are not laned. A lane holds at most 100 waiting jobs; past that GitHub cancels the newest, which only lane c can reach.
+
 permissions:
   contents: read
 
@@ -107,6 +118,13 @@ jobs:
     # SwiftPM only, so it runs on the plentiful macos-26 image (Xcode 26.x) and leaves the scarce xcode-27 runners to the jobs that need the iOS 27 SDK.
     name: Swift tests
     runs-on: macos-26
+    # Lane b of 3: see the note on macOS lanes at the top of native.yml.
+    concurrency:
+      group: >-
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        && format('native-swift-tests-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || 'spoonjoy-macos-lane-b' }}
+      queue: max
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -133,6 +151,13 @@ jobs:
     # refused (ReinsNetworkGuard), so no simulator, QA server or account is involved. It is the required "Reins journeys" check.
     name: Reins journeys
     runs-on: macos-26
+    # Lane b of 3: see the note on macOS lanes at the top of native.yml.
+    concurrency:
+      group: >-
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        && format('native-reins-journeys-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || 'spoonjoy-macos-lane-b' }}
+      queue: max
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -171,6 +196,13 @@ jobs:
     name: Native scenario verifier
     # Plutil/sips checks and SwiftPM executables only, no xcodebuild, so it runs on macos-26.
     runs-on: macos-26
+    # Lane b of 3: see the note on macOS lanes at the top of native.yml.
+    concurrency:
+      group: >-
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        && format('native-native-scenario-verifier-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || 'spoonjoy-macos-lane-b' }}
+      queue: max
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -204,6 +236,13 @@ jobs:
   app-bundle:
     name: App bundle
     runs-on: xcode-27
+    # Lane a of 3: see the note on macOS lanes at the top of native.yml.
+    concurrency:
+      group: >-
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        && format('native-app-bundle-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || 'spoonjoy-macos-lane-a' }}
+      queue: max
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -294,6 +333,13 @@ jobs:
     # Not required, so like the optional workflows below it waits for every required check before taking a runner.
     needs: [contracts, swift-tests, reins-journeys, native-scenario-verifier, app-bundle]
     runs-on: macos-26
+    # Lane c of 3: see the note on macOS lanes at the top of native.yml.
+    concurrency:
+      group: >-
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        && format('native-app-intents-xray-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || 'spoonjoy-macos-lane-c' }}
+      queue: max
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
