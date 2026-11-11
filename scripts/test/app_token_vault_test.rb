@@ -25,9 +25,10 @@ class AppTokenVaultTest < Minitest::Test
   end
 
   def test_no_intent_or_entity_query_builds_a_vault_of_its_own
-    offenders = Dir.glob(File.join(ROOT, "Apps/Spoonjoy/Shared/Native/*.swift")).filter_map do |path|
+    # Journeys and UI tests run in the test runner, not the app, so they are outside this rule.
+    offenders = Dir.glob(File.join(ROOT, "Apps/**/*.swift")).filter_map do |path|
       relative = path.delete_prefix("#{ROOT}/")
-      next if relative == FACTORY
+      next if relative == FACTORY || relative.start_with?("Apps/Spoonjoy/Journeys/", "Apps/Spoonjoy/UITests/")
       lines = File.readlines(path).each_with_index.select { |line, _| line.match?(/\b(KeychainTokenVault|FileBackedTokenVault)\(/) }
       lines.map { |_, index| "#{relative}:#{index + 1}" } unless lines.empty?
     end.flatten
