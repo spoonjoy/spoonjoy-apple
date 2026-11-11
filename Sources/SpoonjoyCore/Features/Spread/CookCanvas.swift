@@ -12,7 +12,8 @@ public struct CookCanvas: Equatable, Sendable {
     /// The most the step's type grows. Past this the step's lines get too short to read comfortably.
     public static let maximumScale: Double = 1.5
     /// The narrowest page that sets the checklist beside the step: wide enough for a step column of about 390 pt beside
-    /// the checklist, so the iPad mini upright (about 712 pt) keeps one column. The page must also be at least the
+    /// the checklist. The 12.9" and 13" iPads upright and wide windows qualify; the iPad mini and the 11" iPad upright (about
+    /// 712 and 802 pt) keep one column, with the step set larger. The page must also be at least the
     /// reference height.
     public static let minimumSideBySideWidth: Double = 820
     /// The checklist column beside the step: about a third of the page, between these widths.

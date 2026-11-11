@@ -833,7 +833,8 @@ struct CookModeView: View {
         }
     }
 
-    /// Only an iPad's cook page grows with its canvas; every iPhone, the Duo included, and the Mac keep their layout.
+    /// Only an iPad's cook page grows with its canvas; every iPhone, the Duo included, and the native Mac app keep their
+    /// layout. The iPad app running on a Mac reports the iPad idiom, so its windows grow as an iPad's would.
     private static var isPad: Bool {
 #if os(iOS)
         UIDevice.current.userInterfaceIdiom == .pad
