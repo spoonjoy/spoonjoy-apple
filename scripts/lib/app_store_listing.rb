@@ -573,9 +573,10 @@ module AppStoreListing
       images = (body["included"] || []).select { |item| item["type"] == "appAssetLibraryImages" }.to_h { |item| [item["id"], item["attributes"] || {}] }
       (body["data"] || []).each_with_object({}) do |placement, out|
         type = placement.dig("attributes", "placementType")
-        image = images[placement.dig("relationships", "image", "data", "id")]
-        next unless CREATIVE_ASSET_SIZES.key?(type) && image
+        next unless CREATIVE_ASSET_SIZES.key?(type)
 
+        # A placement whose image is not returned still holds the page's one slot, so it is replaced, never doubled.
+        image = images[placement.dig("relationships", "image", "data", "id")] || { "state" => "FAILED" }
         failed = [placement.dig("attributes", "state"), image["state"]].include?("FAILED")
         out[type] = { "id" => placement["id"], "referenceName" => image["referenceName"], "failed" => failed }
       end
