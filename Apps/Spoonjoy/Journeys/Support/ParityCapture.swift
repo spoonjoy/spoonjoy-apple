@@ -77,9 +77,9 @@ struct ParityCapture {
         Self.post(.system)
     }
 
-    /// Turns the device and lets the rotation and the relayout that follows it finish.
+    /// Turns the device and lets the rotation and the relayout that follows it finish. It always sets the orientation:
+    /// the simulator's reading of it can be stale, and a skipped turn back would leave every later shot sideways.
     static func turn(_ orientation: UIDeviceOrientation) {
-        guard XCUIDevice.shared.orientation != orientation else { return }
         XCUIDevice.shared.orientation = orientation
         Thread.sleep(forTimeInterval: rotationSettle)
     }
