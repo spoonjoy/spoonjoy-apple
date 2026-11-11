@@ -1,0 +1,90 @@
+{
+  "_comment": "Every phrase a cook can say to Siri, as Xcode compiles them into Metadata.appintents (${applicationName} is Spoonjoy; ${recipe} is one of the recipes the recipe query suggests). scripts/check-app-shortcuts.rb holds the built app to this list in the App bundle job; the desk Siri checklist reads these out on a phone.",
+  "shortcuts": [
+    {
+      "intent": "OpenRecipeIntent",
+      "phrases": [
+        "Open a recipe in ${applicationName}",
+        "Show my recipe in ${applicationName}",
+        "Open ${recipe} in ${applicationName}",
+        "Show me ${recipe} in ${applicationName}"
+      ]
+    },
+    {
+      "intent": "SearchSpoonjoyIntent",
+      "phrases": [
+        "Search ${applicationName}",
+        "Find something in ${applicationName}",
+        "Find a recipe in ${applicationName}"
+      ]
+    },
+    {
+      "intent": "StartCookModeIntent",
+      "phrases": [
+        "Start cooking in ${applicationName}",
+        "Cook with ${applicationName}",
+        "Let's cook with ${applicationName}",
+        "Cook ${recipe} with ${applicationName}",
+        "Start cooking ${recipe} in ${applicationName}",
+        "Let's make ${recipe} with ${applicationName}"
+      ]
+    },
+    {
+      "intent": "ContinueCookModeIntent",
+      "phrases": [
+        "Continue cooking in ${applicationName}",
+        "Resume cooking with ${applicationName}",
+        "Keep cooking ${recipe} in ${applicationName}"
+      ]
+    },
+    {
+      "intent": "NextCookStepIntent",
+      "phrases": [
+        "Next step in ${applicationName}",
+        "What is the next step in ${applicationName}",
+        "What's next in ${applicationName}",
+        "${applicationName} next step"
+      ]
+    },
+    {
+      "intent": "PreviousCookStepIntent",
+      "phrases": [
+        "Previous step in ${applicationName}",
+        "Go back a step in ${applicationName}",
+        "${applicationName} go back"
+      ]
+    },
+    {
+      "intent": "StartCookStepTimerIntent",
+      "phrases": [
+        "Start the step timer in ${applicationName}",
+        "Start this timer in ${applicationName}",
+        "Set the timer in ${applicationName}"
+      ]
+    },
+    {
+      "intent": "ReadCookStepIntent",
+      "phrases": [
+        "Read the step in ${applicationName}",
+        "Read this step from ${applicationName}",
+        "What's this step in ${applicationName}",
+        "${applicationName} say that again"
+      ]
+    },
+    {
+      "intent": "AddShoppingListItemIntent",
+      "phrases": [
+        "Add an item in ${applicationName}",
+        "Add to my ${applicationName} shopping list",
+        "Add to my ${applicationName} list"
+      ]
+    },
+    {
+      "intent": "CaptureRecipeIntent",
+      "phrases": [
+        "Capture a recipe in ${applicationName}",
+        "Save a recipe to ${applicationName}"
+      ]
+    }
+  ]
+}
