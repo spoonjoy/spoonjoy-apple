@@ -709,10 +709,15 @@ final class JourneyApp {
         waitFor(JourneyID.signInPassword, timeout: Self.interactionTimeout, "The password field is missing.", file: file, line: line)
         UIPasteboard.general.string = password
         defer { UIPasteboard.general.items = [] }
+        // Since Sign in with Apple moved above the form (#245), the password field sits low enough on iPhone that
+        // the keyboard's glass covers it once the keyboard is up (run 42640764538: field 530-578 pt, keyboard
+        // frame from 609 pt). XCUITest still counts it as visible, so a bare press lands on the keyboard and no
+        // edit menu opens. Drag it clear of the keyboard after the tap brings the keyboard up, then press.
         field.tap()
+        scrollIntoView(field, dragsLeft: Self.scrollDrags)
         field.press(forDuration: 1.2)
         let paste = editMenuItem(Self.pasteMenuTitle)
-        XCTAssertTrue(paste.waitForExistence(timeout: Self.interactionTimeout), "The Paste action did not appear on the password field.", file: file, line: line)
+        XCTAssertTrue(paste.waitForExistence(timeout: Self.interactionTimeout), "The Paste action did not appear on the password field. Field frame: \(field.frame). Keyboard frame: \(app.keyboards.firstMatch.exists ? "\(app.keyboards.firstMatch.frame)" : "no keyboard").", file: file, line: line)
         paste.tap()
     }
 }
