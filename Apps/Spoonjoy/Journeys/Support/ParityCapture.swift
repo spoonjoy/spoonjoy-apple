@@ -146,7 +146,13 @@ struct ParityCapture {
         journey.tap(JourneyID.recipeDetailActions)
         journey.tap(JourneyID.recipeDetailRemindersSend)
         journey.allowRemindersAccessIfAsked()
-        wait(journey.element(JourneyID.remindersNewListName), "The Reminders list picker did not open.")
+        // The picker is a lazy List: at AX5 on iPhone its "new list" field is below the first screen and not made
+        // yet (Journeys run 42948350953), so either of its rows proves it opened.
+        let picker = journey.app.descendants(matching: .any).matching(NSPredicate(
+            format: "identifier IN %@",
+            [JourneyID.remindersList, JourneyID.remindersNewListName]
+        )).firstMatch
+        wait(picker, "The Reminders list picker did not open.")
         try shootBothSchemes("sheet-add-to-list")
     }
 
