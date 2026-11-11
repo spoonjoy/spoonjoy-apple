@@ -2,6 +2,7 @@ name: Native
 
 on:
   pull_request:
+  # main has a merge queue (ruleset "main merge queue"); branch protection is not strict, the queue keeps main current.
   # The merge queue tests each entry on top of main plus the entries ahead of it. Required checks report here;
   # the optional jobs below skip (they run on pull_request) and TestFlight ignores these branches.
   merge_group:
