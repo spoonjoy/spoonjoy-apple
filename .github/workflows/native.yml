@@ -2,6 +2,9 @@ name: Native
 
 on:
   pull_request:
+  # The merge queue tests each entry on top of main plus the entries ahead of it. Required checks report here;
+  # the optional jobs below skip (they run on pull_request) and TestFlight ignores these branches.
+  merge_group:
   push:
     branches:
       - main
@@ -10,7 +13,8 @@ on:
 
 concurrency:
   # A new push to a pull request cancels its superseded run, so stale runs stop holding the few xcode-27 runners.
-  # Every main commit keeps its own run: TestFlight publishes from Native's success on main.
+  # Every main commit and every merge-queue entry keeps its own run (its sha is unique and never cancelled):
+  # TestFlight publishes from Native's success on main.
   group: native-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
