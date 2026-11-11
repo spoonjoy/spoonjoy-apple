@@ -8,7 +8,7 @@ final class ShoppingAisleColumnsTests: XCTestCase {
     }
 
     func testTheUprightIPadListSetsTwoColumnsAndAWideOneThree() {
-        // The 13" iPad upright, beside the recipes pane: about 610 pt of list.
+        // The 13" iPad upright beside the recipes pane, about 610 pt of list.
         XCTAssertEqual(ShoppingAisleColumns.count(width: 610, aisles: 6), 2)
         XCTAssertEqual(ShoppingAisleColumns.count(width: 960, aisles: 6), 3)
         XCTAssertEqual(ShoppingAisleColumns.count(width: 2000, aisles: 6), ShoppingAisleColumns.maximumColumns)
@@ -48,12 +48,12 @@ final class ShoppingAisleColumnsTests: XCTestCase {
     }
 
     func testThePageWidensOnlyWhenThreeColumnsAreDrawn() {
-        // The 13" iPad held sideways beside the sidebar and the recipes pane: about 1,000 pt of list container.
-        let three = ShoppingAisleColumns.count(containerWidth: 1000, aisles: 6, setsColumns: true)
+        // The 13" iPad held sideways with the sidebar hidden, beside the recipes pane: about 1,005 pt of list container.
+        let three = ShoppingAisleColumns.count(containerWidth: 1005, aisles: 6, setsColumns: true)
         XCTAssertEqual(three, 3)
         XCTAssertEqual(ShoppingAisleColumns.pageWidth(columns: three), ShoppingAisleColumns.widePageWidth)
-        // Two columns fit the 760 pt page, so it keeps its width.
-        let two = ShoppingAisleColumns.count(containerWidth: 900, aisles: 6, setsColumns: true)
+        // With the sidebar showing it is about 685 pt: two columns, which fit the 760 pt page, so it keeps its width.
+        let two = ShoppingAisleColumns.count(containerWidth: 685, aisles: 6, setsColumns: true)
         XCTAssertEqual(two, 2)
         XCTAssertEqual(ShoppingAisleColumns.pageWidth(columns: two), ShoppingAisleColumns.narrowPageWidth)
         // An empty list and accessibility sizes keep one column and the 760 pt page.

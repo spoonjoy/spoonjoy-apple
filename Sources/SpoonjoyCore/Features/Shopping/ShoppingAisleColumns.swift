@@ -11,7 +11,10 @@ public enum ShoppingAisleColumns {
     public static let maximumColumns = 3
     /// The iPad shopping page's widest content: three columns of 300 pt and their gaps, plus the page's 20 pt sides.
     /// A phone's page keeps its 760 pt cap.
-    public static let widePageWidth: Double = 3 * 300 + 2 * columnSpacing + 2 * 20
+    public static let widePageWidth: Double = 3 * 300 + 2 * columnSpacing + 2 * pagePadding
+    /// The page's side padding on each side: `KitchenTableTheme.pagePadding`, which `KitchenTablePage` sets. Keep the
+    /// two equal.
+    public static let pagePadding: Double = 20
 
     /// The page every other layout keeps.
     public static let narrowPageWidth: Double = 760
@@ -21,7 +24,7 @@ public enum ShoppingAisleColumns {
     /// off (`setsColumns`: not an iPad, or an accessibility text size).
     public static func count(containerWidth: Double, aisles: Int, setsColumns: Bool) -> Int {
         guard setsColumns else { return 1 }
-        return count(width: min(containerWidth, widePageWidth) - 2 * 20, aisles: aisles)
+        return count(width: min(containerWidth, widePageWidth) - 2 * pagePadding, aisles: aisles)
     }
 
     /// The page's widest content for that many columns.

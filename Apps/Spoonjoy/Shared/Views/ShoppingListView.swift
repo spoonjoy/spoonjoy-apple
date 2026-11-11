@@ -16,7 +16,7 @@ struct ShoppingListView: View {
     @State private var activeCategory = "all"
     @State private var checkHapticTick = 0
     @State private var remindersSender = SpoonjoyRemindersSender()
-    /// The list's width, measured, for setting its aisles in columns on a wide iPad page.
+    /// The page container's width, measured before the page is capped, for setting the aisles in columns on an iPad.
     @State private var containerWidth: CGFloat = 0
     @FocusState private var isItemFieldFocused: Bool
     @FocusState private var isRetryButtonFocused: Bool
