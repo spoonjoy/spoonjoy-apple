@@ -68,6 +68,12 @@ class AppShortcutsTest < Minitest::Test
     assert_includes problems, "GhostIntent has App Shortcut phrases but the app declares no such intent"
   end
 
+  def test_one_phrase_under_two_shortcuts_fails
+    shortcuts = GOOD.merge("AddShoppingListItemIntent" => ["Start cooking in ${applicationName}"])
+    problems = AppShortcuts.check(metadata(shortcuts), expected(shortcuts))
+    assert_includes problems, "\"Start cooking in ${applicationName}\" is offered by AddShoppingListItemIntent and StartCookModeIntent, so Siri cannot tell which to run"
+  end
+
   def test_more_than_ten_shortcuts_fails
     actions = (1..11).to_h { |n| ["Intent#{n}", action] }
     shortcuts = (1..11).to_h { |n| ["Intent#{n}", ["Do #{n} in ${applicationName}"]] }

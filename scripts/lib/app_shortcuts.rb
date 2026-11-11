@@ -7,6 +7,7 @@
 # - every shortcut runs an intent the app declares;
 # - a phrase's only other placeholder is a parameter of that intent whose value is an entity, since Siri can list
 #   entities ahead of time but never free text;
+# - no phrase belongs to two shortcuts, or Siri cannot tell which to run;
 # - the phrases are exactly the ones the config lists, so the device checklist and the app never drift apart.
 module AppShortcuts
   LIMIT = 10
@@ -46,6 +47,19 @@ module AppShortcuts
           end
         end
       end
+    end
+
+    owners = Hash.new { |hash, key| hash[key] = { phrase: nil, intents: [] } }
+    built(metadata).each do |intent, phrases|
+      phrases.uniq.each do |phrase|
+        owner = owners[phrase.downcase]
+        owner[:phrase] ||= phrase
+        owner[:intents] << intent
+      end
+    end
+    owners.each_value do |owner|
+      next if owner[:intents].length < 2
+      problems << "\"#{owner[:phrase]}\" is offered by #{owner[:intents].sort.join(' and ')}, so Siri cannot tell which to run"
     end
 
     want = expected.fetch("shortcuts").to_h { |entry| [entry.fetch("intent"), entry.fetch("phrases")] }
