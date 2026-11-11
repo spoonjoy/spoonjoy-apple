@@ -112,7 +112,7 @@ Release 1.1 turns the Kitchen Table into a full system with a night appearance. 
 | --- | --- | --- | --- |
 | `page` | Bone #FBFAF4 | #1E1C19 | The page behind everything |
 | `raised` | #FFFEFA | #282522 | Sheets, panels and raised rows |
-| `ink` | Charcoal #28231D | #F2EEE6 | Primary text and the one filled button |
+| `ink` | Charcoal #28231D | #F2EEE6 | Primary text |
 | `ink2` | #635D54 | #C8C0B4 | Secondary text |
 | `onInk` | Bone #FBFAF4 | #1F1D1A | Labels on ink, action and brass fills |
 | `hairline` | Charcoal at 18% | Bone at 16% | Rules and borders |
@@ -124,7 +124,7 @@ Release 1.1 turns the Kitchen Table into a full system with a night appearance. 
 
 Every text role passes WCAG AA (4.5:1) on `page` and `raised` in both appearances, as do labels on the action, brass and tomato fills; `KitchenContrastTests` measures each pair from the theme source.
 
-**Glass.** Liquid Glass is for controls that float over content: the tab bar, toolbars, the cook dock and the timer chip. Prefer system components, which bring their own glass. Content (recipe text, lists, photos) never sits on glass. There is one filled button per screen, a solid ink capsule on interactive glass; everything else is glass or text. Group neighbouring glass controls in one `GlassEffectContainer` so they merge and split together.
+**Glass.** Liquid Glass is for controls that float over content: the tab bar, toolbars, the cook dock and the timer chip. Prefer system components, which bring their own glass. Content (recipe text, lists, photos) never sits on glass. There is one filled button per screen, a solid `action` capsule on interactive glass (charcoal by day, amber at night, as on web); everything else is glass or text. Group neighbouring glass controls in one `GlassEffectContainer` so they merge and split together.
 
 The glass rules:
 
