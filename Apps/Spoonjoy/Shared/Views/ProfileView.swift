@@ -136,9 +136,11 @@ private struct ProfileHero: View {
         VStack(alignment: .leading, spacing: 16) {
             ProfileAvatar(url: viewModel.header.photoURL, name: viewModel.header.username)
 
+            // The handle takes web's chef-name size, the title role (30 pt on a phone), not display size.
             KitchenTableHeader(
                 title: viewModel.header.username,
                 subtitle: viewModel.header.joinedLabel,
+                titleFont: KitchenTableTheme.recipeTitle,
                 titleBreaksAnywhere: true
             ) {
                 ownerActions
