@@ -1,0 +1,47 @@
+{
+  "about": "App Store frames. Store scenes (StoreScenesUITests) photographs each set's scenes in the App Store build on the review demo kitchen; scripts/store-frames/render.mjs puts each scene in its frame with the caption here. Every caption must stay true of the build it ships with (Guideline 2.3). The first three shots of a set are the ones search results show.",
+  "sets": {
+    "iphone-69": {
+      "simulator": "^iPhone \\d+ Pro Max$",
+      "scene_size": [1320, 2868],
+      "size": [1320, 2868],
+      "device": "iphone",
+      "shots": [
+        { "id": "01-cook", "scene": "cook-mode", "palette": "tomato", "kicker": "Cook mode", "headline": "One big step\nat a time", "subline": "Say “next” when your hands are messy. Tick off each ingredient as it goes in." },
+        { "id": "02-recipe", "scene": "recipe-detail", "palette": "brass", "kicker": "Fork it, with credit", "headline": "Recipes, passed\nhand to hand", "subline": "Make it yours. The cook who started it keeps the credit." },
+        { "id": "03-kitchen", "scene": "kitchen", "palette": "charcoal", "kicker": "Your kitchen", "headline": "Everything you\ncook, together", "subline": "Your recipes, cookbooks and cooks in one place." },
+        { "id": "04-night", "scene": "cook-mode-dark", "palette": "charcoal", "kicker": "After dark", "headline": "A warm kitchen\nfor late dinners", "subline": "Cook mode goes dark and gentle, and the button you need glows amber." },
+        { "id": "05-shopping", "scene": "shopping-list", "palette": "bone", "kicker": "Shopping", "headline": "A list like\na receipt", "subline": "Sorted by aisle. Works offline. Sends to Reminders." },
+        { "id": "06-cookbooks", "scene": "cookbook-detail", "palette": "herb", "kicker": "Cookbooks", "headline": "Gather recipes\ninto cookbooks", "subline": "Share a whole cookbook with one link." },
+        { "id": "07-recipes", "scene": "recipes", "palette": "brass", "kicker": "Recipes", "headline": "Your whole\nrecipe box", "subline": "Yours, saved and everyone’s, a tap apart." }
+      ]
+    },
+    "iphone-61": {
+      "simulator": "^iPhone \\d+ Pro$",
+      "scene_size": [1206, 2622],
+      "size": [1206, 2622],
+      "device": "iphone",
+      "shots": "iphone-69"
+    },
+    "ipad-13": {
+      "simulator": "^iPad Pro 13-inch",
+      "scene_size": [2064, 2752],
+      "size": [2064, 2752],
+      "device": "ipad",
+      "shots": [
+        { "id": "01-cook", "scene": "cook-mode", "palette": "tomato", "kicker": "Cook mode", "headline": "One big step at a time", "subline": "Say “next” when your hands are messy. Tick off each ingredient as it goes in." },
+        { "id": "02-recipe", "scene": "recipe-detail", "palette": "brass", "kicker": "Fork it, with credit", "headline": "Recipes, passed hand to hand", "subline": "Make it yours. The cook who started it keeps the credit." },
+        { "id": "03-kitchen", "scene": "kitchen", "palette": "charcoal", "kicker": "Your kitchen", "headline": "Everything you cook, together", "subline": "Your recipes, cookbooks and cooks in one place." },
+        { "id": "04-night", "scene": "cook-mode-dark", "palette": "charcoal", "kicker": "After dark", "headline": "A warm kitchen for late dinners", "subline": "Cook mode goes dark and gentle, and the button you need glows amber." },
+        { "id": "05-shopping", "scene": "shopping-list", "palette": "bone", "kicker": "Shopping", "headline": "A list like a receipt", "subline": "Sorted by aisle. Works offline. Sends to Reminders." }
+      ]
+    }
+  },
+  "palettes": {
+    "tomato": ["#A24A38", "#7E3628", "#FBFAF4", "#F3D9CF"],
+    "herb": ["#596A4F", "#3F4C38", "#FBFAF4", "#DCE4D3"],
+    "brass": ["#9B6834", "#744C22", "#FBFAF4", "#F1DEC6"],
+    "charcoal": ["#28231D", "#15120F", "#FBFAF4", "#C8C0B4"],
+    "bone": ["#FBFAF4", "#EFE9DC", "#1F1B17", "#635D54"]
+  }
+}
