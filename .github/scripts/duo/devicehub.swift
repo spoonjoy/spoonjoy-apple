@@ -63,9 +63,14 @@ struct Node {
     let children: [AXUIElement]
 }
 
+// Reads that failed (for example while DeviceHub rebuilds its window); their subtrees are skipped, so walks report this.
+var failedReads = 0
+
 func node(_ e: AXUIElement) -> Node {
     var values: CFArray?
-    AXUIElementCopyMultipleAttributeValues(e, wanted, AXCopyMultipleAttributeOptions(rawValue: 0), &values)
+    if AXUIElementCopyMultipleAttributeValues(e, wanted, AXCopyMultipleAttributeOptions(rawValue: 0), &values) != .success {
+        failedReads += 1
+    }
     let list = (values as? [AnyObject]) ?? []
     func at(_ i: Int) -> AnyObject? { i < list.count ? list[i] : nil }
     return Node(element: e, role: (at(0) as? String) ?? "", description: (at(1) as? String) ?? "",
@@ -148,22 +153,28 @@ case "wait":
         }
         usleep(2_000_000)
     }
-    say("not found within \(Int(waitLimit)) s: \(query)")
+    say("not found within \(Int(waitLimit)) s: \(query) (\(failedReads) unreadable elements skipped)")
     exit(2)
 case "press":
     let queries = Array(args.dropFirst(2))
     guard !queries.isEmpty else { say("usage: devicehub press <desc> [<desc> ...]"); exit(64) }
+    // One budget for the whole sequence, so the step keeps time for the diagnostic dump if a press fails.
+    let deadline = Date().addingTimeInterval(120)
     let began = Date()
-    var found = buttons(Set(queries), in: app, deadline: began.addingTimeInterval(90))
-    say("found \(found.count) of \(Set(queries).count) buttons in \(String(format: "%.1f", Date().timeIntervalSince(began))) s")
+    var found = buttons(Set(queries), in: app, deadline: deadline)
+    let missing = Set(queries).subtracting(found.keys).sorted()
+    say("found \(found.count) of \(Set(queries).count) buttons in \(String(format: "%.1f", Date().timeIntervalSince(began))) s"
+        + (missing.isEmpty ? "" : "; missing: \(missing.joined(separator: ", "))")
+        + (failedReads == 0 ? "" : "; \(failedReads) unreadable elements skipped"))
     for (i, query) in queries.enumerated() {
         if i > 0 { usleep(useconds_t(pause * 1_000_000)) }
         var result = AXError.invalidUIElement
         if let e = found[query] { result = AXUIElementPerformAction(e, kAXPressAction as CFString) }
         // A pose change can rebuild the window and invalidate a button found before it; look it up again once.
         if result != .success {
-            found[query] = buttons([query], in: app, deadline: Date().addingTimeInterval(60))[query]
-            guard let e = found[query] else { say("not found: \(query)"); exit(2) }
+            say("looking up \(query) again")
+            found[query] = buttons([query], in: app, deadline: deadline)[query]
+            guard let e = found[query] else { say("not found: \(query) (\(failedReads) unreadable elements skipped)"); exit(2) }
             result = AXUIElementPerformAction(e, kAXPressAction as CFString)
         }
         say("pressed \(query): \(result.rawValue)")

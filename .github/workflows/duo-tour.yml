@@ -75,8 +75,9 @@ jobs:
         run: swiftc -O .github/scripts/duo/devicehub.swift -o "$RUNNER_TEMP/duo/devicehub"
       - name: Open the inner screen tall and half-open
         # DeviceHub can take a minute or more to launch and build its accessibility tree on a runner, so the driver
-        # waits for the pose buttons instead of sleeping, and presses the whole sequence from one process.
-        timeout-minutes: 6
+        # waits for the pose buttons instead of sleeping, and presses the whole sequence from one process. The limit covers
+        # the worst case: 180 s waiting, 120 s pressing and 90 s for the failure dump.
+        timeout-minutes: 8
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/duo/shots"
