@@ -23,6 +23,7 @@ struct RecipesView: View {
     @State private var state: RecipeCatalogState
     @State private var query: String
     @State private var isLoading = false
+    @State private var indexWidth: CGFloat = 0
     /// The tab stack's cover-zoom namespace, so a tapped cover grows into its recipe; its own outside a tab stack.
     @Environment(\.recipeZoomNamespace) private var tabRecipeTransition
     @Namespace private var localRecipeTransition
@@ -62,7 +63,7 @@ struct RecipesView: View {
     }
 
     var body: some View {
-        KitchenTablePage {
+        KitchenTablePage(maxContentWidth: Self.setsIndexInColumns ? CGFloat(RecipeIndexColumns.widePageWidth) : 720) {
             KitchenTableHeader(
                 eyebrow: headerEyebrow,
                 title: title,
@@ -127,18 +128,60 @@ struct RecipesView: View {
         .accessibilityIdentifier("recipes.emptyState")
     }
 
+    /// The index, in two columns read across and then down when the iPad page is wide enough
+    /// (`RecipeIndexColumns`): the 13" iPad held sideways beside its sidebar, or the iPad with the sidebar hidden. A
+    /// phone, the Duo, the Mac, a narrow window and accessibility text sizes keep the one column.
     private func recipeIndex(rows: [RecipeCatalogRowViewModel]) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(rows) { row in
-                if row.id != rows.first?.id {
-                    RecipeIndexRowSeparator()
+        let columns = Self.setsIndexInColumns && !dynamicTypeSize.isAccessibilitySize
+            ? RecipeIndexColumns.count(width: Double(indexWidth), rows: rows.count)
+            : 1
+        return Group {
+            if columns > 1 {
+                LazyVGrid(
+                    columns: Array(
+                        repeating: GridItem(.flexible(), spacing: CGFloat(RecipeIndexColumns.columnSpacing), alignment: .top),
+                        count: columns
+                    ),
+                    alignment: .leading,
+                    spacing: 0
+                ) {
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                        VStack(alignment: .leading, spacing: 0) {
+                            if RecipeIndexColumns.hasRowAbove(index: index, columns: columns) {
+                                RecipeIndexRowSeparator()
+                            }
+                            indexRow(row)
+                        }
+                    }
                 }
-                RecipeIndexRow(row: row, namespace: recipeTransition) {
-                    openRoute(row.openRoute)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(rows) { row in
+                        if row.id != rows.first?.id {
+                            RecipeIndexRowSeparator()
+                        }
+                        indexRow(row)
+                    }
                 }
-                .accessibilityIdentifier("recipes.row")
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { indexWidth = $0 }
+    }
+
+    private func indexRow(_ row: RecipeCatalogRowViewModel) -> some View {
+        RecipeIndexRow(row: row, namespace: recipeTransition) {
+            openRoute(row.openRoute)
+        }
+        .accessibilityIdentifier("recipes.row")
+    }
+
+    /// Only the iPad sets its index in columns; every iPhone, the Duo included, and the Mac keep the one column.
+    private static var setsIndexInColumns: Bool {
+#if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .pad
+#else
+        false
+#endif
     }
 }
 
