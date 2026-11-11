@@ -31,7 +31,7 @@ jobs:
         working-directory: scripts/store-frames
         run: |
           npm ci --no-audit --no-fund
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
       - name: Test the renderer
         working-directory: scripts/store-frames
         run: npm test

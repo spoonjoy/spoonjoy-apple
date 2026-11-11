@@ -97,7 +97,7 @@ jobs:
           gh api "$url" > "$RUNNER_TEMP/scenes.zip"
           mkdir -p "$RUNNER_TEMP/scenes"
           unzip -q "$RUNNER_TEMP/scenes.zip" -d "$RUNNER_TEMP/scenes"
-          (cd release-source/scripts/store-frames && npm ci --no-audit --no-fund && npx playwright install --with-deps chromium)
+          (cd release-source/scripts/store-frames && npm ci --no-audit --no-fund && npx playwright install chromium)
           node release-source/scripts/store-frames/render.mjs --scenes "$RUNNER_TEMP/scenes" --out "$RUNNER_TEMP/frames" --check
           # Framed sets replace their folder; a set no scene makes yet (the Mac) keeps its checked-in screenshots.
           # The header and search art land in creative/, where listing.json's creativeAssets name them.

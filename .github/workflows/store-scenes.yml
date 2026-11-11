@@ -248,7 +248,7 @@ jobs:
         working-directory: scripts/store-frames
         run: |
           npm ci --no-audit --no-fund
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
       - name: Frame the scenes twice and compare
         run: node scripts/store-frames/render.mjs --scenes "$RUNNER_TEMP/scenes" --out "$RUNNER_TEMP/frames" --check | tee "$RUNNER_TEMP/frames.txt"
       - name: Keep the scenes under their key
