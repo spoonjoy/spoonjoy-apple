@@ -1,11 +1,12 @@
 // Drives Xcode's DeviceHub app through accessibility, for the Duo tour workflow.
 //   devicehub dump                       print the window's buttons (description, help and frame)
 //   devicehub wait <desc> [seconds]      wait until a button whose description or help matches appears (default 120 s)
-//   devicehub press <desc> [<desc> ...]  press each button in order, pausing DEVICEHUB_PAUSE seconds (default 4) after each
+//   devicehub press <desc> [<desc> ...]  press each button in order, pausing DEVICEHUB_PAUSE seconds (default 4) between
 //
-// Every search stops at the first match, breadth first, instead of walking DeviceHub's whole accessibility tree: a full
-// walk took tens of seconds on a CI runner, and three of them ran a 4-minute step out of time (spoonjoy-apple run
-// 42939127260). One `press` call handles a whole sequence, so DeviceHub is asked to build its tree only once.
+// Searches start at DeviceHub's windows, read each element in one accessibility call, match only buttons and stop once
+// every requested button is found. A full walk from the application root, once per press, took tens of seconds on a CI
+// runner, and three of them ran a 4-minute step out of time (spoonjoy-apple run 42939127260). One `press` call finds a
+// whole sequence in one walk.
 import AppKit
 import ApplicationServices
 import Foundation
@@ -51,31 +52,68 @@ func deviceHubPID() -> pid_t? {
     return text.split(separator: "\n").compactMap { pid_t($0) }.first
 }
 
-func matches(_ e: AXUIElement, _ query: String) -> Bool {
-    str(e, kAXDescriptionAttribute) == query || str(e, kAXHelpAttribute) == query
+// Role, description, help and children in one accessibility call; a missing attribute comes back as an AXValue error.
+let wanted = [kAXRoleAttribute, kAXDescriptionAttribute, kAXHelpAttribute, kAXChildrenAttribute] as CFArray
+
+struct Node {
+    let element: AXUIElement
+    let role: String
+    let description: String
+    let help: String
+    let children: [AXUIElement]
 }
 
-// Breadth first, so the window's toolbar (where the pose buttons live) is reached before deep content.
-func first(in root: AXUIElement, where test: (AXUIElement) -> Bool) -> AXUIElement? {
-    var queue: [(AXUIElement, Int)] = [(root, 0)]
+func node(_ e: AXUIElement) -> Node {
+    var values: CFArray?
+    AXUIElementCopyMultipleAttributeValues(e, wanted, AXCopyMultipleAttributeOptions(rawValue: 0), &values)
+    let list = (values as? [AnyObject]) ?? []
+    func at(_ i: Int) -> AnyObject? { i < list.count ? list[i] : nil }
+    return Node(element: e, role: (at(0) as? String) ?? "", description: (at(1) as? String) ?? "",
+                help: (at(2) as? String) ?? "", children: (at(3) as? [AXUIElement]) ?? [])
+}
+
+// The pose buttons sit in DeviceHub's window (the bottom bar beside Home and Screenshot), so searches start at the
+// windows and skip the menu bar, whose every menu item a search from the application root would visit first.
+func windows(_ app: AXUIElement) -> [AXUIElement] {
+    let list = (attr(app, kAXWindowsAttribute) as? [AXUIElement]) ?? []
+    return list.isEmpty ? [app] : list
+}
+
+// One walk, breadth first, that stops once every query has a button; returns the buttons found by query.
+func buttons(_ queries: Set<String>, in app: AXUIElement, deadline: Date) -> [String: AXUIElement] {
+    var found: [String: AXUIElement] = [:]
+    var queue: [(AXUIElement, Int)] = windows(app).map { ($0, 0) }
     var index = 0
-    while index < queue.count {
+    while index < queue.count, found.count < queries.count, Date() < deadline {
         let (e, depth) = queue[index]
         index += 1
-        if test(e) { return e }
-        if depth < 40 { queue.append(contentsOf: children(e).map { ($0, depth + 1) }) }
+        let n = node(e)
+        if n.role == "AXButton" {
+            for q in [n.description, n.help] where queries.contains(q) && found[q] == nil { found[q] = e }
+        }
+        if depth < 40 { queue.append(contentsOf: n.children.map { ($0, depth + 1) }) }
     }
-    return nil
+    return found
 }
 
-func everything(in root: AXUIElement) -> [AXUIElement] {
-    var all: [AXUIElement] = []
-    func walk(_ e: AXUIElement, _ depth: Int) {
-        all.append(e)
-        if depth < 40 { children(e).forEach { walk($0, depth + 1) } }
+func everyButton(in app: AXUIElement, deadline: Date) -> [AXUIElement] {
+    var out: [AXUIElement] = []
+    var queue: [(AXUIElement, Int)] = windows(app).map { ($0, 0) }
+    var index = 0
+    while index < queue.count, Date() < deadline {
+        let (e, depth) = queue[index]
+        index += 1
+        let n = node(e)
+        if n.role == "AXButton" { out.append(e) }
+        if depth < 40 { queue.append(contentsOf: n.children.map { ($0, depth + 1) }) }
     }
-    walk(root, 0)
-    return all
+    return out
+}
+
+func seconds(_ text: String?, default value: Double, name: String) -> Double {
+    guard let text, !text.isEmpty else { return value }
+    guard let parsed = Double(text), parsed >= 0 else { say("\(name) is not a number of seconds: \(text)"); exit(64) }
+    return parsed
 }
 
 guard AXIsProcessTrusted() else { say("not trusted for accessibility"); exit(3) }
@@ -83,26 +121,28 @@ guard AXIsProcessTrusted() else { say("not trusted for accessibility"); exit(3) 
 let args = CommandLine.arguments
 let command = args.count > 1 ? args[1] : "dump"
 let started = Date()
-let waitLimit = command == "wait" && args.count > 3 ? (Double(args[3]) ?? 120) : 120
+let waitLimit = command == "wait" ? seconds(args.count > 3 ? args[3] : nil, default: 120, name: "wait limit") : 10
+let pause = seconds(ProcessInfo.processInfo.environment["DEVICEHUB_PAUSE"], default: 4, name: "DEVICEHUB_PAUSE")
 
-// DeviceHub may still be launching; wait for its process within the same limit as `wait`.
+// `wait` allows DeviceHub time to launch; every other command expects it running and fails fast if it has died.
 var pid = deviceHubPID()
 while pid == nil, Date().timeIntervalSince(started) < waitLimit {
     usleep(1_000_000)
     pid = deviceHubPID()
 }
 guard let pid else { say("no DeviceHub process"); exit(1) }
-let root = AXUIElementCreateApplication(pid)
+let app = AXUIElementCreateApplication(pid)
 // SwiftUI and Catalyst apps build their accessibility tree only once an assistive client asks.
-AXUIElementSetAttributeValue(root, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
 usleep(1_500_000)
 
 switch command {
 case "wait":
     guard args.count > 2 else { say("usage: devicehub wait <desc> [seconds]"); exit(64) }
     let query = args[2]
-    while Date().timeIntervalSince(started) < waitLimit {
-        if first(in: root, where: { matches($0, query) }) != nil {
+    let deadline = started.addingTimeInterval(waitLimit)
+    while Date() < deadline {
+        if buttons([query], in: app, deadline: deadline)[query] != nil {
             say("found \(query) after \(Int(Date().timeIntervalSince(started))) s")
             exit(0)
         }
@@ -113,20 +153,25 @@ case "wait":
 case "press":
     let queries = Array(args.dropFirst(2))
     guard !queries.isEmpty else { say("usage: devicehub press <desc> [<desc> ...]"); exit(64) }
-    let pause = Double(ProcessInfo.processInfo.environment["DEVICEHUB_PAUSE"] ?? "") ?? 4
-    for query in queries {
-        let began = Date()
-        guard let e = first(in: root, where: { matches($0, query) }) else {
-            say("not found: \(query)")
-            exit(2)
+    let began = Date()
+    var found = buttons(Set(queries), in: app, deadline: began.addingTimeInterval(90))
+    say("found \(found.count) of \(Set(queries).count) buttons in \(String(format: "%.1f", Date().timeIntervalSince(began))) s")
+    for (i, query) in queries.enumerated() {
+        if i > 0 { usleep(useconds_t(pause * 1_000_000)) }
+        var result = AXError.invalidUIElement
+        if let e = found[query] { result = AXUIElementPerformAction(e, kAXPressAction as CFString) }
+        // A pose change can rebuild the window and invalidate a button found before it; look it up again once.
+        if result != .success {
+            found[query] = buttons([query], in: app, deadline: Date().addingTimeInterval(60))[query]
+            guard let e = found[query] else { say("not found: \(query)"); exit(2) }
+            result = AXUIElementPerformAction(e, kAXPressAction as CFString)
         }
-        let result = AXUIElementPerformAction(e, kAXPressAction as CFString)
-        say("pressed \(query): \(result.rawValue) (found in \(String(format: "%.1f", Date().timeIntervalSince(began))) s)")
+        say("pressed \(query): \(result.rawValue)")
         guard result == .success else { exit(4) }
-        usleep(useconds_t(pause * 1_000_000))
     }
 default:
-    for e in everything(in: root) where str(e, kAXRoleAttribute) == "AXButton" {
+    // Bounded, so a dump printed as a failure diagnostic finishes inside the step's time limit.
+    for e in everyButton(in: app, deadline: started.addingTimeInterval(90)) {
         print(str(e, kAXDescriptionAttribute), "|", str(e, kAXHelpAttribute), "|", frame(e))
     }
 }

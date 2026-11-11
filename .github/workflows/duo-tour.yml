@@ -83,7 +83,7 @@ jobs:
           open -a "$(xcode-select -p)/../Applications/DeviceHub.app"
           "$RUNNER_TEMP/duo/devicehub" wait "Partially Open" 180 || { "$RUNNER_TEMP/duo/devicehub" dump || true; exit 1; }
           "$RUNNER_TEMP/duo/devicehub" press "Open" "Rotate Right" "Partially Open" || { "$RUNNER_TEMP/duo/devicehub" dump || true; exit 1; }
-          sleep 2
+          sleep 6
           screencapture -x "$RUNNER_TEMP/duo/shots/00-devicehub-half-open-tall.png" || true
           xcrun simctl io "${{ steps.sim.outputs.udid }}" enumerate || true
       - name: Create disposable QA accounts
