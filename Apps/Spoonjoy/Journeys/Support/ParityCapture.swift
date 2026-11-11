@@ -127,6 +127,9 @@ struct ParityCapture {
     func cookbook(_ kitchen: Kitchen) throws {
         journey.openLink(try link("cookbooks/\(kitchen.cookbookID)"))
         wait(journey.element(JourneyID.cookbookDetailHero), "The cookbook page did not open.")
+        // At AX5 the hero fills the iPhone's first screen and the lazy list has not made the row yet (Journeys run
+        // 42945229333), so swipe to it; at the default size it is already on screen and this does nothing.
+        journey.swipeUpUntilHittable(label(containing: Self.recipeTitle))
         wait(label(containing: Self.recipeTitle), "The cookbook page does not list \(Self.recipeTitle).")
         try shootBothSchemes("cookbook")
     }
@@ -143,7 +146,13 @@ struct ParityCapture {
         journey.tap(JourneyID.recipeDetailActions)
         journey.tap(JourneyID.recipeDetailRemindersSend)
         journey.allowRemindersAccessIfAsked()
-        wait(journey.element(JourneyID.remindersNewListName), "The Reminders list picker did not open.")
+        // The picker is a lazy List: at AX5 on iPhone its "new list" field is below the first screen and not made
+        // yet (Journeys run 42948350953), so either of its rows proves it opened.
+        let picker = journey.app.descendants(matching: .any).matching(NSPredicate(
+            format: "identifier IN %@",
+            [JourneyID.remindersList, JourneyID.remindersNewListName]
+        )).firstMatch
+        wait(picker, "The Reminders list picker did not open.")
         try shootBothSchemes("sheet-add-to-list")
     }
 

@@ -5,6 +5,11 @@ on:
   # after-testflight.yml, once TestFlight has had the runners.
   workflow_call:
   workflow_dispatch:
+    inputs:
+      ax5:
+        description: Only the parity capture, at the largest accessibility text size (AX5); shots uploaded as parity-ax5-shots-<device>
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -24,6 +29,7 @@ jobs:
     # network, launch or assertion (scripts/lib/live_journey_failure.rb); network and launch are infrastructure and
     # get one more attempt, on fresh accounts and a rebooted simulator. An assertion failure is never retried.
     name: Live journeys
+    if: ${{ !inputs.ax5 }}
     runs-on: xcode-27
     timeout-minutes: 135
     steps:
@@ -192,6 +198,7 @@ jobs:
 
   duo-journeys:
     name: Duo journeys
+    if: ${{ !inputs.ax5 }}
     # The iPhone Duo journey moves the simulator's hinge through Device Hub, so it runs on its own Duo simulator with
     # the posture driver beside it. Its screenshots of both Duo displays are the visual proof for the Duo.
     runs-on: xcode-27
@@ -314,7 +321,8 @@ jobs:
     name: Parity capture (${{ matrix.device }})
     # The native half of the web/native parity sheet (scripts/parity-sheet.rb): SpoonjoyParityJourneys shoots every
     # canonical screen in light and dark, on an account of its own, on an iPhone and on an iPad. The Duo journeys job
-    # shoots the open Duo. Not a required check.
+    # shoots the open Duo. Not a required check. Dispatched with ax5, it runs alone at the largest accessibility text
+    # size, for the "nothing truncates at AX5" check, and uploads only the light shots, named parity-<key>-light-ax5.png.
     runs-on: xcode-27
     timeout-minutes: 60
     strategy:
@@ -366,6 +374,12 @@ jobs:
           set -euo pipefail
           destination="${{ steps.sim.outputs.destination }}"
           python3 .github/scripts/wait-for-simulator-settle.py "${destination##*,id=}" --booted-at "${{ steps.boot.outputs.booted-at }}"
+      - name: Set the largest accessibility text size
+        if: ${{ inputs.ax5 }}
+        run: |
+          set -euo pipefail
+          destination="${{ steps.sim.outputs.destination }}"
+          xcrun simctl ui "${destination##*,id=}" content_size accessibility-extra-extra-extra-large
       - name: Create a disposable QA account
         run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 1 --out "$RUNNER_TEMP/parity-secrets/accounts.json"
       - name: Run the parity capture
@@ -416,16 +430,35 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
       - name: Upload the parity shots
-        if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
+        if: ${{ !inputs.ax5 && !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: parity-shots-${{ matrix.device }}
           path: ${{ runner.temp }}/parity/shots/parity-*.png
           if-no-files-found: warn
           retention-days: 30
+      - name: Name the AX5 shots
+        # A name of their own and an artifact of their own, so parity-sheet.rb never pairs an AX5 shot with a web one.
+        if: ${{ inputs.ax5 && !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/parity/ax5"
+          for shot in "$RUNNER_TEMP"/parity/shots/parity-*-light.png; do
+            name="$(basename "$shot" .png)"
+            cp "$shot" "$RUNNER_TEMP/parity/ax5/$name-ax5.png"
+          done
+      - name: Upload the AX5 shots
+        if: ${{ inputs.ax5 && !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: parity-ax5-shots-${{ matrix.device }}
+          path: ${{ runner.temp }}/parity/ax5/parity-*-ax5.png
+          if-no-files-found: error
+          retention-days: 30
 
   shopping-ui-tests:
     name: Shopping UI tests
+    if: ${{ !inputs.ax5 }}
     runs-on: xcode-27
     timeout-minutes: 60
     steps:
