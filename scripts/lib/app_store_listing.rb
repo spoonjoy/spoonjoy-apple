@@ -129,7 +129,10 @@ module AppStoreListing
 
   # listing.json "creativeAssets": {placementType => PNG path relative to the screenshots folder}. Optional.
   def self.validate_creative_assets(listing, screenshot_root)
-    listing.fetch("creativeAssets", {}).flat_map do |type, relative|
+    assets = listing.fetch("creativeAssets", {})
+    return ["creativeAssets must be an object of placement type to file"] unless assets.is_a?(Hash)
+
+    assets.flat_map do |type, relative|
       next ["unknown creative asset type #{type}; use #{CREATIVE_ASSET_SIZES.keys.join(' or ')}"] unless CREATIVE_ASSET_SIZES.key?(type)
 
       path = File.join(screenshot_root, relative)
@@ -245,7 +248,7 @@ module AppStoreListing
     end
     creative_assets.each do |type, file|
       existing = (version["creativePlacements"] || {})[type]
-      next if existing && existing["referenceName"] == file["referenceName"]
+      next if existing && existing["referenceName"] == file["referenceName"] && !existing["failed"]
 
       steps << { "action" => "sync_creative_asset", "summary" => "Place #{type} #{File.basename(file['path'])}",
                  "placementType" => type, "placementId" => existing && existing["id"], "localizationId" => localization_ref,
@@ -361,7 +364,10 @@ module AppStoreListing
 
   # The image's referenceName carries its MD5, because Asset Library images have no checksum App Store Connect echoes.
   def self.local_creative_assets(listing, screenshot_root)
-    listing.fetch("creativeAssets", {}).to_h do |type, relative|
+    assets = listing.fetch("creativeAssets", {})
+    return {} unless assets.is_a?(Hash)
+
+    assets.to_h do |type, relative|
       path = File.join(screenshot_root, relative)
       checksum = Digest::MD5.file(path).hexdigest
       [type, { "path" => path, "checksum" => checksum, "size" => File.size(path),
@@ -487,8 +493,11 @@ module AppStoreListing
     end
 
     def snapshot(build_number: nil)
+      current = version
+      # Read outside version, whose rescue turns any 404 into "no version yet".
+      current&.store("creativePlacements", creative_placements(current.dig("localization", "id")))
       snapshot = {
-        "version" => version,
+        "version" => current,
         "build" => build_number ? build(build_number) : nil
       }
       return snapshot unless AppStoreListing.app_level?(@listing)
@@ -545,8 +554,7 @@ module AppStoreListing
         "phasedRelease" => phased_release(id),
         "localization" => localization && { "id" => localization["id"], "attributes" => localization["attributes"] },
         "reviewDetail" => review && { "id" => review["id"], "attributes" => review["attributes"] },
-        "screenshotSets" => sets,
-        "creativePlacements" => localization ? creative_placements(localization["id"]) : {}
+        "screenshotSets" => sets
       }
     rescue Error => e
       raise unless e.message.include?("HTTP 404")
@@ -554,17 +562,22 @@ module AppStoreListing
       nil
     end
 
-    # {placementType => {id, referenceName}} for the version's creative asset placements (header, search results).
+    # {placementType => {id, referenceName, failed}} for the version's creative asset placements (header, search
+    # results). Read only when the listing names creative assets, so other listings make exactly the calls they did.
     def creative_placements(localization_id)
-      placements = @client.get_all("/v1/appStoreVersionLocalizations/#{localization_id}/placements",
-                                   "filter[placementType]" => CREATIVE_ASSET_SIZES.keys.join(","))
-      placements.each_with_object({}) do |placement, out|
-        type = placement.dig("attributes", "placementType")
-        image_id = placement.dig("relationships", "image", "data", "id")
-        next unless CREATIVE_ASSET_SIZES.key?(type) && image_id
+      return {} if localization_id.nil? || @listing.fetch("creativeAssets", {}).empty?
 
-        image = @client.get("/v1/appAssetLibraryImages/#{image_id}")["data"]
-        out[type] = { "id" => placement["id"], "referenceName" => image.dig("attributes", "referenceName") }
+      body = @client.get("/v1/appStoreVersionLocalizations/#{localization_id}/placements",
+                         "filter[placementType]" => CREATIVE_ASSET_SIZES.keys.join(","), "include" => "image",
+                         "fields[appAssetLibraryImages]" => "referenceName,state", "limit" => "50")
+      images = (body["included"] || []).select { |item| item["type"] == "appAssetLibraryImages" }.to_h { |item| [item["id"], item["attributes"] || {}] }
+      (body["data"] || []).each_with_object({}) do |placement, out|
+        type = placement.dig("attributes", "placementType")
+        image = images[placement.dig("relationships", "image", "data", "id")]
+        next unless CREATIVE_ASSET_SIZES.key?(type) && image
+
+        failed = [placement.dig("attributes", "state"), image["state"]].include?("FAILED")
+        out[type] = { "id" => placement["id"], "referenceName" => image["referenceName"], "failed" => failed }
       end
     end
 
@@ -777,10 +790,9 @@ module AppStoreListing
       })
     end
 
-    # A page holds one placement per creative type, so the old one goes first. The new image is uploaded to the app's
-    # Asset Library (whose id is the app id) and then placed on the version localization.
+    # The new image is uploaded to the app's Asset Library (whose id is the app id) first, so a failed upload leaves the
+    # live page untouched. A page holds one placement per creative type, so the old placement goes just before the new one.
     def apply_sync_creative_asset(step)
-      @client.delete("/v1/appAssetLibraryPlacements/#{step['placementId']}") if step["placementId"]
       file = step.fetch("file")
       bytes = File.binread(file["path"])
       image = @client.post("/v1/appAssetLibraryImages", data: {
@@ -793,6 +805,7 @@ module AppStoreListing
       @client.patch("/v1/appAssetLibraryImages/#{image['id']}", data: {
         type: "appAssetLibraryImages", id: image["id"], attributes: { uploaded: true }
       })
+      @client.delete("/v1/appAssetLibraryPlacements/#{step['placementId']}") if step["placementId"]
       @client.post("/v1/appAssetLibraryPlacements", data: {
         type: "appAssetLibraryPlacements",
         attributes: { placementType: step["placementType"], placementGroup: "DEFAULT_PROFILE" },

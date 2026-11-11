@@ -531,20 +531,18 @@ class AppStoreListingTest < Minitest::Test
   class FakeCreativeClient
     attr_reader :calls
 
-    def initialize
+    def initialize(image_state: "APPROVED")
       @calls = []
+      @image_state = image_state
     end
 
-    def get_all(path, query = {})
-      @calls << [:get_all, path, query]
-      [{ "id" => "pl1", "attributes" => { "placementType" => "PRODUCT_PAGE_HEADER_ASSET" },
-         "relationships" => { "image" => { "data" => { "type" => "appAssetLibraryImages", "id" => "img1" } } } },
-       { "id" => "pl2", "attributes" => { "placementType" => "APP_SCREENSHOT" }, "relationships" => {} }]
-    end
-
-    def get(path, _query = {})
-      @calls << [:get, path]
-      { "data" => { "id" => "img1", "attributes" => { "referenceName" => "abc-header.png" } } }
+    def get(path, query = {})
+      @calls << [:get, path, query]
+      { "data" => [{ "id" => "pl1", "attributes" => { "placementType" => "PRODUCT_PAGE_HEADER_ASSET", "state" => "ACTIVE" },
+                     "relationships" => { "image" => { "data" => { "type" => "appAssetLibraryImages", "id" => "img1" } } } },
+                   { "id" => "pl2", "attributes" => { "placementType" => "APP_SCREENSHOT" }, "relationships" => {} }],
+        "included" => [{ "type" => "appAssetLibraryImages", "id" => "img1",
+                         "attributes" => { "referenceName" => "abc-header.png", "state" => @image_state } }] }
     end
 
     def delete(path)
@@ -567,11 +565,68 @@ class AppStoreListingTest < Minitest::Test
     end
   end
 
-  def test_reader_maps_creative_placements_to_their_image_reference_names
+  def creative_listing
+    JSON.parse(JSON.generate(listing)).merge("creativeAssets" => { "PRODUCT_PAGE_HEADER_ASSET" => "creative/header.png" })
+  end
+
+  def test_reader_maps_creative_placements_to_their_image_reference_names_in_one_request
     client = FakeCreativeClient.new
-    placements = AppStoreListing::Reader.new(client, listing).send(:creative_placements, "vl")
-    assert_equal({ "PRODUCT_PAGE_HEADER_ASSET" => { "id" => "pl1", "referenceName" => "abc-header.png" } }, placements)
+    placements = AppStoreListing::Reader.new(client, creative_listing).send(:creative_placements, "vl")
+    assert_equal({ "PRODUCT_PAGE_HEADER_ASSET" => { "id" => "pl1", "referenceName" => "abc-header.png", "failed" => false } }, placements)
+    assert_equal 1, client.calls.length
     assert_equal "/v1/appStoreVersionLocalizations/vl/placements", client.calls.first[1]
+    assert_equal "image", client.calls.first[2]["include"]
+  end
+
+  def test_reader_makes_no_placement_request_without_creative_assets
+    client = FakeCreativeClient.new
+    assert_equal({}, AppStoreListing::Reader.new(client, listing).send(:creative_placements, "vl"))
+    assert_equal({}, AppStoreListing::Reader.new(client, creative_listing).send(:creative_placements, nil))
+    assert_equal [], client.calls
+  end
+
+  def test_a_failed_creative_asset_is_placed_again_even_when_unchanged
+    client = FakeCreativeClient.new(image_state: "FAILED")
+    existing = AppStoreListing::Reader.new(client, creative_listing).send(:creative_placements, "vl")
+    file = { "path" => "/x/header.png", "checksum" => "abc", "size" => 1, "referenceName" => "abc-header.png" }
+    steps = AppStoreListing.plan(listing: creative_listing, snapshot: empty_snapshot.merge("version" => creative_version(existing)),
+                                 screenshots: shots, secrets: {}, creative_assets: { "PRODUCT_PAGE_HEADER_ASSET" => file })
+    assert_equal "pl1", steps.find { |s| s["action"] == "sync_creative_asset" }["placementId"]
+  end
+
+  def test_creative_asset_on_a_new_version_targets_the_new_localization
+    file = { "path" => "/x/header.png", "checksum" => "abc", "size" => 1, "referenceName" => "abc-header.png" }
+    steps = AppStoreListing.plan(listing: creative_listing, snapshot: empty_snapshot, screenshots: shots, secrets: {},
+                                 creative_assets: { "PRODUCT_PAGE_HEADER_ASSET" => file })
+    step = steps.find { |s| s["action"] == "sync_creative_asset" }
+    assert_equal ["$version_localization", nil], [step["localizationId"], step["placementId"]]
+  end
+
+  def test_a_placement_404_fails_the_run_instead_of_planning_a_new_version
+    client = Class.new(FakeVersionClient) do
+      def get_all(path, query = {})
+        return [{ "id" => "vl", "attributes" => { "locale" => "en-US" } }] if path.end_with?("/appStoreVersionLocalizations")
+
+        super
+      end
+
+      def get(path, query = {})
+        raise AppStoreListing::Error, "HTTP 404 #{path}" if path.end_with?("/placements")
+
+        super
+      end
+    end.new
+    mac_creative = mac_listing.merge("creativeAssets" => { "PRODUCT_PAGE_HEADER_ASSET" => "creative/header.png" })
+    assert_raises(AppStoreListing::Error) { AppStoreListing::Reader.new(client, mac_creative).snapshot }
+    version = AppStoreListing::Reader.new(client, mac_listing).snapshot["version"]
+    assert_equal ["v1", {}], [version["id"], version["creativePlacements"]]
+  end
+
+  def test_non_object_creative_assets_is_a_validation_error
+    bad = JSON.parse(JSON.generate(listing)).merge("creativeAssets" => nil)
+    errors = with_screenshots { |dir| AppStoreListing.validate(bad, dir) }
+    assert_includes errors, "creativeAssets must be an object of placement type to file"
+    assert_equal({}, AppStoreListing.local_creative_assets(bad, "/nonexistent"))
   end
 
   def test_executor_replaces_the_placement_with_a_newly_uploaded_library_image
@@ -585,9 +640,9 @@ class AppStoreListingTest < Minitest::Test
       AppStoreListing::Executor.new(client, "app1", log: StringIO.new).run([step])
     end
     kinds = client.calls.map { |c| [c[0], c[1]] }
-    assert_equal [[:delete, "/v1/appAssetLibraryPlacements/pl1"], [:post, "/v1/appAssetLibraryImages"], [:upload, "https://upload"],
-                  [:patch, "/v1/appAssetLibraryImages/newimg"], [:post, "/v1/appAssetLibraryPlacements"]], kinds
-    image = client.calls[1][2][:data]
+    assert_equal [[:post, "/v1/appAssetLibraryImages"], [:upload, "https://upload"], [:patch, "/v1/appAssetLibraryImages/newimg"],
+                  [:delete, "/v1/appAssetLibraryPlacements/pl1"], [:post, "/v1/appAssetLibraryPlacements"]], kinds
+    image = client.calls[0][2][:data]
     assert_equal({ category: "CREATIVE_ASSETS", fileName: "header.png", fileSize: 3, referenceName: "c-header.png" }, image[:attributes])
     assert_equal({ data: { type: "appAssetLibraries", id: "app1" } }, image[:relationships][:assetLibrary])
     placement = client.calls.last[2][:data]
