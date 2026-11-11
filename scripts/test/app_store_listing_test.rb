@@ -11,8 +11,15 @@ class AppStoreListingTest < Minitest::Test
   ROOT = File.expand_path("../..", __dir__)
   LISTING_PATH = File.join(ROOT, "distribution/app-store/listing.json")
 
+  CHANGES_DIR = File.join(ROOT, "changes")
+
+  # The iOS listing as staging sees it, with What's New assembled from changes/.
   def listing
-    @listing ||= JSON.parse(File.read(LISTING_PATH))
+    @listing ||= AppStoreListing.with_whats_new(raw_listing, CHANGES_DIR)
+  end
+
+  def raw_listing
+    @raw_listing ||= JSON.parse(File.read(LISTING_PATH))
   end
 
   def png(path, width, height, color_type: 2, trns: false)
@@ -148,7 +155,7 @@ class AppStoreListingTest < Minitest::Test
   end
 
   def mac_listing
-    AppStoreListing.for_platform(listing, "MAC_OS")
+    AppStoreListing.with_whats_new(AppStoreListing.for_platform(raw_listing, "MAC_OS"), CHANGES_DIR)
   end
 
   APP_LEVEL_ACTIONS = %w[patch_app patch_categories patch_age_rating create_app_info_localization patch_app_info_localization
@@ -213,7 +220,7 @@ class AppStoreListingTest < Minitest::Test
     localization = steps[3]["attributes"]
     assert_equal mac_listing["localizations"]["en-US"]["description"], localization["description"]
     assert_equal "https://spoonjoy.app/support", localization["supportUrl"]
-    assert_equal listing["mac"]["localizations"]["en-US"]["whatsNew"], localization["whatsNew"]
+    assert_equal Changelog.whats_new(Changelog.load!(CHANGES_DIR), "mac"), localization["whatsNew"]
     assert_equal listing["mac"]["review"]["notes"], steps[4]["attributes"]["notes"]
     assert_equal "APP_DESKTOP", steps.last["displayType"]
   end
@@ -365,6 +372,34 @@ class AppStoreListingTest < Minitest::Test
     source = File.read(File.join(ROOT, "scripts/lib/app_store_listing.rb")) + File.read(File.join(ROOT, "scripts/stage-app-store-listing.rb"))
     refute_match(/reviewSubmission/, source)
   end
+  def test_whats_new_comes_from_the_changelog_fragments_unless_listing_json_writes_it
+    refute raw_listing["localizations"]["en-US"].key?("whatsNew"), "What's New lives in changes/, not listing.json"
+    refute raw_listing["mac"]["localizations"]["en-US"].key?("whatsNew"), "What's New lives in changes/, not listing.json"
+    fragments = Changelog.load!(CHANGES_DIR)
+    assert_equal Changelog.whats_new(fragments, "ios"), listing["localizations"]["en-US"]["whatsNew"]
+    assert_equal Changelog.whats_new(fragments, "mac"), mac_listing["localizations"]["en-US"]["whatsNew"]
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "amber.md"), "---\ntestflight: Amber.\n---\nThe button glows amber.\n")
+      written = JSON.parse(JSON.generate(raw_listing))
+      written["localizations"]["en-US"]["whatsNew"] = "Written by hand."
+      assert_equal "Written by hand.", AppStoreListing.with_whats_new(written, dir)["localizations"]["en-US"]["whatsNew"]
+      written["localizations"]["en-US"]["whatsNew"] = nil
+      first_version = AppStoreListing.with_whats_new(written, dir)
+      assert_nil first_version["localizations"]["en-US"]["whatsNew"]
+      step = AppStoreListing.plan(listing: first_version, snapshot: empty_snapshot, screenshots: shots, secrets: {})
+                            .find { |s| s["action"] == "create_version_localization" }
+      refute step["attributes"].key?("whatsNew"), "null leaves What's New out of a first version"
+      assert_equal "The button glows amber.", AppStoreListing.with_whats_new(raw_listing, dir)["localizations"]["en-US"]["whatsNew"]
+      File.write(File.join(dir, "broken.md"), "no front matter")
+      error = assert_raises(AppStoreListing::Error) { AppStoreListing.with_whats_new(raw_listing, dir) }
+      assert_match(/broken.md/, error.message)
+    end
+    Dir.mktmpdir do |empty|
+      refute AppStoreListing.with_whats_new(raw_listing, empty)["localizations"]["en-US"].key?("whatsNew"),
+             "a release branch without changes/ keeps whatever its listing.json says"
+    end
+  end
+
   def test_listing_ships_1_2_with_whats_new_and_a_phased_automatic_release
     [listing, mac_listing].each do |platform_listing|
       version = platform_listing["version"]

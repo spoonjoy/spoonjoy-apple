@@ -165,7 +165,9 @@ whose head is that exact SHA. All protected jobs must be present and successful:
 tests`, `Native scenario verifier`, `App bundle`, and `Contracts`. A fifth job,
 `TestFlight release note`, runs only after those checks and uploads
 `testflight-release-notes-<source_sha>`. The note JSON embeds its source SHA,
-Native run ID and attempt, generation time, and current commit subject. The
+Native run ID and attempt, generation time, and What to Test from the changelog
+fragments (`ruby scripts/changelog.rb testflight-notes`: the lines this commit
+added, then the rest of the version's; see `changes/README.md`). The
 release fails closed when the run, a required job, the artifact, or any embedded
 provenance is missing, unsuccessful, expired, stale, or mismatched.
 

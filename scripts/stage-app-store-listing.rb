@@ -1,7 +1,8 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Stages distribution/app-store/listing.json and its screenshots into App Store Connect.
+# Stages distribution/app-store/listing.json and its screenshots into App Store Connect. What's New comes from the
+# changelog fragments in changes/ (changes/README.md) unless listing.json writes it.
 #
 #   ruby scripts/stage-app-store-listing.rb --validate-only
 #   ruby scripts/stage-app-store-listing.rb --dry-run [--build-number N]
@@ -20,7 +21,7 @@ require_relative "lib/app_store_listing"
 
 root = File.expand_path("..", __dir__)
 options = { mode: nil, build_number: nil, platform: "IOS", listing: File.join(root, "distribution/app-store/listing.json"),
-            screenshots: File.join(root, "distribution/app-store/screenshots") }
+            screenshots: File.join(root, "distribution/app-store/screenshots"), changes: File.join(root, "changes") }
 OptionParser.new do |opts|
   opts.on("--validate-only") { options[:mode] = :validate }
   opts.on("--dry-run") { options[:mode] = :dry_run }
@@ -29,11 +30,13 @@ OptionParser.new do |opts|
   opts.on("--platform PLATFORM") { |value| options[:platform] = value.strip.empty? ? "IOS" : value.strip }
   opts.on("--listing PATH") { |value| options[:listing] = value }
   opts.on("--screenshots DIR") { |value| options[:screenshots] = value }
+  opts.on("--changes DIR") { |value| options[:changes] = value }
 end.parse!
 abort "Choose --validate-only, --dry-run or --apply" unless options[:mode]
 
 begin
   listing = AppStoreListing.for_platform(JSON.parse(File.read(options[:listing])), options[:platform])
+  listing = AppStoreListing.with_whats_new(listing, options[:changes])
 rescue AppStoreListing::Error => e
   abort e.message
 end
