@@ -557,7 +557,7 @@ struct SearchSpoonjoyIntent: AppIntent {
     static let title: LocalizedStringResource = "Search Spoonjoy"
     static let description = IntentDescription("Search recipes, cookbooks, chefs, and shopping-list items in Spoonjoy.")
 
-    @Parameter(title: "Query", description: "The words to search for, such as a dish, an ingredient, a cookbook or a chef.")
+    @Parameter(title: "Query", description: "The words to search for, such as a dish, an ingredient, a cookbook or a chef.", requestValueDialog: "What should I look for in Spoonjoy?")
     var query: String
 
     @Parameter(title: "Scope", description: "Where to search: everything, recipes, cookbooks, chefs or your shopping list.")
@@ -1055,7 +1055,7 @@ struct AddShoppingListItemIntent: AppIntent {
     static let title: LocalizedStringResource = "Add Shopping Item"
     static let description = IntentDescription("Add an item to the Spoonjoy shopping list.")
 
-    @Parameter(title: "Name", description: "What to buy, such as eggs or flour.")
+    @Parameter(title: "Name", description: "What to buy, such as eggs or flour.", requestValueDialog: "What should I add to your shopping list?")
     var name: String
 
     @Parameter(title: "Quantity", description: "How many or how much, as a number. Leave empty if it doesn't matter.")
@@ -1549,12 +1549,19 @@ struct DiscardCaptureDraftIntent: AppIntent {
 
 @available(iOS 27.0, macOS 27.0, *)
 struct SpoonjoyAppShortcuts: AppShortcutsProvider {
+    // What a cook says with flour on their hands. Every phrase names the app, as Siri requires, and only recipes (an
+    // entity Siri can list) ride inside a phrase; shopping items and capture sources are free text, which a phrase
+    // can't carry, so Siri asks for them. The recipe phrases follow the kitchen's recipes because the app calls
+    // updateAppShortcutParameters() each time it indexes them. config/app-shortcuts.json lists every phrase, and CI
+    // holds the built app's metadata to it.
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: OpenRecipeIntent(),
             phrases: [
                 "Open a recipe in \(.applicationName)",
-                "Show my recipe in \(.applicationName)"
+                "Show my recipe in \(.applicationName)",
+                "Open \(\.$recipe) in \(.applicationName)",
+                "Show me \(\.$recipe) in \(.applicationName)"
             ],
             shortTitle: "Open Recipe",
             systemImageName: "book"
@@ -1563,7 +1570,8 @@ struct SpoonjoyAppShortcuts: AppShortcutsProvider {
             intent: SearchSpoonjoyIntent(),
             phrases: [
                 "Search \(.applicationName)",
-                "Find something in \(.applicationName)"
+                "Find something in \(.applicationName)",
+                "Find a recipe in \(.applicationName)"
             ],
             shortTitle: "Search Spoonjoy",
             systemImageName: "magnifyingglass"
@@ -1572,7 +1580,11 @@ struct SpoonjoyAppShortcuts: AppShortcutsProvider {
             intent: StartCookModeIntent(),
             phrases: [
                 "Start cooking in \(.applicationName)",
-                "Cook with \(.applicationName)"
+                "Cook with \(.applicationName)",
+                "Let's cook with \(.applicationName)",
+                "Cook \(\.$recipe) with \(.applicationName)",
+                "Start cooking \(\.$recipe) in \(.applicationName)",
+                "Let's make \(\.$recipe) with \(.applicationName)"
             ],
             shortTitle: "Start Cooking",
             systemImageName: "fork.knife"
@@ -1581,7 +1593,8 @@ struct SpoonjoyAppShortcuts: AppShortcutsProvider {
             intent: ContinueCookModeIntent(),
             phrases: [
                 "Continue cooking in \(.applicationName)",
-                "Resume cooking with \(.applicationName)"
+                "Resume cooking with \(.applicationName)",
+                "Keep cooking \(\.$recipe) in \(.applicationName)"
             ],
             shortTitle: "Continue Cooking",
             systemImageName: "play.circle"
@@ -1590,7 +1603,9 @@ struct SpoonjoyAppShortcuts: AppShortcutsProvider {
             intent: NextCookStepIntent(),
             phrases: [
                 "Next step in \(.applicationName)",
-                "What is the next step in \(.applicationName)"
+                "What is the next step in \(.applicationName)",
+                "What's next in \(.applicationName)",
+                "\(.applicationName) next step"
             ],
             shortTitle: "Next Step",
             systemImageName: "forward.fill"
@@ -1599,7 +1614,8 @@ struct SpoonjoyAppShortcuts: AppShortcutsProvider {
             intent: PreviousCookStepIntent(),
             phrases: [
                 "Previous step in \(.applicationName)",
-                "Go back a step in \(.applicationName)"
+                "Go back a step in \(.applicationName)",
+                "\(.applicationName) go back"
             ],
             shortTitle: "Previous Step",
             systemImageName: "backward.fill"
@@ -1608,7 +1624,8 @@ struct SpoonjoyAppShortcuts: AppShortcutsProvider {
             intent: StartCookStepTimerIntent(),
             phrases: [
                 "Start the step timer in \(.applicationName)",
-                "Start this timer in \(.applicationName)"
+                "Start this timer in \(.applicationName)",
+                "Set the timer in \(.applicationName)"
             ],
             shortTitle: "Start Step Timer",
             systemImageName: "timer"
@@ -1617,7 +1634,9 @@ struct SpoonjoyAppShortcuts: AppShortcutsProvider {
             intent: ReadCookStepIntent(),
             phrases: [
                 "Read the step in \(.applicationName)",
-                "Read this step from \(.applicationName)"
+                "Read this step from \(.applicationName)",
+                "What's this step in \(.applicationName)",
+                "\(.applicationName) say that again"
             ],
             shortTitle: "Read Step",
             systemImageName: "text.bubble"
@@ -1626,7 +1645,8 @@ struct SpoonjoyAppShortcuts: AppShortcutsProvider {
             intent: AddShoppingListItemIntent(),
             phrases: [
                 "Add an item in \(.applicationName)",
-                "Add to my \(.applicationName) shopping list"
+                "Add to my \(.applicationName) shopping list",
+                "Add to my \(.applicationName) list"
             ],
             shortTitle: "Add Shopping Item",
             systemImageName: "cart.badge.plus"
