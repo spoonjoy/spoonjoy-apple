@@ -58,7 +58,7 @@ enum KitchenTableTheme {
     static let page = dynamic(Day.bone, Night.pageNight)
     /// A lifted surface on the page (a panel, a card, a sheet).
     static let raised = dynamic(Day.paper, Night.paperNight)
-    /// Primary text and the one filled action.
+    /// Primary text.
     static let ink = dynamic(Day.charcoal, Night.boneNight)
     /// Secondary text.
     static let ink2 = dynamic(Day.inkMuted, Night.inkMutedNight)
@@ -77,7 +77,6 @@ enum KitchenTableTheme {
     static let onPhoto = dynamic(Day.bone, Night.onPhotoNight) // --sj-on-photo
     static let onPhotoMuted = dynamic(Day.onPhotoMuted, Night.onPhotoMutedNight)
     static let photoCharcoal = dynamic(Day.photoCharcoal, Night.photoCharcoalNight)
-    static let photoOverlay = Color.black.opacity(0.28)
     /// The soft shadow at a spread's fold: 10% ink by day. At night ink is light, so the fold darkens the paper with
     /// black instead, the same way a real crease shades in low light.
     static let foldShadow = dynamic(Day.charcoal.opacity(0.10), Color.black.opacity(0.32))
@@ -640,8 +639,8 @@ extension KitchenTableReceiptRow where Leading == EmptyView {
     }
 }
 
-/// Kitchen action buttons on Liquid Glass. `.primary` is the screen's one filled action, in ink; `.destructive` is
-/// the same shape in tomato for a confirmed delete; `.secondary` is clear glass; `.quiet` is text only. The fills sit
+/// Kitchen action buttons on Liquid Glass. `.primary` is the screen's one filled action, in `action` (charcoal by day,
+/// amber at night, as web's `--sj-action`); `.destructive` is the same shape in tomato for a confirmed delete; `.secondary` is clear glass; `.quiet` is text only. The fills sit
 /// on interactive glass, so every glass-backed button gets the system press response.
 struct KitchenTableActionButtonStyle: ButtonStyle {
     enum Prominence {
@@ -693,7 +692,7 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
     }
 
     private var fill: Color {
-        prominence == .destructive ? KitchenTableTheme.tomato : KitchenTableTheme.ink
+        prominence == .destructive ? KitchenTableTheme.tomato : KitchenTableTheme.action
     }
 }
 
