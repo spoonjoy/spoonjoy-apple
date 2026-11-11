@@ -715,9 +715,9 @@ struct PlatformNavigationView: View {
         let root = compactPage(for: compactTabs.root(for: tab))
             .navigationTitle(compactTabTitle(for: tab))
 #if os(iOS)
-            // The shopping list leads with items: its inline title leaves the room a large one would take. The
-            // kitchen leads with its dish edge to edge, so its title stays out of the way too.
-            .navigationBarTitleDisplayMode(tab == .shopping || tab == .kitchen ? .inline : .large)
+            // Every root but the Kitchen opens on its large display title, as web's pages do; it collapses inline as
+            // the list scrolls. The kitchen leads with its dish edge to edge, so its title stays out of the way.
+            .navigationBarTitleDisplayMode(tab == .kitchen ? .inline : .large)
 #endif
         switch tab {
         case .kitchen:

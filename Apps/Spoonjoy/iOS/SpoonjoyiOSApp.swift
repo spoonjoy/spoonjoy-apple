@@ -12,6 +12,7 @@ struct SpoonjoyiOSApp: App {
 
     init() {
         SpoonjoyFonts.registerBundled()
+        SpoonjoyFonts.styleNavigationBarLargeTitles()
         #if DEBUG
         if NativeJourneyAnimations.isRequested(arguments: ProcessInfo.processInfo.arguments) {
             UIView.setAnimationsEnabled(false)
