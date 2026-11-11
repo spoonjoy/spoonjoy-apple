@@ -6,6 +6,8 @@ name: Store scenes
 # as an artifact named for their scene key (scripts/store-frames/scene-key.mjs): a commit whose screens have not
 # changed since the last photographs reuses them, so a Mac runs only when something on screen changed. Then the
 # scenes are framed twice and must match byte for byte. "Stage App Store listing" frames the same scenes at release.
+# The key covers the select-xcode action but not the runner's iOS runtime: after a runner image brings a new
+# runtime, run with force to photograph the new system chrome before the old scenes expire (90 days).
 # Runs from main only, because the demo credentials live in the internal-testflight environment.
 on:
   workflow_dispatch:

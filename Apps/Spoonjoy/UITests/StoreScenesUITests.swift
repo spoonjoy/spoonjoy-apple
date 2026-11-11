@@ -7,8 +7,8 @@ import XCTest
 /// turns the attachments into raw scenes that scripts/store-frames/render.mjs frames.
 ///
 /// Only that workflow runs it, with `SPOONJOY_STORE_SCENES_FILE` naming a runner-local file that holds the demo
-/// sign-in and the scenes to take; every other run of this target skips it. It changes nothing it does not put back:
-/// cook mode is the last scene and its progress is cleared after.
+/// sign-in and the scenes to take; every other run of this target skips it. The only thing it changes is cook
+/// progress on the cook-mode recipe, which it resets to the seed (none) before and after that scene, the last one.
 @MainActor
 final class StoreScenesUITests: XCTestCase {
     private struct Request: Decodable {
