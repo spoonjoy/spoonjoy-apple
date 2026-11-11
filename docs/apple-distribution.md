@@ -162,7 +162,9 @@ this lane.
 For an ordinary release, `source_sha` must equal the current `main` head. The
 verifier checks out that exact SHA and requires a successful `Native` push run
 whose head is that exact SHA. All protected jobs must be present and successful: `Swift
-tests`, `Native scenario verifier`, `App bundle`, and `Contracts`. A fifth job,
+tests`, `Native scenario verifier`, `App bundle`, `Contracts` and `Reins journeys`
+(`scripts/lib/green_commit.rb` holds the list; a release branch cut before `Reins
+journeys` existed may lack that one job, but never skip or fail it). A fifth job,
 `TestFlight release note`, runs only after those checks and uploads
 `testflight-release-notes-<source_sha>`. The note JSON embeds its source SHA,
 Native run ID and attempt, generation time, and current commit subject. The
@@ -262,6 +264,8 @@ publish summary. It fails the job if any of these validations fail:
 1. Open the fix as a pull request against `release/<version>`. Native runs on the PR and again on the push to the branch.
 2. Publish it: dispatch TestFlight from `main` with `release_branch: release/<version>`, `source_sha` set to the branch head, and `rollback_notes` holding the TestFlight notes. Both the iPhone build and the Mac build publish from the branch head, after `scripts/verify-testflight-release-candidate.rb` finds a green Native push run for it.
 3. Stage and submit it: dispatch "Stage App Store listing" and "Submit for App Review" with the same `release_branch`. They read `distribution/app-store/listing.json` and the screenshots from the branch head instead of `main`.
+
+Publish only from green: before either workflow sees an App Store Connect secret, `scripts/require-green-commit.rb` requires the source commit (main's head, or the release branch head) to have a green Native push run with every required check passed, and the job then checks out exactly that commit. A red, unfinished or never-built commit stops the run, dry runs included.
 4. If the fix still applies on `main`, port it there in its own pull request.
 
 The branch name must match `^release/[0-9][0-9A-Za-z.-]*$`; every workflow rejects anything else.
