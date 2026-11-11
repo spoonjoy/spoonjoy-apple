@@ -626,7 +626,8 @@ struct RecipeDetailView: View {
         let stacked = dynamicTypeSize.isAccessibilitySize
         let layout = stacked
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-            : AnyLayout(HStackLayout(spacing: 8))
+            // On a baseline, so a byline that wraps hangs from the first line instead of floating against "Serves".
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 8))
         return layout {
             recipeMetaFacts(separated: !stacked)
         }

@@ -133,7 +133,7 @@ struct KitchenComponentParityTests {
         #expect(header.contains(".lineLimit(titleBreaksAnywhere ? nil : 3)"), "A long handle never ends in an ellipsis.")
 
         let profile = try Self.source("\(Self.views)/ProfileView.swift")
-        #expect(Self.containsLines(profile, ["title: viewModel.header.username,", "subtitle: viewModel.header.joinedLabel,", "titleBreaksAnywhere: true"]))
+        #expect(Self.containsLines(profile, ["title: viewModel.header.username,", "subtitle: viewModel.header.joinedLabel,", "titleFont: KitchenTableTheme.recipeTitle,", "titleBreaksAnywhere: true"]), "The handle is set at web's title size, not display size.")
         #expect(!profile.contains("title: \"@\\(viewModel.header.username)\""))
     }
 
@@ -160,9 +160,12 @@ struct KitchenComponentParityTests {
         #expect(meta.contains(#"Text("by \(ChefHandle.wrapping(viewModel.recipe.chef.username))")"#))
         #expect(meta.contains(#".accessibilityLabel("by \(viewModel.recipe.chef.username)")"#))
         #expect(!Self.containsLines(meta, [#"Text("by \(viewModel.recipe.chef.username)")"#, ".lineLimit(1)"]))
+        #expect(meta.contains("AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 8))"), "A wrapped byline hangs from the meta line's baseline.")
 
         let kitchen = try Self.source("\(Self.views)/KitchenView.swift")
         #expect(kitchen.contains(#""by \(ChefHandle.wrapping(recipe.chef.username))""#))
+        let lead = try Self.declaration("struct RecipeLead", in: "\(Self.views)/KitchenView.swift")
+        #expect(lead.contains(#".accessibilityLabel(meta.replacingOccurrences(of: "\u{200B}", with: ""))"#), "VoiceOver reads the lead's byline without the break points.")
         let identity = try Self.declaration("struct KitchenIdentityLine", in: "\(Self.views)/KitchenView.swift")
         #expect(identity.contains("Text(ChefHandle.breakingAnywhere(chef.username))"))
         #expect(!identity.contains(".lineLimit("))
