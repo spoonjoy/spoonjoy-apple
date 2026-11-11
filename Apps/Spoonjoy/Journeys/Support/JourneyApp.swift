@@ -218,7 +218,9 @@ final class JourneyApp {
         let existing = current == field.placeholderValue ? "" : current
         if existing != identifier {
             // Tap past the end of the text so the caret lands after it, delete exactly that many
-            // characters, and prove the field is empty before typing. No edit menu is involved.
+            // characters, and prove the field is empty before typing. No edit menu is involved. A coordinate tap
+            // does not scroll, and at AX5 the field starts below the iPhone's first screen (Journeys run 42939123940).
+            scrollIntoView(field, dragsLeft: Self.scrollDrags)
             field.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
             assertKeyboardFocus(in: query(JourneyID.signInIdentifier), named: "The identifier field", file: file, line: line)
             if !existing.isEmpty {
@@ -712,7 +714,9 @@ final class JourneyApp {
         // Since Sign in with Apple moved above the form (#245), the password field sits low enough on iPhone that
         // the keyboard's glass covers it once the keyboard is up (run 42640764538: field 530-578 pt, keyboard
         // frame from 609 pt). XCUITest still counts it as visible, so a bare press lands on the keyboard and no
-        // edit menu opens. Drag it clear of the keyboard after the tap brings the keyboard up, then press.
+        // edit menu opens. Drag it clear of the keyboard after the tap brings the keyboard up, then press. At AX5
+        // it starts below the first screen, so it is scrolled into view before the tap too.
+        scrollIntoView(field, dragsLeft: Self.scrollDrags)
         field.tap()
         scrollIntoView(field, dragsLeft: Self.scrollDrags)
         field.press(forDuration: 1.2)
