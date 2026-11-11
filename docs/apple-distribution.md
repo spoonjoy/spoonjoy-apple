@@ -162,7 +162,9 @@ this lane.
 For an ordinary release, `source_sha` must equal the current `main` head. The
 verifier checks out that exact SHA and requires a successful `Native` push run
 whose head is that exact SHA. All protected jobs must be present and successful: `Swift
-tests`, `Native scenario verifier`, `App bundle`, and `Contracts`. A fifth job,
+tests`, `Native scenario verifier`, `App bundle`, `Contracts` and `Reins journeys`
+(`scripts/lib/green_commit.rb` holds the list; a release branch cut before `Reins
+journeys` existed may lack that one job, but never skip or fail it). A fifth job,
 `TestFlight release note`, runs only after those checks and uploads
 `testflight-release-notes-<source_sha>`. The note JSON embeds its source SHA,
 Native run ID and attempt, generation time, and current commit subject. The
@@ -218,7 +220,8 @@ For a last known-good commit whose Native run predates SHA-keyed note artifacts,
 also provide non-empty `rollback_notes`. The trusted verifier still requires the
 four successful protected Native jobs, then materializes and uploads a fresh
 `testflight-release-notes-<source_sha>` artifact before Apple credentials are
-prepared. `rollback_notes` is rejected for ordinary current-main releases and
+prepared. A rollback to a commit from before `Reins journeys` existed (#212,
+2026-11-06) passes without that job, but never with it skipped or failed. `rollback_notes` is rejected for ordinary current-main releases and
 cannot bypass a missing, failed, or superseded Native run.
 
 ```bash
@@ -266,6 +269,8 @@ publish summary. It fails the job if any of these validations fail:
 
 The branch name must match `^release/[0-9][0-9A-Za-z.-]*$`; every workflow rejects anything else.
 
+Publish only from green: before "Stage App Store listing" or "Submit for App Review" sees an App Store Connect secret, `scripts/require-green-commit.rb` requires the source commit (main's head, or the release branch head) to have a green Native push run with every required check passed, and the job then checks out exactly that commit. A red, unfinished or never-built commit stops the run, dry runs included: wait for Native to finish on that commit, then dispatch.
+
 ### CI signing
 
 CI signs with one long-lived Apple Distribution certificate, so a TestFlight run creates no certificate and `xcodebuild` makes no Apple network calls. Before this, each runner started with an empty keychain and `xcodebuild -allowProvisioningUpdates` with the App Store Connect API key minted a new "Created via API" Apple Development certificate on every run, which Apple emailed about on each create and revoke, and Xcode's own profile fetch failed on transient network loss.
@@ -285,6 +290,13 @@ When you add a signed target such as a new app extension, add its bundle ID to t
 The certificate secrets `APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64` and `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD` are repository secrets. They cannot upload anything without the environment-scoped App Store Connect key. When you renew the certificate, store the new secrets in the `internal-testflight` environment instead. The certificate (`47335ARZMR`) expires on 2027-10-09. To renew it, run `signing create-certificate` as the kit README describes, then replace both secrets. The next run creates fresh profiles for the new certificate.
 
 `scripts/revoke-ci-signing-certificates.rb` is the earlier version of the safety net. CI no longer calls it.
+
+### Store art without the website
+
+"Stage App Store listing" places all of the store art with the API key, so none of it needs the App Store Connect website:
+
+- **iPhone Duo screenshots.** Add a folder under `screenshots` with `"displayType": "APP_IPHONE_DUO"` and sizes `[2007, 2853]` (inner screen) and `[1398, 2034]` (outer screen). Apple's published 4.6 spec leaves Duo out, but the live API accepts `APP_IPHONE_DUO`, `IMESSAGE_APP_IPHONE_DUO` and preview type `IPHONE_DUO` (checked 2026-11-11). The stager skips an empty folder, so the Duo set uploaded through the website stays until a folder has files.
+- **Product page header and search results art** (iOS 27 creative assets). Name them in `listing.json` as `"creativeAssets": {"PRODUCT_PAGE_HEADER_ASSET": "creative/header.png", "APP_STORE_SEARCH_RESULTS_ASSET": "creative/search.png"}`, with paths relative to `distribution/app-store/screenshots`. The header is 5244x2950 or 3840x1646, and the search results art is 5244x2950 or 3:2 from 1920x1280 to 3840x2560, all without transparency. The stager uploads each one to the app's Asset Library and places it on the version. It records the file's MD5 in the image's reference name, so an unchanged file is not uploaded again. The `mac` section takes its own `creativeAssets` and does not inherit the iOS ones.
 
 ## Mac App Store Build
 
