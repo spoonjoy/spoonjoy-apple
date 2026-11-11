@@ -127,6 +127,9 @@ struct ParityCapture {
     func cookbook(_ kitchen: Kitchen) throws {
         journey.openLink(try link("cookbooks/\(kitchen.cookbookID)"))
         wait(journey.element(JourneyID.cookbookDetailHero), "The cookbook page did not open.")
+        // At AX5 the hero fills the iPhone's first screen and the lazy list has not made the row yet (Journeys run
+        // 42945229333), so swipe to it; at the default size it is already on screen and this does nothing.
+        journey.swipeUpUntilHittable(label(containing: Self.recipeTitle))
         wait(label(containing: Self.recipeTitle), "The cookbook page does not list \(Self.recipeTitle).")
         try shootBothSchemes("cookbook")
     }
