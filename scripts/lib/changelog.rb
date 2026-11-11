@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require "json"
 
 # Changelog fragments: every pull request that changes what someone sees in the app adds one file to changes/,
 # written as a short harrowing tale (changes/README.md has the format, docs/whats-new-voice.md the voice). At
@@ -226,19 +227,31 @@ module Changelog
   end
 
   # Moves every waiting fragment to changes/released/<version>/ beside the What's New each platform shipped.
-  def self.archive(dir, version)
+  # Where each platform's en-US What's New sits in listing.json.
+  LISTING_WHATS_NEW = { "ios" => %w[localizations en-US], "mac" => %w[mac localizations en-US] }.freeze
+
+  # Moves the waiting fragments to released/<version>/ beside the What's New each platform shipped. A whatsNew
+  # written in the listing (listing_path) is what that platform shipped, since it wins over the fragments; it is
+  # recorded instead of the assembled text and removed from the listing, so it never carries into the next version.
+  def self.archive(dir, version, listing_path: nil)
     raise Error, "version looks like 1.2, not #{version.inspect}" unless version.match?(/\A\d+(\.\d+)*\z/)
 
     fragments = load!(dir)
-    raise Error, "No fragments are waiting in #{dir}" if fragments.empty?
+    listing = listing_path && JSON.parse(File.read(listing_path))
+    written = PLATFORMS.to_h { |platform| [platform, listing&.dig(*LISTING_WHATS_NEW.fetch(platform), "whatsNew")] }
+    raise Error, "No fragments are waiting in #{dir}" if fragments.empty? && written.values.none?(String)
 
     target = File.join(dir, "released", version)
     FileUtils.mkdir_p(target)
     PLATFORMS.each do |platform|
-      text = whats_new(fragments, platform)
+      text = written[platform].is_a?(String) ? written[platform] : whats_new(fragments, platform)
       File.write(File.join(target, "whats-new-#{platform}.txt"), "#{text}\n") unless text.empty?
     end
     fragments.each { |f| FileUtils.mv(f.path, File.join(target, File.basename(f.path))) }
+    if written.values.any?(String)
+      written.each { |platform, text| listing.dig(*LISTING_WHATS_NEW.fetch(platform)).delete("whatsNew") if text.is_a?(String) }
+      File.write(listing_path, "#{JSON.pretty_generate(listing)}\n")
+    end
     target
   end
 end

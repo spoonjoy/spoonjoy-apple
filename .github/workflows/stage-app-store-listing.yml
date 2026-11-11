@@ -29,6 +29,8 @@ on:
 
 permissions:
   contents: read
+  # require-green-commit.rb reads the source commit's Native run.
+  actions: read
 
 concurrency:
   group: spoonjoy-app-store-listing
@@ -53,16 +55,24 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
-      # The listing comes from the release branch head when one is given, otherwise from main.
-      - name: Check out the release source
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-        with:
-          ref: ${{ inputs.release_branch || github.sha }}
-          path: release-source
-          persist-credentials: false
       - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
         with:
           ruby-version: '3.3'
+      # Publish only from green: the source commit's own Native push run must have passed every required check.
+      # The listing comes from the release branch head when one is given, otherwise from main.
+      - name: Require a green source commit
+        id: green
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ inputs.release_branch }}
+          SOURCE_SHA: ${{ inputs.release_branch == '' && github.sha || '' }}
+        run: ruby scripts/require-green-commit.rb --repository "$GITHUB_REPOSITORY" --branch "${RELEASE_BRANCH:-main}" --sha "$SOURCE_SHA"
+      - name: Check out the release source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ steps.green.outputs.sha }}
+          path: release-source
+          persist-credentials: false
       - name: Stage
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}

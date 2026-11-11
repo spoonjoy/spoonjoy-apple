@@ -77,7 +77,9 @@ module AppStoreListing
     effective["version"] = effective.fetch("version").merge(section.fetch("version", {}))
     effective["review"] = effective.fetch("review").merge(section.fetch("review", {}))
     section.fetch("localizations", {}).each do |locale, fields|
-      effective["localizations"][locale] = effective["localizations"].fetch(locale, {}).merge(fields)
+      # What's New is told against that platform's own last version, so another platform never inherits it.
+      shared = effective["localizations"].fetch(locale, {}).reject { |name, _| name == "whatsNew" }
+      effective["localizations"][locale] = shared.merge(fields)
     end
     effective["screenshots"] = section.fetch("screenshots")
     effective

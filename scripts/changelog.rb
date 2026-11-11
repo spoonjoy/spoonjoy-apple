@@ -89,7 +89,7 @@ begin
                                     version: options[:version] || version_at("HEAD"), subject: subject)
   when "archive"
     abort "archive needs --version" unless options[:version]
-    puts "Archived into #{Changelog.archive(DIR, options[:version])}"
+    puts "Archived into #{Changelog.archive(DIR, options[:version], listing_path: LISTING)}"
   else
     abort File.read(__FILE__).lines.grep(/^#   /).join
   end

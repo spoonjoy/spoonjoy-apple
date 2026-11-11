@@ -85,6 +85,7 @@ jobs:
           ruby scripts/test/review_demo_kitchen_test.rb
           ruby scripts/test/app_store_review_submission_test.rb
           ruby scripts/test/verify_testflight_release_candidate_test.rb
+          ruby scripts/test/green_commit_test.rb
           ruby scripts/test/app_store_release_test.rb
           ruby scripts/test/app_store_review_messages_test.rb
           ruby scripts/test/app_store_crash_diagnostics_test.rb

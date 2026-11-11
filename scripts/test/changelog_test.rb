@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 # Run: ruby scripts/test/changelog_test.rb
+require "json"
 require "minitest/autorun"
 require "open3"
 require "tmpdir"
@@ -191,6 +192,21 @@ class ChangelogTest < Minitest::Test
       assert_equal [], Changelog.load!(dir)
       assert_raises(Changelog::Error) { Changelog.archive(dir, "1.2") }
       assert_raises(Changelog::Error) { Changelog.archive(dir, "next") }
+    end
+  end
+
+  def test_archive_records_a_whats_new_written_in_the_listing_and_removes_it
+    Dir.mktmpdir do |dir|
+      fragment(dir, "amber.md", "testflight: a", "Amber.")
+      listing = File.join(Dir.mktmpdir, "listing.json")
+      File.write(listing, JSON.pretty_generate("localizations" => { "en-US" => { "keywords" => "k", "whatsNew" => "THE TALE" } },
+                                                "mac" => { "localizations" => { "en-US" => { "keywords" => "m" } } }) + "\n")
+      target = Changelog.archive(dir, "1.2", listing_path: listing)
+      assert_equal "THE TALE\n", File.read(File.join(target, "whats-new-ios.txt"))
+      assert_equal "Amber.\n", File.read(File.join(target, "whats-new-mac.txt"))
+      kept = JSON.parse(File.read(listing))
+      assert_equal({ "keywords" => "k" }, kept.dig("localizations", "en-US"))
+      assert_equal({ "keywords" => "m" }, kept.dig("mac", "localizations", "en-US"))
     end
   end
 

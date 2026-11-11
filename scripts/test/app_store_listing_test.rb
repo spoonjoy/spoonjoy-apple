@@ -373,11 +373,19 @@ class AppStoreListingTest < Minitest::Test
     refute_match(/reviewSubmission/, source)
   end
   def test_whats_new_comes_from_the_changelog_fragments_unless_listing_json_writes_it
-    refute raw_listing["localizations"]["en-US"].key?("whatsNew"), "What's New lives in changes/, not listing.json"
-    refute raw_listing["mac"]["localizations"]["en-US"].key?("whatsNew"), "What's New lives in changes/, not listing.json"
+    # A whatsNew written in listing.json is the tale a version was submitted with (iOS 1.2); `changelog.rb archive`
+    # records and removes it when main moves on. Otherwise What's New comes from changes/.
     fragments = Changelog.load!(CHANGES_DIR)
-    assert_equal Changelog.whats_new(fragments, "ios"), listing["localizations"]["en-US"]["whatsNew"]
-    assert_equal Changelog.whats_new(fragments, "mac"), mac_listing["localizations"]["en-US"]["whatsNew"]
+    { listing => ["ios", raw_listing["localizations"]["en-US"]],
+      mac_listing => ["mac", raw_listing["mac"]["localizations"]["en-US"]] }.each do |platform_listing, (platform, raw)|
+      expected = raw.key?("whatsNew") ? raw["whatsNew"] : Changelog.whats_new(fragments, platform)
+      assert_equal expected, platform_listing["localizations"]["en-US"]["whatsNew"], platform
+    end
+    refute raw_listing["mac"]["localizations"]["en-US"].key?("whatsNew"), "Mac 1.2's What's New comes from changes/"
+    ios_only = JSON.parse(JSON.generate(raw_listing))
+    ios_only["localizations"]["en-US"]["whatsNew"] = "iOS only."
+    refute_equal "iOS only.", AppStoreListing.with_whats_new(AppStoreListing.for_platform(ios_only, "MAC_OS"), CHANGES_DIR)
+                                            .dig("localizations", "en-US", "whatsNew"), "the Mac never inherits the iOS tale"
     Dir.mktmpdir do |dir|
       File.write(File.join(dir, "amber.md"), "---\ntestflight: Amber.\n---\nThe button glows amber.\n")
       written = JSON.parse(JSON.generate(raw_listing))
@@ -389,14 +397,18 @@ class AppStoreListingTest < Minitest::Test
       step = AppStoreListing.plan(listing: first_version, snapshot: empty_snapshot, screenshots: shots, secrets: {})
                             .find { |s| s["action"] == "create_version_localization" }
       refute step["attributes"].key?("whatsNew"), "null leaves What's New out of a first version"
-      assert_equal "The button glows amber.", AppStoreListing.with_whats_new(raw_listing, dir)["localizations"]["en-US"]["whatsNew"]
+      unwritten = JSON.parse(JSON.generate(raw_listing))
+      unwritten["localizations"]["en-US"].delete("whatsNew")
+      assert_equal "The button glows amber.", AppStoreListing.with_whats_new(unwritten, dir)["localizations"]["en-US"]["whatsNew"]
       File.write(File.join(dir, "broken.md"), "no front matter")
       error = assert_raises(AppStoreListing::Error) { AppStoreListing.with_whats_new(raw_listing, dir) }
       assert_match(/broken.md/, error.message)
     end
     Dir.mktmpdir do |empty|
-      refute AppStoreListing.with_whats_new(raw_listing, empty)["localizations"]["en-US"].key?("whatsNew"),
-             "a release branch without changes/ keeps whatever its listing.json says"
+      kept = AppStoreListing.with_whats_new(raw_listing, empty)["localizations"]["en-US"]
+      assert_equal raw_listing["localizations"]["en-US"].key?("whatsNew"), kept.key?("whatsNew"),
+                   "a release branch without changes/ keeps whatever its listing.json says"
+      assert_equal raw_listing["localizations"]["en-US"]["whatsNew"], kept["whatsNew"]
     end
   end
 
