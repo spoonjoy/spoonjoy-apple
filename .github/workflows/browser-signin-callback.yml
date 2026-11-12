@@ -192,6 +192,9 @@ jobs:
             xcrun xcresulttool get test-results summary --path "$bundle" > "$out/xcresult-summary.json" 2>&1 || true
             xcrun xcresulttool get test-results tests --path "$bundle" > "$out/xcresult-tests.json" 2>&1 || true
             xcrun xcresulttool export attachments --path "$bundle" --output-path "$out/attachments" > /dev/null 2>&1 || true
+            # The screen recording can show the keyboard's paste suggestion, which displays the password, and the scan
+            # below can't read video, so recordings stay on the runner.
+            find "$out/attachments" -type f \( -name '*.mp4' -o -name '*.mov' \) -exec mv {} "$RUNNER_TEMP/" \;
             cat "$out/xcresult-summary.json"
           fi
       - name: Print crash reports

@@ -48,18 +48,34 @@ final class BrowserSignInCallbackUITests: XCTestCase {
 
         let google = element("native Google OAuth sign-in")
         XCTAssertTrue(google.waitForExistence(timeout: Self.interactionTimeout), "There is no Continue with Google button.")
-        google.tap()
-
         // iOS asks before ASWebAuthenticationSession shares the browser's cookies with the app. SpringBoard hosts the
         // alert on some iOS versions and the app on others.
         let prompts = [springboard.buttons["Continue"], app.alerts.buttons["Continue"]]
-        let promptDeadline = Date().addingTimeInterval(Self.interactionTimeout)
-        while Date() < promptDeadline, !prompts.contains(where: \.exists) {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-        }
-        if let allow = prompts.first(where: \.exists) {
-            screenshot("01-system-prompt")
-            allow.tap()
+        let status = element("native sign-in status")
+        for attempt in 1...2 {
+            google.tap()
+            let promptDeadline = Date().addingTimeInterval(Self.interactionTimeout)
+            var selfCanceled = false
+            while Date() < promptDeadline, !prompts.contains(where: \.exists) {
+                if attempt == 1, status.exists, status.label.localizedCaseInsensitiveContains("canceled") {
+                    selfCanceled = true
+                    break
+                }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+            }
+            if let allow = prompts.first(where: \.exists) {
+                screenshot("01-system-prompt")
+                allow.tap()
+                break
+            }
+            // Runs 43191690879 and 43214640448: the session ended with ASWebAuthenticationSessionError 1 before any
+            // prompt, in the same millisecond swcd began re-fetching spoonjoy.app's association because the app's
+            // install identity had changed. Nobody can cancel a prompt that never appeared, so one retry is allowed
+            // and recorded; a second self-cancel fails the test.
+            guard selfCanceled, attempt == 1 else { break }
+            screenshot("01-self-canceled-before-prompt")
+            XCTContext.runActivity(named: "Self-cancel before any prompt; retrying once") { _ in }
+            RunLoop.current.run(until: Date().addingTimeInterval(10))
         }
 
         let identifier = try XCTUnwrap(
@@ -80,12 +96,21 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         // field was focused and on screen and still reported false. A short pause lets focus settle before the paste.
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         XCTAssertEqual(identifier.value as? String, account.username, "The username changed while moving to the Password field.")
+        // A fresh simulator shows the keyboard's slide-to-type tip over the keys on first use (run 43214650507).
+        dismissKeyboardTip()
 
-        // Pasted, not typed, so the password never appears in activity titles, the log or the result bundle.
+        // Pasted from the field's edit menu, not typed, so the password never appears in activity titles, the log or
+        // the result bundle. Command-V did nothing in run 43214650507: the simulator has no hardware keyboard.
+        // While the pasteboard holds the password the keyboard offers it as a suggestion, so the workflow uploads no
+        // screen recording, and the pasteboard is cleared before the next screenshot.
         UIPasteboard.general.string = account.password
         defer { UIPasteboard.general.items = [] }
-        password.typeKey("v", modifierFlags: .command)
+        password.press(forDuration: 1.2)
+        let paste = [app, webSheet].map { $0.menuItems["Paste"] } + [app, webSheet].map { $0.buttons["Paste"] }
+        let pasteItem = paste.first { $0.waitForExistence(timeout: 2) } ?? paste.first { $0.waitForExistence(timeout: Self.interactionTimeout) }
+        try XCTUnwrap(pasteItem, "The Password field's edit menu has no Paste item.").tap()
         UIPasteboard.general.items = []
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         let pastedValue = (password.value as? String) ?? ""
         XCTAssertFalse(pastedValue.isEmpty || pastedValue == "Password", "The password did not reach the Password field.")
         screenshot("03-sheet-filled")
@@ -110,6 +135,17 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         XCTAssertTrue(email.label == account.email || email.label.hasSuffix(" \(account.email)"), "The app is signed in as someone other than the throwaway account: \(email.label)")
         screenshot("05-settings-signed-in-as-throwaway")
         app.terminate()
+    }
+
+    private func dismissKeyboardTip() {
+        for owner in [webSheet, app] {
+            let tip = owner.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Speed up your typing")).firstMatch
+            guard tip.exists else { continue }
+            let continueButton = owner.buttons.matching(NSPredicate(format: "label == %@", "Continue")).allElementsBoundByIndex.last
+            continueButton?.tap()
+            _ = tip.waitForNonExistence(timeout: Self.interactionTimeout)
+            return
+        }
     }
 
     private func element(_ id: String) -> XCUIElement {
