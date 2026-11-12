@@ -279,7 +279,7 @@ iOS and Mac move as one release train. `scripts/check-release-train.rb` runs in 
 - a `whatsNew` is written in `listing.json` for one platform and left out for the other. Write it for both or for neither, or set `null` for a platform's first version;
 - the privacy, support or marketing URL differs between the platforms.
 
-Keywords and promotional text may differ only where the `mac` section gives its own on purpose (Mac search terms, a Mac promo line). Every copy field the `mac` section leaves alone must match on both platforms' live versions.
+Keywords and promotional text may differ only where the `mac` section gives its own on purpose (Mac search terms, a Mac promo line). Every copy field the `mac` section leaves alone must match on both platforms' live versions; the App Store Connect drift job compares them.
 
 ### CI signing
 

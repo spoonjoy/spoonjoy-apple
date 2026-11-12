@@ -105,6 +105,34 @@ class ReleaseTrainTest < Minitest::Test
     end
   end
 
+  def test_a_quoted_marketing_version_is_read
+    Dir.mktmpdir do |dir|
+      fixture(dir, pbxproj: %w[1.3], generator: %w[1.3], distribution: %w[1.3], listing_version: "1.3")
+      File.write(File.join(dir, "Spoonjoy.xcodeproj/project.pbxproj"), "\t\t\t\tMARKETING_VERSION = \"1.4\";\n")
+      assert_match(/project.pbxproj MARKETING_VERSION 1.4;/, ReleaseTrain.static_errors(dir).first)
+    end
+  end
+
+  def test_a_missing_listing_version_reads_as_missing
+    Dir.mktmpdir do |dir|
+      fixture(dir, pbxproj: %w[1.3], generator: %w[1.3], distribution: %w[1.3], listing_version: nil)
+      assert_match(/listing.json version.versionString \(missing\)/, ReleaseTrain.static_errors(dir).first)
+    end
+  end
+
+  def test_unreadable_inputs_are_errors_not_crashes
+    Dir.mktmpdir do |dir|
+      fixture(dir, pbxproj: %w[1.3], generator: %w[1.3], distribution: %w[1.3], listing_version: "1.3")
+      data = JSON.parse(File.read(File.join(dir, "distribution/app-store/listing.json")))
+      data.delete("mac")
+      File.write(File.join(dir, "distribution/app-store/listing.json"), JSON.generate(data))
+      assert_equal ["Cannot read the release train: listing.json has no \"mac\" section for MAC_OS"], ReleaseTrain.static_errors(dir)
+    end
+    Dir.mktmpdir do |dir|
+      assert_match(/\ACannot read the release train: No such file/, ReleaseTrain.static_errors(dir).first)
+    end
+  end
+
   def fixture(dir, pbxproj:, generator:, distribution:, listing_version:)
     FileUtils.mkdir_p(File.join(dir, "Spoonjoy.xcodeproj"))
     FileUtils.mkdir_p(File.join(dir, "scripts"))

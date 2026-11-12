@@ -34,9 +34,11 @@ module ReleaseTrain
     end
     if versions.values.flatten.uniq.length > 1
       errors << "The release train has more than one version: " +
-                versions.map { |label, found| "#{label} #{found.map(&:to_s).join(', ')}" }.join("; ")
+                versions.map { |label, found| "#{label} #{found.map { |v| v || '(missing)' }.join(', ')}" }.join("; ")
     end
     errors.concat(listing_errors(listing))
+  rescue Errno::ENOENT, JSON::ParserError, KeyError, AppStoreListing::Error => e
+    errors << "Cannot read the release train: #{e.message}"
   end
 
   # The listing's own train rules: no Mac version, What's New written for both or neither, shared URLs shared.
