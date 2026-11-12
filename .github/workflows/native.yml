@@ -115,6 +115,7 @@ jobs:
           ruby scripts/test/draft_runs_lane_b_test.rb
           ruby scripts/test/no_design_hex_test.rb
           ruby scripts/test/app_shortcuts_test.rb
+          ruby scripts/test/app_token_vault_test.rb
           ruby scripts/test/macos_lanes_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
           ruby scripts/stage-app-store-listing.rb --validate-only --platform MAC_OS
@@ -435,20 +436,26 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 1
+          # The parent tells the changelog which fragments this commit added.
+          fetch-depth: 2
           persist-credentials: false
 
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+
+      # What to Test comes from the changelog fragments (changes/README.md): the lines this commit added, then the
+      # rest of the version's. A commit with no fragment says so and names its subject.
       - name: Create exact-SHA TestFlight release note
         run: |
           set -euo pipefail
           note_dir="$RUNNER_TEMP/testflight-release-note"
           mkdir -p "$note_dir"
-          notes="$(git log -1 --format=%s "$GITHUB_SHA" | tr '\n\r' '  ')"
+          notes="$(ruby scripts/changelog.rb testflight-notes --since "$GITHUB_SHA^")"
           [[ -n "${notes//[[:space:]]/}" ]] || {
-            echo "The exact source commit must have a non-empty subject for TestFlight notes." >&2
+            echo "The changelog gave empty TestFlight notes for $GITHUB_SHA." >&2
             exit 1
           }
-          notes="${notes:0:4000}"
           generated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           jq -n \
             --arg sourceSha "$GITHUB_SHA" \

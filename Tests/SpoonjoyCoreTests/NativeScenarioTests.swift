@@ -821,6 +821,7 @@ struct NativeScenarioTests {
         let chefProfileEntitiesPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift"
         let settingsEntitiesPath = "Apps/Spoonjoy/Shared/Native/SpoonjoySettingsEntities.swift"
         let spotlightPath = "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift"
+        let appTokenVaultPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyAppTokenVault.swift"
         let rootViewPath = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"
         let platformNavigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
         let appIntentsSource = SourceContractText.withoutParameterDescriptions(try readRepoFile(appIntentsPath))
@@ -890,7 +891,7 @@ struct NativeScenarioTests {
         #expect(appIntentsSource.contains("NativeProcessSyncStore.shared(appDirectory:"))
         #expect(appIntentsSource.contains("NativeQueuedMutation.intentMutation(from:"))
         #expect(appIntentsSource.contains("syncStore.appendMutations("))
-        #expect(appIntentsSource.contains("KeychainTokenVault()"))
+        #expect(appIntentsSource.contains("SpoonjoyAppTokenVault.current()"))
         #expect(appIntentsSource.contains("trustedIntentScope"))
         #expect(appIntentsSource.contains("NativeIntentActionError.authRequired"))
         #expect(appIntentsSource.contains("accountID: scope.accountID"))
@@ -923,7 +924,7 @@ struct NativeScenarioTests {
         #expect(appEntitiesSource.contains("NativeIntentActionError.unresolvedRecipeEntity"))
         #expect(appEntitiesSource.contains("descriptor.isPlaceholder"))
         #expect(appEntitiesSource.contains("trustedIntentScope"))
-        #expect(appEntitiesSource.contains("KeychainTokenVault()"))
+        #expect(appEntitiesSource.contains("SpoonjoyAppTokenVault.current()"))
         #expect(appEntitiesSource.contains("scope.accountID"))
         #expect(appEntitiesSource.contains("scope.environment"))
 
@@ -941,7 +942,7 @@ struct NativeScenarioTests {
         #expect(shoppingEntitiesSource.contains("NativeIntentActionError.unresolvedShoppingItemEntity"))
         #expect(shoppingEntitiesSource.contains("descriptor.isPlaceholder"))
         #expect(shoppingEntitiesSource.contains("trustedIntentScope"))
-        #expect(shoppingEntitiesSource.contains("KeychainTokenVault()"))
+        #expect(shoppingEntitiesSource.contains("SpoonjoyAppTokenVault.current()"))
         #expect(shoppingEntitiesSource.contains("scope.accountID"))
         #expect(shoppingEntitiesSource.contains("scope.environment"))
 
@@ -957,7 +958,7 @@ struct NativeScenarioTests {
         #expect(spoonEntitiesSource.contains("NativeIntentActionError.unresolvedSpoonEntity"))
         #expect(spoonEntitiesSource.contains("descriptor.isPlaceholder"))
         #expect(spoonEntitiesSource.contains("trustedIntentScope"))
-        #expect(spoonEntitiesSource.contains("KeychainTokenVault()"))
+        #expect(spoonEntitiesSource.contains("SpoonjoyAppTokenVault.current()"))
         #expect(spoonEntitiesSource.contains("scope.accountID"))
         #expect(spoonEntitiesSource.contains("scope.environment"))
 
@@ -972,7 +973,7 @@ struct NativeScenarioTests {
         #expect(captureDraftEntitiesSource.contains("NativeIntentActionError.unresolvedCaptureDraftEntity"))
         #expect(captureDraftEntitiesSource.contains("descriptor.isPlaceholder"))
         #expect(captureDraftEntitiesSource.contains("trustedIntentScope"))
-        #expect(captureDraftEntitiesSource.contains("KeychainTokenVault()"))
+        #expect(captureDraftEntitiesSource.contains("SpoonjoyAppTokenVault.current()"))
         #expect(captureDraftEntitiesSource.contains("scope.accountID"))
         #expect(captureDraftEntitiesSource.contains("scope.environment"))
 
@@ -992,7 +993,7 @@ struct NativeScenarioTests {
         #expect(settingsEntitiesSource.contains("NativeIntentActionError.unresolvedAccountConnectionEntity"))
         #expect(settingsEntitiesSource.contains("descriptor.isPlaceholder"))
         #expect(settingsEntitiesSource.contains("trustedIntentScope"))
-        #expect(settingsEntitiesSource.contains("KeychainTokenVault()"))
+        #expect(settingsEntitiesSource.contains("SpoonjoyAppTokenVault.current()"))
         #expect(settingsEntitiesSource.contains("scope.accountID"))
         #expect(settingsEntitiesSource.contains("scope.environment"))
         #expect(settingsEntitiesSource.contains("token.tokenPrefix"))
@@ -1049,7 +1050,7 @@ struct NativeScenarioTests {
         #expect(platformNavigationSource.contains("indexer.replaceAll("))
         #expect(platformNavigationSource.contains("spotlightIndexIdentity"))
 
-        try assertSwiftSourcesTypecheck([appEntitiesPath, shoppingEntitiesPath, spoonEntitiesPath, captureDraftEntitiesPath, chefProfileEntitiesPath, settingsEntitiesPath, cookSessionPath, cookStepEntityPath, appIntentsPath, spotlightPath])
+        try assertSwiftSourcesTypecheck([appEntitiesPath, shoppingEntitiesPath, spoonEntitiesPath, captureDraftEntitiesPath, chefProfileEntitiesPath, settingsEntitiesPath, cookSessionPath, cookStepEntityPath, appIntentsPath, spotlightPath, appTokenVaultPath])
         try assertSwiftSourcesTypecheck([
             appEntitiesPath,
             shoppingEntitiesPath,
@@ -1060,7 +1061,8 @@ struct NativeScenarioTests {
             cookSessionPath,
             cookStepEntityPath,
             appIntentsPath,
-            spotlightPath
+            spotlightPath,
+            appTokenVaultPath
         ])
     }
 
