@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# Picks where Native's App bundle job runs on a merge-queue or main/release push run: Ari's Mac (the self-hosted
-# runner labelled spoonjoy-local-mac) when it is up and idle, otherwise a hosted xcode-27 runner. GitHub's runs-on
-# can't say "whichever is free", so the "Mac runner" job decides and App bundle reads its output.
+# Picks where Native's App bundle and Reins journeys jobs run on a merge-queue or main/release push run: Ari's Mac
+# (the self-hosted runner labelled spoonjoy-local-mac) when it is up and idle, otherwise hosted runners. GitHub's
+# runs-on can't say "whichever is free", so the "Mac runner" job decides and both jobs read its output.
 #
 # The Mac publishes its state to the repository variable SPOONJOY_LOCAL_MAC ("v1 <unix time> <state> <free GiB>",
 # written by the runner's heartbeat launch agent), because a workflow's token can't read self-hosted runners. On top of
@@ -76,10 +76,10 @@ module PickMacRunner
     end
     runner, reason = choose(event: event, ref: ref, heartbeat: env["SPOONJOY_LOCAL_MAC"], now: Time.now.to_i,
                             active_local_jobs: active)
-    out.puts "App bundle runs on #{runner == 'local' ? 'the local Mac' : 'a hosted xcode-27 runner'}: #{reason}."
-    File.open(env["GITHUB_OUTPUT"], "a") { |file| file.puts "app-bundle=#{runner}" } if env["GITHUB_OUTPUT"]
+    out.puts "App bundle and Reins journeys run on #{runner == 'local' ? 'the local Mac' : 'hosted runners'}: #{reason}."
+    File.open(env["GITHUB_OUTPUT"], "a") { |file| file.puts "mac=#{runner}" } if env["GITHUB_OUTPUT"]
     if env["GITHUB_STEP_SUMMARY"]
-      File.open(env["GITHUB_STEP_SUMMARY"], "a") { |file| file.puts "App bundle: **#{runner}**, #{reason}." }
+      File.open(env["GITHUB_STEP_SUMMARY"], "a") { |file| file.puts "App bundle and Reins journeys: **#{runner}**, #{reason}." }
     end
     runner
   end

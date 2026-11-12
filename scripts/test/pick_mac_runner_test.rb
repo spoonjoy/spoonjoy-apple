@@ -15,6 +15,8 @@ class PickMacRunnerTest < Minitest::Test
   ROOT = File.expand_path("../..", __dir__)
   WORKFLOWS = File.join(ROOT, ".github/workflows")
   NOW = 1_800_000_000
+  # The jobs that may run on the local Mac, with the hosted label each falls back to.
+  LOCAL_JOBS = { "app-bundle" => "xcode-27", "reins-journeys" => "macos-26" }.freeze
 
   def native
     @native ||= YAML.safe_load(File.read(File.join(WORKFLOWS, "native.yml")))
@@ -30,19 +32,22 @@ class PickMacRunnerTest < Minitest::Test
       YAML.safe_load(File.read(path), aliases: true).fetch("jobs").each do |id, job|
         runs_on = job["runs-on"].to_s
         refute_match(/self-hosted/, runs_on, "#{File.basename(path)} job #{id}: no job asks for any self-hosted runner")
-        next if File.basename(path) == "native.yml" && id == "app-bundle"
+        next if File.basename(path) == "native.yml" && LOCAL_JOBS.key?(id)
 
         refute_includes runs_on, "spoonjoy-local-mac", "#{File.basename(path)} job #{id} must not run on the local Mac"
       end
     end
   end
 
-  def test_app_bundle_uses_the_local_mac_only_on_trusted_events_it_was_picked_for
-    job = native.fetch("jobs").fetch("app-bundle")
-    assert_equal "${{ (github.event_name == 'merge_group' || github.event_name == 'push') " \
-                 "&& needs.mac-runner.outputs.app-bundle == 'local' && 'spoonjoy-local-mac' || 'xcode-27' }}",
-                 job.fetch("runs-on").gsub(/\s+/, " ").strip
-    assert_equal "mac-runner", job.fetch("needs")
+  def test_local_jobs_use_the_local_mac_only_on_trusted_events_it_was_picked_for
+    LOCAL_JOBS.each do |id, hosted|
+      job = native.fetch("jobs").fetch(id)
+      assert_equal "${{ (github.event_name == 'merge_group' || github.event_name == 'push') " \
+                   "&& needs.mac-runner.outputs.mac == 'local' && 'spoonjoy-local-mac' || '#{hosted}' }}",
+                   job.fetch("runs-on").gsub(/\s+/, " ").strip, id
+      assert_equal "mac-runner", job.fetch("needs"), id
+      assert job.fetch("if").start_with?("${{ !cancelled()"), "#{id} runs even when Mac runner is skipped or fails"
+    end
   end
 
   def test_the_mac_runner_job_never_runs_on_pull_requests
@@ -88,7 +93,7 @@ class PickMacRunnerTest < Minitest::Test
       output = File.join(dir, "out")
       env = { "GITHUB_EVENT_NAME" => "pull_request", "GITHUB_REF" => "refs/pull/1/merge", "GITHUB_OUTPUT" => output }
       assert_equal "hosted", PickMacRunner.main(env, out: StringIO.new)
-      assert_equal "app-bundle=hosted\n", File.read(output)
+      assert_equal "mac=hosted\n", File.read(output)
     end
   end
 end

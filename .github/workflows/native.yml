@@ -37,9 +37,10 @@ concurrency:
 # and are not laned. A lane holds at most 100 waiting jobs; past that GitHub cancels the newest, which only lane c can reach.
 
 # Ari's Mac. A self-hosted runner on Ari's Mac (labels: spoonjoy-local-mac only, registered to this repository alone)
-# takes App bundle on merge-queue and main or release push runs when it is idle, so the merge queue doesn't wait hours
-# for one of the org's few hosted Macs. The "Mac runner" job picks local or hosted (scripts/pick-mac-runner.rb); pull
-# requests never reach it, and the runner's own job-started hook refuses any other event or repository.
+# takes App bundle and Reins journeys on merge-queue and main or release push runs when it is idle, so the merge queue
+# doesn't wait hours for one of the org's few hosted Macs. The "Mac runner" job picks local or hosted
+# (scripts/pick-mac-runner.rb); pull requests never reach it, and the runner's own job-started hook refuses any other
+# event or repository. Both jobs build with the Mac's own Xcode (27.2), which passes them with no warnings.
 
 permissions:
   contents: read
@@ -174,7 +175,13 @@ jobs:
     # The Journeys suite's behaviour, headless: Ouro Reins drives the shell over journey kitchens with every request
     # refused (ReinsNetworkGuard), so no simulator, QA server or account is involved. It is the required "Reins journeys" check.
     name: Reins journeys
-    runs-on: macos-26
+    needs: mac-runner
+    # !cancelled(): Reins journeys still runs when the Mac runner job it needs is skipped (pull requests) or fails.
+    if: ${{ !cancelled() }}
+    # The local Mac only for merge-queue and main/release push runs whose Mac runner job picked it.
+    runs-on: >-
+      ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+      && needs.mac-runner.outputs.mac == 'local' && 'spoonjoy-local-mac' || 'macos-26' }}
     # Lane b of 3: see the note on macOS lanes at the top of native.yml.
     concurrency:
       group: >-
@@ -260,8 +267,9 @@ jobs:
           ruby scripts/fail-on-warning.rb --log "$scenario_log"
 
   mac-runner:
-    # Picks where App bundle runs on a merge-queue or main/release push run: the local Mac when it is up and idle,
-    # otherwise a hosted xcode-27 runner (see the note on Ari's Mac at the top of native.yml). Pull requests skip it.
+    # Picks where App bundle and Reins journeys run on a merge-queue or main/release push run: the local Mac when it is
+    # up and idle, otherwise hosted xcode-27 and macos-26 runners (see the note on Ari's Mac at the top of native.yml).
+    # Pull requests skip it.
     name: Mac runner
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
@@ -269,14 +277,14 @@ jobs:
     permissions:
       actions: read
       contents: read
-    # One pick at a time, so a pick sees the App bundle job the previous one sent to the Mac.
+    # One pick at a time, so a pick sees the jobs the previous one sent to the Mac.
     concurrency:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push') && 'spoonjoy-local-mac-pick'
         || format('native-mac-runner-{0}-{1}', github.run_id, github.run_attempt) }}
       queue: max
     outputs:
-      app-bundle: ${{ steps.pick.outputs.app-bundle }}
+      mac: ${{ steps.pick.outputs.mac }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -285,7 +293,7 @@ jobs:
           sparse-checkout-cone-mode: false
       - name: Pick the local Mac or a hosted runner
         id: pick
-        # A failed pick leaves the output empty, which means hosted: it never blocks App bundle.
+        # A failed pick leaves the output empty, which means hosted: it never blocks App bundle or Reins journeys.
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -303,7 +311,7 @@ jobs:
     # The local Mac only for merge-queue and main/release push runs whose Mac runner job picked it.
     runs-on: >-
       ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
-      && needs.mac-runner.outputs.app-bundle == 'local' && 'spoonjoy-local-mac' || 'xcode-27' }}
+      && needs.mac-runner.outputs.mac == 'local' && 'spoonjoy-local-mac' || 'xcode-27' }}
     # Lane a of 3: see the note on macOS lanes at the top of native.yml.
     concurrency:
       group: >-
