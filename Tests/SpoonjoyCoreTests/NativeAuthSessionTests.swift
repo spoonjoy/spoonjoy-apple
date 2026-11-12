@@ -585,8 +585,11 @@ struct NativeAuthSessionTests {
                 "NSApplication.willResignActiveNotification",
                 "NSWindow.willBeginSheetNotification",
                 "NSWindow.didResignKeyNotification",
-                "rootViewController?.presentedViewController",
-                "presentedAtStart = SpoonjoyAuthenticationPresentationContextProvider.presentedUI()"
+                "anchor?.rootViewController?.presentedViewController",
+                "UIScene.willDeactivateNotification",
+                "UIApplication.shared.applicationState == .active",
+                "watch.begin(anchor: session.presentationAnchor)",
+                "willStart(session)\n        let didStart = session.start()"
             ],
             forbids: [
                 "preconditionFailure",
@@ -612,6 +615,11 @@ struct NativeAuthSessionTests {
         // NativeBrowserOAuthEarlyCancel retries a canceledLogin on iOS only when the app never resigned active. That
         // proves nothing was shown only because a non-ephemeral session always shows the "wants to use spoonjoy.app to
         // sign in" prompt first. An ephemeral session skips the prompt, so a person's Cancel would look like the system's.
+        // Any assignment or initialiser other than a literal `false` (`= true`, `: Bool = true`, `= someFlag`), or a
+        // key-value write, is an offender. The one exception is the system wrapper's pass-through setter.
+        let assignment = #"prefersEphemeralWebBrowserSession\s*(:\s*Bool\s*)?=(?!=)(?!\s*false\b)"#
+        let keyValue = #""prefersEphemeralWebBrowserSession""#
+        let passThrough = "set { session.prefersEphemeralWebBrowserSession = newValue }"
         let fileManager = FileManager.default
         var offenders: [String] = []
         for root in ["Apps", "Sources"] {
@@ -620,11 +628,23 @@ struct NativeAuthSessionTests {
                 .compactMap { $0 as? URL }
                 .filter { $0.pathExtension == "swift" } ?? []
             for file in files {
-                let text = try String(contentsOf: file, encoding: .utf8)
-                if text.range(of: #"prefersEphemeralWebBrowserSession\s*=\s*true"#, options: .regularExpression) != nil {
-                    offenders.append(file.path)
+                let lines = try String(contentsOf: file, encoding: .utf8).components(separatedBy: .newlines)
+                for (index, line) in lines.enumerated() where line.contains("prefersEphemeralWebBrowserSession") {
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    if trimmed == passThrough { continue }
+                    if line.range(of: assignment, options: .regularExpression) != nil || line.contains(keyValue) {
+                        offenders.append("\(file.path):\(index + 1)")
+                    }
                 }
             }
+        }
+        for caught in ["x.prefersEphemeralWebBrowserSession = true", "var prefersEphemeralWebBrowserSession: Bool = true",
+                       "s.prefersEphemeralWebBrowserSession = flag", "s.prefersEphemeralWebBrowserSession=true"] {
+            #expect(caught.range(of: assignment, options: .regularExpression) != nil, Comment(rawValue: caught))
+        }
+        for allowed in ["s.prefersEphemeralWebBrowserSession = false", "var prefersEphemeralWebBrowserSession = false",
+                        "s.prefersEphemeralWebBrowserSession == false", "var prefersEphemeralWebBrowserSession: Bool {"] {
+            #expect(allowed.range(of: assignment, options: .regularExpression) == nil, Comment(rawValue: allowed))
         }
         #expect(offenders.isEmpty, "Ephemeral sign-in sessions break the iOS early-cancel retry gate: \(offenders)")
         let path = "Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift"
@@ -1870,8 +1890,89 @@ import Testing
 @testable import SpoonjoyAppAuth
 
 @MainActor
-@Suite("Web authentication session adapter contract")
+// Serialized: the tests post app-wide notifications that every live sign-in in the process observes.
+@Suite("Web authentication session adapter contract", .serialized)
 struct WebAuthenticationSessionAdapterContract {
+    @Test("the system session wrapper passes prefersEphemeralWebBrowserSession straight to ASWebAuthenticationSession")
+    func systemSessionPassesEphemeralThrough() {
+        let url = URL(string: "https://spoonjoy.app/oauth/authorize?state=s")!
+        let callback = ASWebAuthenticationSession.Callback.https(host: "spoonjoy.app", path: "/oauth/callback")
+        let raw = ASWebAuthenticationSession(url: url, callback: callback) { _, _ in }
+        let provider = ProbePresentationContextProvider()
+        let wrapped = SpoonjoySystemWebAuthenticationSession(session: raw, presentationContextProvider: provider)
+        raw.prefersEphemeralWebBrowserSession = true
+        wrapped.prefersEphemeralWebBrowserSession = false
+        #expect(raw.prefersEphemeralWebBrowserSession == false)
+        #expect(wrapped.prefersEphemeralWebBrowserSession == false)
+    }
+
+    /// One browser sign-in sheet as NativeBrowserOAuthSignIn drives it, over a fake system session.
+    @MainActor
+    private final class SheetProbe {
+        let factory = FakeSessionFactory()
+        var presented: ObjectIdentifier?
+        var appActive = true
+        var events: [String] = []
+        var sheet: SpoonjoyBrowserOAuthWebSession!
+
+        init() {
+            factory.onStart = { [unowned self] in self.events.append("start") }
+            sheet = SpoonjoyBrowserOAuthWebSession(
+                authorizationURL: URL(string: "https://spoonjoy.app/oauth/authorize?state=s")!,
+                session: SpoonjoyWebAuthenticationSession(
+                    callbackURL: URL(string: "https://spoonjoy.app/oauth/callback")!,
+                    sessionFactory: factory.makeSession,
+                    callbackHandler: { _ in }
+                ),
+                systemUIWatch: SpoonjoySystemUIWatch(
+                    appIsActive: { [unowned self] in self.appActive },
+                    presentedUI: { [unowned self] _ in
+                        self.events.append("sample")
+                        return self.presented
+                    }
+                )
+            )
+        }
+    }
+
+    @Test("the sheet takes its presented-view-controller baseline before the system session starts, non-ephemeral")
+    func sheetBaselineBeforeStart() {
+        let probe = SheetProbe()
+        let host = NSObject()
+        probe.presented = ObjectIdentifier(host)
+        #expect(probe.sheet.start())
+        #expect(probe.events == ["sample", "start"])
+        #expect(probe.sheet.systemUIWatch.presentedAtStart == ObjectIdentifier(host))
+        #expect(probe.factory.sessions.allSatisfy { !$0.prefersEphemeralWebBrowserSession })
+        // The same view controller still presented at the cancel is not a new one.
+        #expect(!probe.sheet.presentedViewController)
+        #expect(!probe.sheet.systemUIAppeared)
+        withExtendedLifetime(host) {}
+    }
+
+    @Test("the sheet sees each shown signal: inactive at start, resign active, a macOS sheet or key change")
+    func sheetObservesShownSignals() async {
+        let inactive = SheetProbe()
+        inactive.appActive = false
+        #expect(inactive.sheet.start())
+        #expect(inactive.sheet.systemUIAppeared)
+
+        for name in [NSApplication.willResignActiveNotification, NSWindow.willBeginSheetNotification, NSWindow.didResignKeyNotification] {
+            let probe = SheetProbe()
+            #expect(probe.sheet.start())
+            #expect(!probe.sheet.systemUIAppeared)
+            let systemSheet = NSObject()
+            probe.presented = ObjectIdentifier(systemSheet)
+            NotificationCenter.default.post(name: name, object: nil)
+            await Task.yield()
+            probe.presented = nil
+            #expect(probe.sheet.systemUIAppeared, Comment(rawValue: name.rawValue))
+            // Seen while the signal fired, so latched although it is gone by the cancel.
+            #expect(probe.sheet.presentedViewController, Comment(rawValue: name.rawValue))
+            withExtendedLifetime(systemSheet) {}
+        }
+    }
+
     @Test("system session keeps its presentation provider alive until start")
     func systemSessionKeepsItsPresentationProviderAliveUntilStart() throws {
         let url = URL(string: "https://spoonjoy.app/oauth/authorize?state=s")!
@@ -1992,6 +2093,7 @@ private final class FakeSessionFactory {
     private(set) var sessions: [FakeWebAuthenticationSession] = []
     private var completionHandler: (@MainActor (URL?, Error?) -> Void)?
     private let startResult: Bool
+    var onStart: (@MainActor () -> Void)?
 
     init(startResult: Bool = true) {
         self.startResult = startResult
@@ -2005,6 +2107,7 @@ private final class FakeSessionFactory {
         requests.append(FakeSessionRequest(authorizationURL: authorizationURL, callback: callback))
         self.completionHandler = completionHandler
         let session = FakeWebAuthenticationSession(startResult: startResult)
+        session.onStart = onStart
         sessions.append(session)
         return session
     }
@@ -2022,12 +2125,15 @@ private final class FakeWebAuthenticationSession: SpoonjoyWebAuthenticationSessi
     private(set) var cancelCount = 0
     private let startResult: Bool
 
+    var onStart: (@MainActor () -> Void)?
+
     init(startResult: Bool = true) {
         self.startResult = startResult
     }
 
     func start() -> Bool {
         startCount += 1
+        onStart?()
         return startResult
     }
 

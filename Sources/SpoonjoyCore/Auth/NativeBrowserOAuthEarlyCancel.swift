@@ -6,26 +6,31 @@ import Foundation
 /// nothing happen. The app then starts one fresh session.
 ///
 /// A Cancel by the person reports the same error, so a retry needs proof that the system showed nothing for the
-/// session. Two signals must both be absent:
-/// - The app resigning active. On iOS the "wants to use spoonjoy.app to sign in" prompt always causes it before the
-///   sheet, for a non-ephemeral session (the app always asks for one). On macOS a window beginning a sheet or resigning
-///   key also counts, since the prompt and sheet attach to the app's own window and the app may stay active.
-/// - A new view controller (on macOS, a sheet) presented on the anchor window, seen when the cancel arrives. The
-///   system sheet is usually out of process, so this rarely fires, but it can only block a retry.
+/// session. The primary signals, any one of which blocks the retry:
+/// - The app was not active when the session started (Control Center, a call banner), or it resigned active
+///   afterwards. On iOS the "wants to use spoonjoy.app to sign in" prompt always resigns it before the sheet, for a
+///   non-ephemeral session (the app always asks for one).
+/// - On iOS, the anchor window's scene deactivating (iPad multi-window).
+/// - On macOS, a window beginning a sheet or resigning key, since the prompt and sheet attach to the app's own window
+///   and the app may stay active.
+/// A best-effort extra: a new view controller (on macOS, a sheet) seen on the anchor window at any of those moments
+/// or when the cancel arrives. The system sheet is usually out of process and already gone by the cancel, so this
+/// rarely fires, but it can only block a retry.
 ///
 /// On iOS there is no time limit. The cancel can come seconds after `start()`: in CI run 43312729950 it came 5242 ms
 /// after, 13 ms after swcd logged "app PI changed". If the resign signal ever failed to fire, a person's Cancel would
-/// reopen the sheet once, which is bounded. On macOS, where the signals are not guaranteed, the cancel must also come
-/// within `window` of `start()`.
+/// reopen the sheet once, which is bounded. On macOS and visionOS, where the signals are not guaranteed, the cancel
+/// must also come within `window` of `start()`.
 public enum NativeBrowserOAuthEarlyCancel {
-    /// The macOS time limit. See `platformWindow`.
+    /// The time limit outside iOS. See `platformWindow`.
     public static let window: TimeInterval = 1.5
-    /// The time limit for a retry on this platform: none on iOS, `window` on macOS.
+    /// The time limit for a retry on this platform: none on iOS, `window` everywhere else (macOS, and visionOS, where
+    /// the resign-active premise has not been verified).
     public static var platformWindow: TimeInterval? {
-        #if os(macOS)
-        window
-        #else
+        #if os(iOS)
         nil
+        #else
+        window
         #endif
     }
     /// How long to wait before the one retry, so the fetch the cancel came from can finish.

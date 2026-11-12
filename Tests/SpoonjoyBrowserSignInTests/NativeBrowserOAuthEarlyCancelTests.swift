@@ -49,12 +49,12 @@ struct NativeBrowserOAuthEarlyCancelTests {
         #expect(!retries(after: 0.2, alreadyRetried: true, window: window))
     }
 
-    @Test("this platform's time limit is the macOS window on macOS and none on iOS")
+    @Test("this platform's time limit is none on iOS and the window everywhere else")
     func platformWindow() {
-        #if os(macOS)
-        #expect(NativeBrowserOAuthEarlyCancel.platformWindow == NativeBrowserOAuthEarlyCancel.window)
-        #else
+        #if os(iOS)
         #expect(NativeBrowserOAuthEarlyCancel.platformWindow == nil)
+        #else
+        #expect(NativeBrowserOAuthEarlyCancel.platformWindow == NativeBrowserOAuthEarlyCancel.window)
         #endif
     }
 
