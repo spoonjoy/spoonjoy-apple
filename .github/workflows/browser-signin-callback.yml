@@ -4,8 +4,9 @@ name: Browser sign-in callback
 # and the app lands signed in (BrowserSignInCallbackUITests), on production. iOS 1.2 lacked webcredentials:spoonjoy.app,
 # so every Google and GitHub sign-in stopped in the sheet.
 #
-# The build is Debug, signed ad hoc with the app's entitlements, so the simulator associates spoonjoy.app through
-# Apple's CDN as a device would. Debug honours SPOONJOY_UI_TEST_BROWSER_SIGN_IN_LOGIN_PAGE, which drops the provider
+# The build is Debug, signed ad hoc with the app's entitlements and Spoonjoy's team, so its application identifier is
+# 743GT2AJ24.app.spoonjoy, an app the AASA lists, and the simulator associates spoonjoy.app through Apple's CDN as a
+# device would. Debug honours SPOONJOY_UI_TEST_BROWSER_SIGN_IN_LOGIN_PAGE, which drops the provider
 # hint so the sheet shows spoonjoy.app/login and the test signs in with a password; Release never reads it.
 #
 # Before dispatching, seed a throwaway production account (never a real person's) and store
@@ -57,7 +58,7 @@ jobs:
           set -euo pipefail
           xcodebuild build-for-testing -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Debug \
             -destination "platform=iOS Simulator,id=$UDID" -only-testing:SpoonjoyShoppingUITests/BrowserSignInCallbackUITests \
-            -derivedDataPath "$RUNNER_TEMP/callback/DerivedData" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
+            -derivedDataPath "$RUNNER_TEMP/callback/DerivedData" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=743GT2AJ24 PROVISIONING_PROFILE_SPECIFIER= \
             2>&1 | tee "$RUNNER_TEMP/callback/build.log" | tail -30
       - name: Record the entitlements the app is signed with
         run: |
@@ -82,6 +83,8 @@ jobs:
           for f in entitlements-codesign.plist entitlements-simulated.plist; do echo "== $f"; cat "$out/$f"; echo; done
           grep -q "webcredentials:spoonjoy.app" "$out/entitlements-simulated.plist" "$out/entitlements-codesign.plist" \
             || { echo "::error::The built app does not carry webcredentials:spoonjoy.app"; exit 1; }
+          grep -q "743GT2AJ24.app.spoonjoy<" "$out/entitlements-simulated.plist" "$out/entitlements-codesign.plist" \
+            || { echo "::error::The built app's application identifier is not 743GT2AJ24.app.spoonjoy, so the AASA cannot match it"; exit 1; }
       - name: Wait for the simulator to settle
         timeout-minutes: 8
         run: python3 .github/scripts/wait-for-simulator-settle.py "${{ steps.sim.outputs.udid }}" --booted-at "${{ steps.sim.outputs.booted-at }}"
