@@ -91,6 +91,9 @@ extension View {
 /// hinge information it resolves exactly as before, from the width heuristic.
 struct SpreadLayoutReader<Content: View>: View {
     let isRegularWidth: Bool
+    /// Whether an upright container wide enough for two pages (the iPad held upright) opens too; see
+    /// `BookSpreadLayout.minimumTallSpreadWidth`.
+    var allowsTallSpread = false
     @ViewBuilder let content: (BookSpreadLayout) -> Content
 
     @State private var division: SpreadDivision?
@@ -101,7 +104,8 @@ struct SpreadLayoutReader<Content: View>: View {
                 width: Double(proxy.size.width),
                 height: Double(proxy.size.height),
                 isRegularWidth: isRegularWidth,
-                division: division
+                division: division,
+                allowsTallSpread: allowsTallSpread
             )
             content(layout)
 #if DEBUG

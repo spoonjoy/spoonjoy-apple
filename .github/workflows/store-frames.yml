@@ -1,0 +1,39 @@
+name: Store frames
+
+# The App Store frame renderer (scripts/store-frames) and its spec: unit tests, and a frame rendered twice that must
+# come out byte for byte the same, without alpha, at its exact size. Runs only when they change.
+on:
+  pull_request:
+    paths:
+      - scripts/store-frames/**
+      - distribution/app-store/frames/**
+      - distribution/app-store/listing.json
+      - Apps/Spoonjoy/Shared/Fonts/**
+      - .github/workflows/store-frames.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-frames-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  frames:
+    name: Store frames
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Install the renderer
+        working-directory: scripts/store-frames
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install chromium
+      - name: Test the renderer
+        working-directory: scripts/store-frames
+        run: npm test
+      - name: Validate the spec
+        run: node scripts/store-frames/render.mjs --validate-only
