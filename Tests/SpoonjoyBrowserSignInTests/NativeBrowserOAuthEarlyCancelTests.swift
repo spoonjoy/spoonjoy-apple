@@ -25,13 +25,13 @@ struct NativeBrowserOAuthEarlyCancelTests {
     @Test("the log lines carry the domain, code and timing, never a description")
     func logLines() {
         #expect(NativeBrowserOAuthEarlyCancel.earlyCancelMessage(error: systemCancel, secondsSinceStart: 0.1754) ==
-            "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 175 ms with nothing shown; retrying once")
-        #expect(NativeBrowserOAuthEarlyCancel.endedMessage(error: systemCancel, secondsSinceStart: 4) ==
-            "Browser sign-in ended without a callback: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 4000 ms")
-        #expect(NativeBrowserOAuthEarlyCancel.endedMessage(error: nil, secondsSinceStart: nil) ==
-            "Browser sign-in ended without a callback: no error after unknown ms")
+            "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 175 ms, systemUIAppeared=false; retrying once")
+        #expect(NativeBrowserOAuthEarlyCancel.endedMessage(error: systemCancel, secondsSinceStart: 4, systemUIAppeared: true) ==
+            "Browser sign-in ended without a callback: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 4000 ms, systemUIAppeared=true")
+        #expect(NativeBrowserOAuthEarlyCancel.endedMessage(error: nil, secondsSinceStart: nil, systemUIAppeared: false) ==
+            "Browser sign-in ended without a callback: no error after unknown ms, systemUIAppeared=false")
         let secret = NSError(domain: "x", code: 7, userInfo: [NSLocalizedDescriptionKey: "https://spoonjoy.app/oauth/callback?code=oac_secret"])
-        #expect(!NativeBrowserOAuthEarlyCancel.endedMessage(error: secret, secondsSinceStart: 1).contains("oac_secret"))
+        #expect(!NativeBrowserOAuthEarlyCancel.endedMessage(error: secret, secondsSinceStart: 1, systemUIAppeared: false).contains("oac_secret"))
         let transport = APITransportError(kind: .apiError, requestID: "req_1", statusCode: 503, apiError: nil, retryDecision: .doNotRetry)
         #expect(NativeBrowserOAuthEarlyCancel.diagnosticReason(transport) == "apiError status 503 request req_1")
     }

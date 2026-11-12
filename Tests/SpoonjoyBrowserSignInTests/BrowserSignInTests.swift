@@ -120,6 +120,7 @@ struct BrowserSignInTests {
 
         harness.clock.advance(0.2)
         await harness.sheets.close(0, error: systemCancel)
+        await harness.flow.retryTask?.value
 
         #expect(finishes.names.isEmpty)
         #expect(harness.flow.attempt == attempt)
@@ -133,10 +134,12 @@ struct BrowserSignInTests {
         #expect(await harness.network.exchanges.map(\.codeVerifier) == [attempt.codeVerifier])
         #expect(harness.logs.lines == [
             "Browser sign-in sheet started",
-            "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 200 ms with nothing shown; retrying once",
+            "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 200 ms, systemUIAppeared=false; retrying once",
             "Browser sign-in retried: sheet started again",
             "Browser sign-in callback received"
         ])
+        let secrets = ["://", "?", "code=", "state=", "oac_", attempt.state.rawValue, attempt.codeVerifier]
+        #expect(harness.logs.lines.allSatisfy { line in !secrets.contains { line.contains($0) } })
     }
 
     @Test("a second early cancel in the same attempt finishes as canceled")
@@ -147,6 +150,7 @@ struct BrowserSignInTests {
 
         harness.clock.advance(0.2)
         await harness.sheets.close(0, error: systemCancel)
+        await harness.flow.retryTask?.value
         harness.clock.advance(0.2)
         await harness.sheets.close(1, error: systemCancel)
 
@@ -205,7 +209,8 @@ struct BrowserSignInTests {
         let finishesA = FinishLog()
         _ = await windowA.flow.begin(provider: .google) { finishesA.record($0) }
         windowA.clock.advance(0.2)
-        let closing = Task { await windowA.sheets.close(0, error: systemCancel) }
+        await windowA.sheets.close(0, error: systemCancel)
+        let closing = try #require(windowA.flow.retryTask)
         await latchA.waitUntilReached()
 
         _ = await windowB.flow.begin(provider: .google) { _ in }
@@ -221,7 +226,8 @@ struct BrowserSignInTests {
         let finishesC = FinishLog()
         _ = await windowC.flow.begin(provider: .google) { finishesC.record($0) }
         windowC.clock.advance(0.2)
-        let closingC = Task { await windowC.sheets.close(0, error: systemCancel) }
+        await windowC.sheets.close(0, error: systemCancel)
+        let closingC = try #require(windowC.flow.retryTask)
         await latchC.waitUntilReached()
         windowC.flow.cancel()
         await latchC.open()
@@ -229,6 +235,53 @@ struct BrowserSignInTests {
         #expect(finishesC.names == ["canceled"])
         #expect(windowC.sheets.sessions.count == 1)
         #expect(!windowC.flow.isInProgress)
+    }
+
+    @Test("a retry the system will not start logs that and finishes the attempt as canceled")
+    func retryThatDoesNotStartFinishesCanceled() async throws {
+        let harness = Harness()
+        let finishes = FinishLog()
+        _ = await harness.flow.begin(provider: .google) { finishes.record($0) }
+        harness.sheets.startResults[1] = false
+
+        harness.clock.advance(0.2)
+        await harness.sheets.close(0, error: systemCancel)
+        await harness.flow.retryTask?.value
+
+        #expect(finishes.names == ["canceled"])
+        #expect(harness.sheets.sessions.map(\.startCount) == [1, 1])
+        #expect(harness.logs.lines.last == NativeBrowserOAuthEarlyCancel.retryDidNotStartMessage)
+        #expect(harness.flow.attempt == nil)
+        #expect(harness.gate.activeAttemptID == nil)
+    }
+
+    @Test("a sign-in whose owner goes away during the retry pause opens no sheet")
+    func ownerGoneDuringRetryPause() async throws {
+        let harness = Harness()
+        let latch = Latch()
+        let sheets = FakeSheets(startResult: true)
+        let clock = TestClock()
+        var flow: NativeBrowserOAuthSignIn? = NativeBrowserOAuthSignIn(
+            repository: harness.repository,
+            gate: NativeBrowserOAuthGate(),
+            randomSecret: OAuthPKCE.randomVerifier,
+            uptime: { [clock] in clock.now },
+            pause: { _ in await latch.reach() },
+            log: { _ in },
+            makeSession: sheets.make
+        )
+        _ = await flow?.begin(provider: .google) { _ in }
+        clock.advance(0.2)
+        await sheets.close(0, error: systemCancel)
+        let retry = try #require(flow?.retryTask)
+        await latch.waitUntilReached()
+
+        weak let gone = flow
+        flow = nil
+        #expect(gone == nil)
+        await latch.open()
+        await retry.value
+        #expect(sheets.sessions.count == 1)
     }
 
     @Test("each tap starts a fresh attempt with its own state, verifier and sheet")
@@ -721,6 +774,8 @@ private final class FakeSheets {
     }
 
     private let startResult: Bool
+    /// Overrides `startResult` for the sheet at that index.
+    var startResults: [Int: Bool] = [:]
     private(set) var opened: [Opened] = []
     private(set) var sessions: [FakeSheet] = []
 
@@ -734,7 +789,7 @@ private final class FakeSheets {
         completion: @escaping @MainActor (URL?, (any Error)?) async -> Void
     ) -> any NativeBrowserOAuthWebSession {
         opened.append(Opened(authorizationURL: authorizationURL, redirectURI: redirectURI, completion: completion))
-        let sheet = FakeSheet(startResult: startResult)
+        let sheet = FakeSheet(startResult: startResults[sessions.count] ?? startResult)
         sessions.append(sheet)
         return sheet
     }

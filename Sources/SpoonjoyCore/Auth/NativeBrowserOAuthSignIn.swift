@@ -107,6 +107,8 @@ public final class NativeBrowserOAuthSignIn {
     private var redirectURI: URL?
     private var sessionStartedAt: TimeInterval?
     private var retriedAttemptID: UUID?
+    /// The pause before an early-cancel retry. It holds this object weakly, so a view torn down mid-pause opens no sheet.
+    private(set) var retryTask: Task<Void, Never>?
 
     /// A cancel this soon after `start()`, with nothing shown, came from the system, not the person.
     public static let earlyCancelWindow = NativeBrowserOAuthEarlyCancel.window
@@ -233,18 +235,23 @@ public final class NativeBrowserOAuthSignIn {
         }
         guard let callbackURL else {
             let elapsed = sessionStartedAt.map { uptime() - $0 }
+            let systemUIAppeared = session?.systemUIAppeared ?? true
             if NativeBrowserOAuthEarlyCancel.shouldRetry(
                 error: error,
                 secondsSinceStart: elapsed,
-                systemUIAppeared: session?.systemUIAppeared ?? true,
+                systemUIAppeared: systemUIAppeared,
                 alreadyRetried: retriedAttemptID == attemptID
             ) {
                 retriedAttemptID = attemptID
                 log(NativeBrowserOAuthEarlyCancel.earlyCancelMessage(error: error, secondsSinceStart: elapsed))
-                await retry(attempt: attempt, error: error)
+                scheduleRetry(attemptID: attemptID, error: error)
                 return
             }
-            log(NativeBrowserOAuthEarlyCancel.endedMessage(error: error, secondsSinceStart: elapsed))
+            log(NativeBrowserOAuthEarlyCancel.endedMessage(
+                error: error,
+                secondsSinceStart: elapsed,
+                systemUIAppeared: systemUIAppeared
+            ))
             clear(attemptID: attemptID)
             finish(.canceled(error))
             return
@@ -269,12 +276,19 @@ public final class NativeBrowserOAuthSignIn {
     }
 
     /// Starts one fresh sheet for the same attempt after a short pause. A cancel, a newer start or a callback during
-    /// the pause wins: the retry only runs while this attempt is still the open one.
-    private func retry(attempt: Attempt, error: (any Error)?) async {
+    /// the pause wins: the retry only runs while this attempt is still the open one. The pause holds this object
+    /// weakly, so if its owner goes away meanwhile, no sheet opens.
+    private func scheduleRetry(attemptID: UUID, error: (any Error)?) {
         session = nil
         sessionStartedAt = nil
-        await pause(Self.earlyCancelRetryDelay)
-        guard self.attempt?.id == attempt.id, let redirectURI, let finish = onFinish else {
+        retryTask = Task { [weak self, pause] in
+            await pause(Self.earlyCancelRetryDelay)
+            self?.resumeRetry(attemptID: attemptID, error: error)
+        }
+    }
+
+    private func resumeRetry(attemptID: UUID, error: (any Error)?) {
+        guard let attempt, attempt.id == attemptID, let redirectURI, let finish = onFinish else {
             return
         }
         let sheet = makeSheet(attemptID: attempt.id, authorizationURL: attempt.authorizationURL, redirectURI: redirectURI)
