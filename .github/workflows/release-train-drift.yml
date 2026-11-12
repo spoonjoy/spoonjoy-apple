@@ -1,0 +1,39 @@
+name: Release train drift
+
+# Once a day, reads both platforms' newest App Store versions and keeps one GitHub issue labelled release-train
+# when iOS and Mac differ in version, state or the copy they should share (docs/apple-distribution.md#release-train).
+# Read-only on App Store Connect: scripts/check-release-train.rb --app-store-connect only reads.
+on:
+  schedule:
+    - cron: '23 14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: spoonjoy-release-train-drift
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    name: Release train drift
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: internal-testflight
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+      - name: Compare iOS and Mac in App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ruby scripts/check-release-train.rb --app-store-connect

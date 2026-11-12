@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "digest"
 require "json"
 require_relative "app_store_listing"
 
@@ -84,5 +85,133 @@ module ReleaseTrain
   def self.matching_fields(listing, locale: "en-US")
     mac = listing.dig("mac", "localizations", locale) || {}
     SHARED_FIELDS + PLATFORM_COPY_FIELDS.reject { |field| mac.key?(field) }
+  end
+
+  PLATFORM_NAMES = AppStoreListing::PLATFORM_NAMES
+  COPY_FIELDS = SHARED_FIELDS + PLATFORM_COPY_FIELDS
+  LABEL = "release-train"
+  ISSUE_TITLE = "Release train: iOS and Mac have drifted"
+  MARKER = /<!-- release-train differences=([0-9a-f]{64}) -->/.freeze
+
+  # The ways two platforms' latest live versions differ, as "field: iOS x, macOS y" lines. Empty means in line.
+  # fields are the copy fields that should match (matching_fields).
+  def self.drift(ios, mac, fields)
+    missing = { "IOS" => ios, "MAC_OS" => mac }.select { |_, version| version.nil? }.keys
+    return missing.map { |platform| "#{PLATFORM_NAMES.fetch(platform)} has no App Store version" } unless missing.empty?
+
+    differences = %w[versionString state].reject { |key| ios[key] == mac[key] }
+                                         .map { |key| "#{key}: iOS #{ios[key]}, macOS #{mac[key]}" }
+    fields.each do |field|
+      a = ios.fetch("copy", {})[field]
+      b = mac.fetch("copy", {})[field]
+      differences << "#{field}: iOS #{a}, macOS #{b}" unless a == b
+    end
+    differences
+  end
+
+  # Only reads: the drift job can never write to App Store Connect, whatever it calls.
+  class ReadOnly
+    def initialize(client)
+      @client = client
+    end
+
+    def get(path, query = {})
+      @client.get(path, query)
+    end
+
+    def get_all(path, query = {})
+      @client.get_all(path, query)
+    end
+  end
+
+  # Each platform's newest App Store version as {platform, versionString, state, build, copy}, or nil.
+  class LiveReader
+    def initialize(asc, bundle_id:, locale: "en-US")
+      @asc = ReadOnly.new(asc)
+      @bundle_id = bundle_id
+      @locale = locale
+    end
+
+    def app_id
+      @app_id ||= begin
+        apps = @asc.get("/v1/apps", "filter[bundleId]" => @bundle_id)["data"]
+        raise AppStoreListing::Error, "No App Store Connect app has bundle ID #{@bundle_id}" if apps.empty?
+
+        apps.first["id"]
+      end
+    end
+
+    def latest(platform)
+      versions = @asc.get_all("/v1/apps/#{app_id}/appStoreVersions", "filter[platform]" => platform)
+      newest = versions.max_by { |v| v.dig("attributes", "createdDate").to_s }
+      return nil unless newest
+
+      attributes = newest["attributes"]
+      build = @asc.get("/v1/appStoreVersions/#{newest['id']}/build")["data"]
+      localization = @asc.get_all("/v1/appStoreVersions/#{newest['id']}/appStoreVersionLocalizations")
+                         .find { |l| l.dig("attributes", "locale") == @locale }
+      { "platform" => platform, "versionString" => attributes["versionString"],
+        "state" => attributes["appStoreState"] || attributes["appVersionState"],
+        "build" => build && build.dig("attributes", "version"),
+        "copy" => (localization ? localization["attributes"] : {}).slice(*COPY_FIELDS) }
+    end
+  end
+
+  # Keeps one GitHub issue labelled release-train: opened on drift, updated with a comment when the differences
+  # change, closed when the platforms are back in line. issues is AppReviewWatch::GitHubIssues with this label.
+  class DriftIssue
+    def initialize(issues, log: $stdout)
+      @issues = issues
+      @log = log
+    end
+
+    def self.body(differences, ios:, mac:)
+      digest = Digest::SHA256.hexdigest(differences.join("\n"))
+      rows = [ios, mac].compact.map do |v|
+        "| #{PLATFORM_NAMES.fetch(v['platform'])} | #{v['versionString']} | `#{v['state']}` | #{v['build'] || 'none'} |"
+      end
+      <<~BODY
+        <!-- release-train differences=#{digest} -->
+        The release train drift job (`.github/workflows/release-train-drift.yml`) found iOS and Mac out of line in App Store Connect. It reads App Store Connect only, updates this issue when the differences change and closes it when they are back in line. See `docs/apple-distribution.md#release-train`.
+
+        | Platform | Latest version | State | Build |
+        | --- | --- | --- | --- |
+        #{rows.join("\n")}
+
+        Differences:
+        #{differences.map { |d| "- #{d}" }.join("\n")}
+      BODY
+    end
+
+    # Returns :quiet, :opened, :unchanged, :updated or :closed.
+    def keep(differences, ios:, mac:)
+      issue = @issues.open_issue(ISSUE_TITLE)
+      if differences.empty?
+        return log(:quiet) unless issue
+
+        @issues.comment(issue["number"], "iOS and Mac are back in line: both are #{ios['versionString']} (`#{ios['state']}`).")
+        @issues.update(issue["number"], "state" => "closed")
+        return log(:closed)
+      end
+
+      body = DriftIssue.body(differences, ios: ios, mac: mac)
+      unless issue
+        @issues.ensure_label
+        @issues.create(ISSUE_TITLE, body)
+        return log(:opened)
+      end
+      return log(:unchanged) if issue["body"].to_s[MARKER, 1] == body[MARKER, 1]
+
+      @issues.update(issue["number"], "body" => body)
+      @issues.comment(issue["number"], "The differences changed:\n#{differences.map { |d| "- #{d}" }.join("\n")}")
+      log(:updated)
+    end
+
+    private
+
+    def log(outcome)
+      @log.puts "Release train issue: #{outcome}"
+      outcome
+    end
   end
 end

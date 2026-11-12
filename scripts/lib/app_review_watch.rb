@@ -74,25 +74,27 @@ module AppReviewWatch
 
   # Minimal GitHub issues client for one repository.
   class GitHubIssues
-    def initialize(repo:, token:)
+    # The label defaults to the App Review watch's; the release train drift job keeps its own.
+    def initialize(repo:, token:, label: LABEL, description: "App Store review state, kept by the App Review watch")
       @repo = repo
       @token = token
+      @label = label
+      @description = description
     end
 
     def open_issue(title)
-      query = URI.encode_www_form("state" => "open", "labels" => LABEL, "per_page" => 100)
+      query = URI.encode_www_form("state" => "open", "labels" => @label, "per_page" => 100)
       request(Net::HTTP::Get, "/repos/#{@repo}/issues?#{query}").find { |i| i["title"] == title && !i["pull_request"] }
     end
 
     def ensure_label
-      request(Net::HTTP::Get, "/repos/#{@repo}/labels/#{LABEL}")
+      request(Net::HTTP::Get, "/repos/#{@repo}/labels/#{@label}")
     rescue AppStoreListing::Error
-      request(Net::HTTP::Post, "/repos/#{@repo}/labels",
-              { "name" => LABEL, "color" => "d93f0b", "description" => "App Store review state, kept by the App Review watch" })
+      request(Net::HTTP::Post, "/repos/#{@repo}/labels", { "name" => @label, "color" => "d93f0b", "description" => @description })
     end
 
     def create(title, body)
-      request(Net::HTTP::Post, "/repos/#{@repo}/issues", { "title" => title, "body" => body, "labels" => [LABEL] })
+      request(Net::HTTP::Post, "/repos/#{@repo}/issues", { "title" => title, "body" => body, "labels" => [@label] })
     end
 
     def comment(number, text)
