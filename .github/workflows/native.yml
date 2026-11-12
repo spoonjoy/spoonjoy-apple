@@ -103,6 +103,7 @@ jobs:
       - name: Check iOS and Mac are on one release train
         run: |
           ruby scripts/test/release_train_test.rb
+          ruby scripts/test/release_train_drift_test.rb
           ruby scripts/check-release-train.rb
       - name: Check App Store listing and review demo kitchen
         run: |

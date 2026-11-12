@@ -281,7 +281,9 @@ iOS and Mac move as one release train. `scripts/check-release-train.rb` runs in 
 - a `whatsNew` is written in `listing.json` for one platform and left out for the other. Write it for both or for neither, or set `null` for a platform's first version;
 - the privacy, support or marketing URL differs between the platforms.
 
-Keywords and promotional text may differ only where the `mac` section gives its own on purpose (Mac search terms, a Mac promo line). Every copy field the `mac` section leaves alone must match on both platforms' live versions; the App Store Connect drift job compares them.
+Keywords and promotional text may differ only where the `mac` section gives its own on purpose (Mac search terms, a Mac promo line). Every copy field the `mac` section leaves alone must match on both platforms' live versions.
+
+"Release train drift" (`.github/workflows/release-train-drift.yml`) runs daily and on dispatch. It runs `scripts/check-release-train.rb --app-store-connect`, which only reads App Store Connect, and compares each platform's newest App Store version: version string, state, and the support and marketing URLs plus every copy field the `mac` section leaves alone. On drift it opens one issue labelled `release-train`, comments when the differences change and closes it when the platforms are back in line. Drift is expected while one platform's version waits in review; the issue tracks it until both match.
 
 ### CI signing
 
