@@ -386,8 +386,8 @@ struct RecipeCookbookEntityTests {
         #expect(allCookbooks.map(\.id) == ["cookbook_one_recipe"])
     }
 
-    // Siri's recipe query once threw for every recipe when one had a canonical URL the share policy refuses: QA's
-    // server answers with its own host, so Siri found nothing in Siri journey run 43179841456.
+    // Siri's recipe query once threw when one recipe had a canonical URL the share policy refuses: QA's server answers
+    // with its own host, so Siri found nothing at all.
     @Test("a canonical URL the share policy refuses never hides recipes or cookbooks from Siri")
     func refusedCanonicalURLsNeverHideEntitiesFromSiri() async throws {
         let recipeCatalog = try RecipeFixtureCatalog.decodeFromBundle()
@@ -456,6 +456,22 @@ struct RecipeCookbookEntityTests {
         #expect(throws: NativeSharePayloadError.invalidPublicURL(domain: .cookbook, url: unsafeURL)) {
             _ = try CookbookEntityDescriptor(cookbook: unsafeCookbook)
         }
+
+        // And such a record drops out of Siri's lists on its own instead of emptying them.
+        let mixed = RecipeCookbookEntityCatalog(
+            syncSnapshot: try Self.syncSnapshot(records: [
+                NativeSyncCachedRecord(kind: .recipe, resourceID: lemon.id, payload: Self.jsonValue(lemon), serverRevision: .updatedAt(lemon.updatedAt)),
+                NativeSyncCachedRecord(kind: .recipe, resourceID: unsafeRecipe.id, payload: Self.jsonValue(unsafeRecipe), serverRevision: .updatedAt(unsafeRecipe.updatedAt)),
+                NativeSyncCachedRecord(kind: .cookbook, resourceID: qaCookbook.id, payload: Self.jsonValue(qaCookbook), serverRevision: .updatedAt(qaCookbook.updatedAt)),
+                NativeSyncCachedRecord(kind: .cookbook, resourceID: unsafeCookbook.id, payload: Self.jsonValue(unsafeCookbook), serverRevision: .updatedAt(unsafeCookbook.updatedAt))
+            ]),
+            currentAccountID: "account_ari",
+            environment: NativeCacheEnvironment.production
+        )
+        #expect(try await mixed.recipeEntities(matching: "").map(\.id) == [lemon.id])
+        #expect(try await mixed.suggestedRecipeEntities().map(\.id) == [lemon.id])
+        #expect(try await mixed.cookbookEntities(matching: "").map(\.id) == [qaCookbook.id])
+        #expect(try await mixed.suggestedCookbookEntities().map(\.id) == [qaCookbook.id])
     }
 
     @Test("entity catalog trims identifiers and reports missing cached entities")

@@ -190,11 +190,12 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
 
     public init(recipe: Recipe, scope: RecipeCookbookEntityScope? = nil) throws {
         let route = AppRoute.recipeDetail(id: recipe.id, presentation: .detail)
-        let canonicalURL = try RecipeCookbookEntityCanonicalURL.shareable(
-            (try? NativeSharePayload.publicRecipe(recipe))?.publicURL,
-            route: route,
-            refused: NativeSharePayloadError.invalidPublicURL(domain: .recipe, url: recipe.canonicalURL)
-        )
+        // The entity carries the object's own spoonjoy.app page, never the server's URL as given: the share policy only
+        // accepts that page, and QA's server answers with its own host, which used to make this throw and empty Siri's
+        // whole query.
+        guard let canonicalURL = NativePublicShareRoutePolicy.publicURL(for: route) else {
+            throw NativeSharePayloadError.invalidPublicURL(domain: .recipe, url: recipe.canonicalURL)
+        }
         self.init(
             id: recipe.id,
             entityIdentifier: scope.map {
@@ -301,11 +302,12 @@ public struct CookbookEntityDescriptor: Equatable, Sendable {
 
     public init(cookbook: Cookbook, scope: RecipeCookbookEntityScope? = nil) throws {
         let route = AppRoute.cookbookDetail(id: cookbook.id)
-        let canonicalURL = try RecipeCookbookEntityCanonicalURL.shareable(
-            (try? NativeSharePayload.publicCookbook(cookbook))?.publicURL,
-            route: route,
-            refused: NativeSharePayloadError.invalidPublicURL(domain: .cookbook, url: cookbook.canonicalURL)
-        )
+        // The entity carries the object's own spoonjoy.app page, never the server's URL as given: the share policy only
+        // accepts that page, and QA's server answers with its own host, which used to make this throw and empty Siri's
+        // whole query.
+        guard let canonicalURL = NativePublicShareRoutePolicy.publicURL(for: route) else {
+            throw NativeSharePayloadError.invalidPublicURL(domain: .cookbook, url: cookbook.canonicalURL)
+        }
         let summary = "\(cookbook.title) by \(cookbook.chef.username)"
         self.init(
             id: cookbook.id,
@@ -481,7 +483,7 @@ public struct RecipeCookbookEntityCatalog: Sendable {
                 recipe.description?.localizedCaseInsensitiveContains(query) == true ||
                 recipe.servings?.localizedCaseInsensitiveContains(query) == true
         }
-        return try matches.map { try RecipeEntityDescriptor(recipe: $0, scope: scope) }
+        return matches.compactMap { try? RecipeEntityDescriptor(recipe: $0, scope: scope) }
     }
 
     public func cookbookEntities(matching string: String) async throws -> [CookbookEntityDescriptor] {
@@ -492,21 +494,21 @@ public struct RecipeCookbookEntityCatalog: Sendable {
                 cookbook.chef.username.localizedCaseInsensitiveContains(query) ||
                 cookbook.recipes.contains { $0.title.localizedCaseInsensitiveContains(query) }
         }
-        return try matches.map { try CookbookEntityDescriptor(cookbook: $0, scope: scope) }
+        return matches.compactMap { try? CookbookEntityDescriptor(cookbook: $0, scope: scope) }
     }
 
     public func suggestedRecipeEntities(limit: Int = 10) async throws -> [RecipeEntityDescriptor] {
         guard scopeAvailable else {
             return []
         }
-        return try recipes.prefix(max(0, limit)).map { try RecipeEntityDescriptor(recipe: $0, scope: scope) }
+        return recipes.prefix(max(0, limit)).compactMap { try? RecipeEntityDescriptor(recipe: $0, scope: scope) }
     }
 
     public func suggestedCookbookEntities(limit: Int = 10) async throws -> [CookbookEntityDescriptor] {
         guard scopeAvailable else {
             return []
         }
-        return try cookbooks.prefix(max(0, limit)).map { try CookbookEntityDescriptor(cookbook: $0, scope: scope) }
+        return cookbooks.prefix(max(0, limit)).compactMap { try? CookbookEntityDescriptor(cookbook: $0, scope: scope) }
     }
 
     public static func recipeEntityIdentifier(recipeID: String, accountID: String, environment: NativeCacheEnvironment) -> String {
@@ -608,17 +610,3 @@ public struct RecipeCookbookEntityCatalog: Sendable {
     }
 }
 
-/// The URL a recipe or cookbook entity hands to Siri, Spotlight and sharing. It is the server's canonical URL when the
-/// share policy accepts it, and otherwise the object's own spoonjoy.app page. A refused URL used to throw, which emptied
-/// Siri's whole recipe query: QA's server answers with its own host (Siri journey run 43179841456).
-enum RecipeCookbookEntityCanonicalURL {
-    static func shareable(_ validated: URL?, route: AppRoute, refused: NativeSharePayloadError) throws -> URL {
-        if let validated {
-            return validated
-        }
-        guard let fallback = NativePublicShareRoutePolicy.publicURL(for: route) else {
-            throw refused
-        }
-        return fallback
-    }
-}
