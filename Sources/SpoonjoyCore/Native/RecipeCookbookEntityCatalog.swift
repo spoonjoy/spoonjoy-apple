@@ -190,7 +190,11 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
 
     public init(recipe: Recipe, scope: RecipeCookbookEntityScope? = nil) throws {
         let route = AppRoute.recipeDetail(id: recipe.id, presentation: .detail)
-        _ = try NativeSharePayload.publicRecipe(recipe)
+        let canonicalURL = try RecipeCookbookEntityCanonicalURL.shareable(
+            (try? NativeSharePayload.publicRecipe(recipe))?.publicURL,
+            route: route,
+            refused: NativeSharePayloadError.invalidPublicURL(domain: .recipe, url: recipe.canonicalURL)
+        )
         self.init(
             id: recipe.id,
             entityIdentifier: scope.map {
@@ -206,7 +210,7 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
             subtitle: Self.recipeSubtitle(chefUsername: recipe.chef.username, servings: recipe.servings),
             disambiguationLabel: "\(recipe.title) by \(recipe.chef.username)",
             route: route,
-            canonicalURL: recipe.canonicalURL,
+            canonicalURL: canonicalURL,
             imageURL: recipe.coverImageURL,
             transferValue: RecipeCookbookEntityTransferValue(
                 kind: .recipe,
@@ -214,7 +218,7 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
                 title: recipe.title,
                 chefUsername: recipe.chef.username,
                 routeIdentifier: route.stateIdentifier,
-                canonicalURL: recipe.canonicalURL,
+                canonicalURL: canonicalURL,
                 imageURL: recipe.coverImageURL,
                 userVisibleSummary: "\(recipe.title) by \(recipe.chef.username)"
             )
@@ -297,7 +301,11 @@ public struct CookbookEntityDescriptor: Equatable, Sendable {
 
     public init(cookbook: Cookbook, scope: RecipeCookbookEntityScope? = nil) throws {
         let route = AppRoute.cookbookDetail(id: cookbook.id)
-        _ = try NativeSharePayload.publicCookbook(cookbook)
+        let canonicalURL = try RecipeCookbookEntityCanonicalURL.shareable(
+            (try? NativeSharePayload.publicCookbook(cookbook))?.publicURL,
+            route: route,
+            refused: NativeSharePayloadError.invalidPublicURL(domain: .cookbook, url: cookbook.canonicalURL)
+        )
         let summary = "\(cookbook.title) by \(cookbook.chef.username)"
         self.init(
             id: cookbook.id,
@@ -314,7 +322,7 @@ public struct CookbookEntityDescriptor: Equatable, Sendable {
             subtitle: "\(cookbook.chef.username) - \(cookbook.recipeCount) \(Self.recipeCountLabel(cookbook.recipeCount))",
             disambiguationLabel: summary,
             route: route,
-            canonicalURL: cookbook.canonicalURL,
+            canonicalURL: canonicalURL,
             imageURL: cookbook.cover.primaryImageURL,
             recipeCount: cookbook.recipeCount,
             transferValue: RecipeCookbookEntityTransferValue(
@@ -323,7 +331,7 @@ public struct CookbookEntityDescriptor: Equatable, Sendable {
                 title: cookbook.title,
                 chefUsername: cookbook.chef.username,
                 routeIdentifier: route.stateIdentifier,
-                canonicalURL: cookbook.canonicalURL,
+                canonicalURL: canonicalURL,
                 imageURL: cookbook.cover.primaryImageURL,
                 userVisibleSummary: summary
             )
@@ -597,5 +605,20 @@ public struct RecipeCookbookEntityCatalog: Sendable {
 
     private static func decode<Value: Decodable>(_ type: Value.Type, from record: NativeSyncCachedRecord) -> Value? {
         try? JSONDecoder().decode(type, from: JSONEncoder().encode(record.payload))
+    }
+}
+
+/// The URL a recipe or cookbook entity hands to Siri, Spotlight and sharing. It is the server's canonical URL when the
+/// share policy accepts it, and otherwise the object's own spoonjoy.app page. A refused URL used to throw, which emptied
+/// Siri's whole recipe query: QA's server answers with its own host (Siri journey run 43179841456).
+enum RecipeCookbookEntityCanonicalURL {
+    static func shareable(_ validated: URL?, route: AppRoute, refused: NativeSharePayloadError) throws -> URL {
+        if let validated {
+            return validated
+        }
+        guard let fallback = NativePublicShareRoutePolicy.publicURL(for: route) else {
+            throw refused
+        }
+        return fallback
     }
 }

@@ -386,6 +386,78 @@ struct RecipeCookbookEntityTests {
         #expect(allCookbooks.map(\.id) == ["cookbook_one_recipe"])
     }
 
+    // Siri's recipe query once threw for every recipe when one had a canonical URL the share policy refuses: QA's
+    // server answers with its own host, so Siri found nothing in Siri journey run 43179841456.
+    @Test("a canonical URL the share policy refuses never hides recipes or cookbooks from Siri")
+    func refusedCanonicalURLsNeverHideEntitiesFromSiri() async throws {
+        let recipeCatalog = try RecipeFixtureCatalog.decodeFromBundle()
+        let cookbookCatalog = try CookbookFixtureCatalog.decodeFromBundle()
+        let lemon = try #require(recipeCatalog.recipe(id: "recipe_lemon_pantry_pasta"))
+        let weeknights = try #require(cookbookCatalog.cookbook(id: "cookbook_weeknights"))
+        let qaRecipe = Self.recipeVariant(
+            lemon,
+            id: "recipe_qa_toast",
+            title: "QA Toast",
+            chef: lemon.chef,
+            canonicalURL: try #require(URL(string: "https://spoonjoy-v2-qa.mendelow-studio.workers.dev/recipes/recipe_qa_toast"))
+        )
+        let foreignRecipe = Self.recipeVariant(
+            lemon,
+            id: "recipe_foreign_toast",
+            title: "Foreign Toast",
+            chef: lemon.chef,
+            canonicalURL: try #require(URL(string: "https://evil.example/recipes/recipe_foreign_toast"))
+        )
+        let qaCookbook = Self.cookbookVariant(
+            weeknights,
+            id: "cookbook_qa_suppers",
+            title: "QA Suppers",
+            chef: weeknights.chef,
+            canonicalURL: try #require(URL(string: "https://spoonjoy-v2-qa.mendelow-studio.workers.dev/cookbooks/cookbook_qa_suppers"))
+        )
+        let catalog = RecipeCookbookEntityCatalog(
+            syncSnapshot: try Self.syncSnapshot(records: [
+                NativeSyncCachedRecord(kind: .recipe, resourceID: lemon.id, payload: Self.jsonValue(lemon), serverRevision: .updatedAt(lemon.updatedAt)),
+                NativeSyncCachedRecord(kind: .recipe, resourceID: qaRecipe.id, payload: Self.jsonValue(qaRecipe), serverRevision: .updatedAt(qaRecipe.updatedAt)),
+                NativeSyncCachedRecord(kind: .recipe, resourceID: foreignRecipe.id, payload: Self.jsonValue(foreignRecipe), serverRevision: .updatedAt(foreignRecipe.updatedAt)),
+                NativeSyncCachedRecord(kind: .cookbook, resourceID: qaCookbook.id, payload: Self.jsonValue(qaCookbook), serverRevision: .updatedAt(qaCookbook.updatedAt))
+            ]),
+            currentAccountID: "account_ari",
+            environment: NativeCacheEnvironment.production
+        )
+
+        let recipes = try await catalog.recipeEntities(matching: "")
+        #expect(Set(recipes.map(\.id)) == [lemon.id, qaRecipe.id, foreignRecipe.id])
+        #expect(try await catalog.recipeEntities(matching: "QA Toast").map(\.id) == [qaRecipe.id])
+        #expect(try await catalog.suggestedRecipeEntities().count == 3)
+
+        // The entity still never carries a URL the share policy refuses: it falls back to the recipe's spoonjoy.app page.
+        let qa = try await catalog.recipeEntity(id: Self.recipeEntityIdentifier(qaRecipe.id))
+        #expect(qa.canonicalURL == URL(string: "https://spoonjoy.app/recipes/recipe_qa_toast"))
+        #expect(qa.transferValue.canonicalURL == URL(string: "https://spoonjoy.app/recipes/recipe_qa_toast"))
+        let foreign = try await catalog.recipeEntity(id: Self.recipeEntityIdentifier(foreignRecipe.id))
+        #expect(foreign.canonicalURL == URL(string: "https://spoonjoy.app/recipes/recipe_foreign_toast"))
+        #expect(foreign.transferValue.canonicalURL == URL(string: "https://spoonjoy.app/recipes/recipe_foreign_toast"))
+        let kept = try await catalog.recipeEntity(id: Self.recipeEntityIdentifier(lemon.id))
+        #expect(kept.canonicalURL == lemon.canonicalURL)
+
+        let cookbooks = try await catalog.cookbookEntities(matching: "")
+        #expect(cookbooks.map(\.id) == [qaCookbook.id])
+        #expect(cookbooks.first?.canonicalURL == URL(string: "https://spoonjoy.app/cookbooks/cookbook_qa_suppers"))
+        #expect(cookbooks.first?.transferValue.canonicalURL == URL(string: "https://spoonjoy.app/cookbooks/cookbook_qa_suppers"))
+
+        // With no spoonjoy.app page to fall back to, an entity still refuses the URL rather than carry it.
+        let unsafeURL = try #require(URL(string: "https://evil.example/recipes/x"))
+        let unsafeRecipe = Self.recipeVariant(lemon, id: "bad/id", title: "Bad", chef: lemon.chef, canonicalURL: unsafeURL)
+        #expect(throws: NativeSharePayloadError.invalidPublicURL(domain: .recipe, url: unsafeURL)) {
+            _ = try RecipeEntityDescriptor(recipe: unsafeRecipe)
+        }
+        let unsafeCookbook = Self.cookbookVariant(weeknights, id: "bad/id", title: "Bad", chef: weeknights.chef, canonicalURL: unsafeURL)
+        #expect(throws: NativeSharePayloadError.invalidPublicURL(domain: .cookbook, url: unsafeURL)) {
+            _ = try CookbookEntityDescriptor(cookbook: unsafeCookbook)
+        }
+    }
+
     @Test("entity catalog trims identifiers and reports missing cached entities")
     func entityCatalogTrimsIdentifiersAndReportsMissingCachedEntities() async throws {
         let catalog = try Self.entityCatalog()
@@ -673,7 +745,8 @@ struct RecipeCookbookEntityTests {
         id: String,
         title: String,
         chef: ChefSummary,
-        servings: String? = nil
+        servings: String? = nil,
+        canonicalURL: URL? = nil
     ) -> Recipe {
         Recipe(
             id: id,
@@ -686,7 +759,7 @@ struct RecipeCookbookEntityTests {
             coverSourceType: recipe.coverSourceType,
             coverVariant: recipe.coverVariant,
             href: "/recipes/\(id)",
-            canonicalURL: URL(string: "https://spoonjoy.app/recipes/\(id)")!,
+            canonicalURL: canonicalURL ?? URL(string: "https://spoonjoy.app/recipes/\(id)")!,
             attribution: recipe.attribution,
             createdAt: recipe.createdAt,
             updatedAt: recipe.updatedAt,
@@ -702,7 +775,8 @@ struct RecipeCookbookEntityTests {
         title: String,
         chef: ChefSummary,
         recipeCount: Int? = nil,
-        recipes: [RecipeSummary]? = nil
+        recipes: [RecipeSummary]? = nil,
+        canonicalURL: URL? = nil
     ) -> Cookbook {
         Cookbook(
             id: id,
@@ -711,7 +785,7 @@ struct RecipeCookbookEntityTests {
             recipeCount: recipeCount ?? cookbook.recipeCount,
             cover: cookbook.cover,
             href: "/cookbooks/\(id)",
-            canonicalURL: URL(string: "https://spoonjoy.app/cookbooks/\(id)")!,
+            canonicalURL: canonicalURL ?? URL(string: "https://spoonjoy.app/cookbooks/\(id)")!,
             attribution: cookbook.attribution,
             createdAt: cookbook.createdAt,
             updatedAt: cookbook.updatedAt,
