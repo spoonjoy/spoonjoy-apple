@@ -544,7 +544,7 @@ struct NativeAuthSessionTests {
                 "SpoonjoyWebAuthenticationSession",
                 "SpoonjoyLoopbackWebAuthenticationSession",
                 "SpoonjoySystemWebAuthenticationSession",
-                "private let presentationContextProvider: SpoonjoyAuthenticationPresentationContextProvider",
+                "private let presentationContextProvider: any ASWebAuthenticationPresentationContextProviding",
                 "session.presentationContextProvider = presentationContextProvider",
                 "NSWorkspace.shared.open",
                 "127.0.0.1",
@@ -1815,6 +1815,7 @@ private func expectKeychainStatus(
 }
 
 private let webAuthenticationSessionAdapterContractSource = #"""
+import AuthenticationServices
 import Foundation
 import Testing
 @testable import SpoonjoyCore
@@ -1823,6 +1824,32 @@ import Testing
 @MainActor
 @Suite("Web authentication session adapter contract")
 struct WebAuthenticationSessionAdapterContract {
+    @Test("system session keeps its presentation provider alive until start")
+    func systemSessionKeepsItsPresentationProviderAliveUntilStart() throws {
+        let url = URL(string: "https://spoonjoy.app/oauth/authorize?state=s")!
+        let callback = ASWebAuthenticationSession.Callback.https(host: "spoonjoy.app", path: "/oauth/callback")
+
+        // The bug: ASWebAuthenticationSession holds its provider weakly, so a provider that only
+        // a local variable owned is gone once that scope ends, and start() returns false.
+        let bare = ASWebAuthenticationSession(url: url, callback: callback) { _, _ in }
+        do {
+            let provider = ProbePresentationContextProvider()
+            bare.presentationContextProvider = provider
+        }
+        #expect(bare.presentationContextProvider == nil)
+
+        // The fix: the wrapper owns the provider, so it is still attached after the factory's scope ends.
+        let wrapped: SpoonjoySystemWebAuthenticationSession
+        do {
+            let provider = ProbePresentationContextProvider()
+            wrapped = SpoonjoySystemWebAuthenticationSession(
+                session: ASWebAuthenticationSession(url: url, callback: callback) { _, _ in },
+                presentationContextProvider: provider
+            )
+        }
+        #expect(wrapped.attachedPresentationContextProvider != nil)
+    }
+
     @Test("adapter configures exact HTTPS callback forwards callback and cancels")
     func adapterConfiguresExactHTTPSCallbackForwardsCallbackAndCancels() throws {
         let factory = FakeSessionFactory()
@@ -1966,6 +1993,12 @@ private final class FakeWebAuthenticationSession: SpoonjoyWebAuthenticationSessi
     }
 }
 
+
+final class ProbePresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        ASPresentationAnchor()
+    }
+}
 """#
 
 private let nativeAuthBehaviorContractSource = ##"""
