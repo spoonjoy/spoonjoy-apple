@@ -126,9 +126,10 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         logIn.tap()
 
         // The proof: the server redirects to https://spoonjoy.app/oauth/callback, the sheet hands it to the app, the
-        // app exchanges the code and opens the kitchen.
+        // app exchanges the code and opens the kitchen. With the webcredentials association in place, iOS may first
+        // offer to save the password (run 43260720667), and the sheet waits until that alert is answered.
         XCTAssertTrue(
-            element("kitchen.root").waitForExistence(timeout: Self.networkTimeout),
+            waitForKitchenAnsweringSavePassword(),
             "The app did not open the kitchen after the web sign-in. Status: \(element("native sign-in status").label). Screen: \(app.debugDescription)"
         )
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: Self.launchTimeout), "The app is not in the foreground after sign-in.")
@@ -142,6 +143,28 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         XCTAssertTrue(email.label == account.email || email.label.hasSuffix(" \(account.email)"), "The app is signed in as someone other than the throwaway account: \(email.label)")
         screenshot("05-settings-signed-in-as-throwaway")
         app.terminate()
+    }
+
+    /// Waits for the kitchen, answering "Not Now" if iOS offers to save the password; true once the kitchen shows.
+    private func waitForKitchenAnsweringSavePassword() -> Bool {
+        let kitchen = element("kitchen.root")
+        let deadline = Date().addingTimeInterval(Self.networkTimeout)
+        var answered = false
+        repeat {
+            if kitchen.exists { return true }
+            if !answered {
+                for owner: XCUIApplication in [app!, webSheet, springboard] {
+                    let alert = owner.alerts["Save Password?"]
+                    guard alert.exists else { continue }
+                    screenshot("03b-save-password-offered")
+                    alert.buttons["Not Now"].tap()
+                    answered = true
+                    break
+                }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        } while Date() < deadline
+        return kitchen.exists
     }
 
     private func dismissKeyboardTip() {
