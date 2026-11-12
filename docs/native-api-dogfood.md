@@ -14,7 +14,7 @@ This guide records the live Spoonjoy API and native runtime contract that Spoonj
 
 Spoonjoy Apple uses the HTTPS OAuth redirect `https://spoonjoy.app/oauth/callback` with `ASWebAuthenticationSession.Callback.https(host: "spoonjoy.app", path: "/oauth/callback")`.
 
-The Apple targets declare `applinks:spoonjoy.app` for Universal Links. The custom `spoonjoy` URL scheme is for app navigation and native-only actions only; it is not an OAuth redirect URI.
+The Apple targets declare `applinks:spoonjoy.app` for Universal Links and `webcredentials:spoonjoy.app`, which `ASWebAuthenticationSession` needs to hand the `https://spoonjoy.app/oauth/callback` redirect back to the app. The custom `spoonjoy` URL scheme is for app navigation and native-only actions only; it is not an OAuth redirect URI.
 
 Must-cite native symbols and files:
 
