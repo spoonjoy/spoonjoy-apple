@@ -113,7 +113,7 @@ test("a poster without a caption puts the phones in the middle; with one, beside
   assert.doesNotMatch(bare, /<h1>/);
   assert.equal((bare.match(/class="phone"/g) ?? []).length, 3);
   const captioned = posterHtml(search, spec.palettes, ["/a.png"]);
-  assert.match(captioned, /<h1>Recipes, passed<br>hand to hand<\/h1>/);
+  assert.ok(captioned.includes(`<h1>${search.headline.replace(/\n/g, "<br>")}</h1>`), "the caption is the spec's headline");
   const left = Number(captioned.match(/class="phone" style="left:([\d.]+)px/)[1]);
   assert.ok(left > search.size[0] * 0.42, "the phone stays right of the caption");
 });
