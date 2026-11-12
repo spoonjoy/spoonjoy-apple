@@ -25,17 +25,18 @@ concurrency:
 # macOS lanes. The spoonjoy org (GitHub Free) runs at most 5 macOS jobs at once, xcode-27 included. On 2026-11-11 pull
 # request jobs held all 5 for over 90 minutes while a merge-queue entry's jobs, queued earlier, got none. So the macOS
 # jobs of pull request, after-TestFlight and dispatch runs join one of three lanes and run one at a time within it,
-# waiting (queue: max) instead of queueing for a runner. Pull requests share two lanes a and two lanes b, picked by the
-# parity of their number (spoonjoy-macos-lane-a-pr-even or -odd; Actions expressions have no %). One shared lane held about
-# 10 PRs pending for hours on 2026-11-12 while Macs sat free; a lane per PR then let about 15 open PRs take every
-# macos-26 runner while the merge queue's head waited 3 hours. Lane c stays one shared lane for all optional work:
+# waiting (queue: max) instead of queueing for a runner:
 #   lane a: App bundle (required)
 #   lane b: Swift tests, Native scenario verifier, Reins journeys (required, short)
 #   lane c: every optional job: App Intents X-ray, Journeys, Launch smoke, Feel, Beta SDK, Duo tour
-# Required checks never wait behind optional work. Merge-queue and main or release push jobs take a group of their own
-# and never wait in a lane. PR and lane work holds at most 5 jobs (two a, two b, one c), queued or running, so a
-# merge-queue job waits for a runner behind those 5 at most, not behind every open PR. TestFlight, the signing dry run
-# and the review demo launch are not laned. A lane holds at most 100 waiting jobs; past that GitHub cancels the newest, which only lane c can reach.
+# A pull request's lane a and b jobs wait instead in one of two shared PR groups, spoonjoy-macos-pr-even or -odd, by the
+# parity of its number (Actions expressions have no %). One shared lane held about 10 PRs pending for hours on
+# 2026-11-12 while Macs sat free; a lane per PR then let about 15 open PRs take every macos-26 runner while the merge
+# queue's head waited 3 hours. So PR and lane work holds at most 3 macOS jobs (the two PR groups and lane c), and the
+# merge queue and main always have at least 2 Macs. Required checks never wait behind optional work. Merge-queue and
+# main or release push jobs take a group of their own and never wait in a lane; TestFlight, the signing dry run and
+# the review demo launch share the free Macs with them and are not laned. A lane holds at most 100 waiting jobs; past
+# that GitHub cancels the newest.
 
 permissions:
   contents: read
@@ -141,7 +142,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('native-swift-tests-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
-        || github.event_name == 'pull_request' && format('spoonjoy-macos-lane-b-pr-{0}',
+        || github.event_name == 'pull_request' && format('spoonjoy-macos-pr-{0}',
         (endsWith(format('{0}', github.event.pull_request.number), '0') ||
         endsWith(format('{0}', github.event.pull_request.number), '2') ||
         endsWith(format('{0}', github.event.pull_request.number), '4') ||
@@ -180,7 +181,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('native-reins-journeys-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
-        || github.event_name == 'pull_request' && format('spoonjoy-macos-lane-b-pr-{0}',
+        || github.event_name == 'pull_request' && format('spoonjoy-macos-pr-{0}',
         (endsWith(format('{0}', github.event.pull_request.number), '0') ||
         endsWith(format('{0}', github.event.pull_request.number), '2') ||
         endsWith(format('{0}', github.event.pull_request.number), '4') ||
@@ -231,7 +232,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('native-native-scenario-verifier-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
-        || github.event_name == 'pull_request' && format('spoonjoy-macos-lane-b-pr-{0}',
+        || github.event_name == 'pull_request' && format('spoonjoy-macos-pr-{0}',
         (endsWith(format('{0}', github.event.pull_request.number), '0') ||
         endsWith(format('{0}', github.event.pull_request.number), '2') ||
         endsWith(format('{0}', github.event.pull_request.number), '4') ||
@@ -281,7 +282,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('native-app-bundle-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
-        || github.event_name == 'pull_request' && format('spoonjoy-macos-lane-a-pr-{0}',
+        || github.event_name == 'pull_request' && format('spoonjoy-macos-pr-{0}',
         (endsWith(format('{0}', github.event.pull_request.number), '0') ||
         endsWith(format('{0}', github.event.pull_request.number), '2') ||
         endsWith(format('{0}', github.event.pull_request.number), '4') ||
