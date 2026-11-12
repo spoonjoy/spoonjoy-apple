@@ -81,3 +81,7 @@ swift package resolve && swift build -c release --package-path .build/checkouts/
 Every green Native run on `main` publishes that exact commit to the internal TestFlight group. `docs/apple-distribution.md` describes the pipeline, the evidence it checks, and how to roll back with a manual dispatch.
 
 `main` is version 1.3. A fix for a version with App Review goes on that version's release branch: today `release/1.1` for Mac 1.1 and `release/1.2` for iOS 1.2 and Mac 1.2 (the open `app-review` issues show each platform's version under review). Open the pull request against that branch, then dispatch TestFlight, "Stage App Store listing" or "Submit for App Review" with `release_branch` set to it; all three build or read from that branch ([Release branches](docs/apple-distribution.md#release-branches)).
+
+## License
+
+Spoonjoy is source-available under the [Functional Source License, Version 1.1, MIT Future License](LICENSE.md) (FSL-1.1-MIT), copyright Ari Mendelow. You may read, run, modify and learn from the code, including copying its Ouro UI patterns into your own app, for any purpose except offering a competing commercial product or service. Each release becomes available under the MIT license two years after it is published.
