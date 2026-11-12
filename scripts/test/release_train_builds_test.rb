@@ -10,17 +10,17 @@ class ReleaseTrainBuildsTest < Minitest::Test
   SHA = "1886e08545eb41769dd79a64dc3705987b0a8cc5"
   OTHER = "0ab314849ea90092f99c0c997b565676cee684d8"
 
-  def run_row(id, sha, created)
-    { "id" => id, "display_title" => "TestFlight #{sha}", "created_at" => created }
+  def run_row(id, created)
+    { "id" => id, "created_at" => created }
   end
 
   def ios(sha = SHA) = { "sourceSha" => sha, "buildNumber" => "156", "buildId" => "ios-build" }
   def mac(sha = SHA) = { "platform" => "MAC_OS", "sourceSha" => sha, "buildNumber" => "61", "buildId" => "mac-build", "processingState" => "VALID" }
 
-  def test_candidate_runs_are_the_commits_own_newest_first
-    runs = [run_row(1, SHA, "2026-11-10T00:00:00Z"), run_row(2, OTHER, "2026-11-11T00:00:00Z"),
-            run_row(3, SHA, "2026-11-11T00:00:00Z")]
-    assert_equal [3, 1], ReleaseTrainBuilds.candidate_runs(runs, SHA).map { |run| run["id"] }
+  # Both platforms' artifacts name the same run; it is tried once, newest run first.
+  def test_candidate_runs_are_unique_and_newest_first
+    runs = [run_row(1, "2026-11-10T00:00:00Z"), run_row(3, "2026-11-11T00:00:00Z"), run_row(1, "2026-11-10T00:00:01Z")]
+    assert_equal [3, 1], ReleaseTrainBuilds.candidate_runs(runs).map { |run| run["id"] }
   end
 
   class FakeArtifacts
@@ -31,8 +31,7 @@ class ReleaseTrainBuildsTest < Minitest::Test
       @asked = []
     end
 
-    def runs = [{ "id" => 9, "display_title" => "TestFlight #{SHA}", "created_at" => "2026-11-11T02:00:00Z" },
-                { "id" => 8, "display_title" => "TestFlight #{SHA}", "created_at" => "2026-11-11T01:00:00Z" }]
+    def runs(sha) = sha == SHA ? [{ "id" => 8, "created_at" => "2026-11-11T01:00:00Z" }, { "id" => 9, "created_at" => "2026-11-11T02:00:00Z" }] : []
 
     def summary(run_id, artifact, file)
       @asked << [run_id, artifact, file]
@@ -66,15 +65,15 @@ class ReleaseTrainBuildsTest < Minitest::Test
 
   def test_refuses_when_the_commit_has_no_testflight_run
     artifacts = FakeArtifacts.new({})
-    def artifacts.runs = []
+    def artifacts.runs(_sha) = []
     error = assert_raises(ReleaseTrainBuilds::Error) { ReleaseTrainBuilds.find(SHA, artifacts) }
-    assert_match(/No TestFlight run published both an iOS and a Mac build from #{SHA}\. No TestFlight run is named/, error.message)
+    assert_match(/No TestFlight run published both an iOS and a Mac build from #{SHA}\. No TestFlight run uploaded a publish summary/, error.message)
   end
 
   def test_refuses_a_summary_that_is_not_valid
     artifacts = FakeArtifacts.new(9 => { "testflight-publish-summary.json" => ios,
                                          "mac-app-store-publish-summary.json" => mac.merge("processingState" => "PROCESSING") })
-    def artifacts.runs = super.first(1)
+    def artifacts.runs(sha) = super.last(1)
     error = assert_raises(ReleaseTrainBuilds::Error) { ReleaseTrainBuilds.find(SHA, artifacts) }
     assert_match(/Run 9: macOS build 61 is PROCESSING, not VALID/, error.message)
   end

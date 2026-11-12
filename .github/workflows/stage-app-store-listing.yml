@@ -109,15 +109,19 @@ jobs:
           mode=--dry-run
           if [ "$DRY_RUN" = "false" ]; then mode=--apply; fi
           if [ "$PLATFORM" = "BOTH" ]; then
-            plan="IOS:$IOS_BUILD_NUMBER:$IOS_BUILD_ID MAC_OS:$MAC_BUILD_NUMBER:$MAC_BUILD_ID"
+            if [ -z "$IOS_BUILD_ID" ] || [ -z "$MAC_BUILD_ID" ]; then
+              echo "::error::BOTH needs the iOS and Mac builds from the source commit."
+              exit 1
+            fi
+            plan=("IOS:$IOS_BUILD_NUMBER:$IOS_BUILD_ID" "MAC_OS:$MAC_BUILD_NUMBER:$MAC_BUILD_ID")
             # Both platforms plan first, so one that cannot stage stops the train before anything is written.
-            if [ "$mode" = "--apply" ]; then passes="--dry-run --apply"; else passes="--dry-run"; fi
+            if [ "$mode" = "--apply" ]; then passes=(--dry-run --apply); else passes=(--dry-run); fi
           else
-            plan="$PLATFORM:$BUILD_NUMBER:"
-            passes="$mode"
+            plan=("$PLATFORM:$BUILD_NUMBER:")
+            passes=("$mode")
           fi
-          for pass in $passes; do
-            for entry in $plan; do
+          for pass in "${passes[@]}"; do
+            for entry in "${plan[@]}"; do
               IFS=: read -r PLATFORM BUILD_NUMBER BUILD_ID <<<"$entry"
               echo "::group::$pass $PLATFORM${BUILD_NUMBER:+ build $BUILD_NUMBER}"
               ruby scripts/stage-app-store-listing.rb "$pass" --platform "$PLATFORM" --build-number "$BUILD_NUMBER" --build-id "$BUILD_ID" \

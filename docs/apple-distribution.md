@@ -273,7 +273,7 @@ Publish only from green: before "Stage App Store listing" or "Submit for App Rev
 
 Stage and submit both platforms together with `platform: BOTH`. `scripts/release-train-builds.rb` finds the TestFlight run named `TestFlight <source sha>` and reads its two publish summaries (`testflight-publish-summary.json` and `mac-app-store-publish-summary.json`), which TestFlight writes only once App Store Connect marks each build VALID. The run stops unless both builds come from the source commit.
 - **Stage** leaves `build_number` empty. It plans iOS and then the Mac with those builds, and with `dry_run: false` it writes only after both plans succeed.
-- **Submit** checks that each version has that commit's build attached, then submits iOS and then the Mac. Confirm reads `submit BOTH <version>`.
+- **Submit** checks that each version has that commit's build attached, then submits iOS and then the Mac. Confirm reads `submit BOTH <version>`. If iOS went in and the Mac then failed, BOTH refuses on the next run because iOS is no longer submittable; finish with `platform: MAC_OS`.
 
 ### CI signing
 

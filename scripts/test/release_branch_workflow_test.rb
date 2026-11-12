@@ -91,7 +91,7 @@ class ReleaseBranchWorkflowTest < Minitest::Test
       assert_operator train, :<, first_secret, "#{name} must find the builds before any secret is in the job"
     end
     stage = source("stage-app-store-listing.yml")
-    assert_match(/passes="--dry-run --apply"/, stage, "BOTH must plan both platforms before it writes either")
+    assert_match(/passes=\(--dry-run --apply\)/, stage, "BOTH must plan both platforms before it writes either")
     assert_match(/--build-id "\$BUILD_ID"/, stage)
     submit = source("submit-app-store-review.yml")
     assert_match(/"\$CONFIRM" = "submit \$PLATFORM \$VERSION"/, submit, "BOTH confirms with \"submit BOTH <version>\"")

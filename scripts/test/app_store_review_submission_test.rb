@@ -121,7 +121,7 @@ class AppStoreReviewSubmissionTest < Minitest::Test
     assert_nil ok["error"]
   end
 
-  def test_check_reads_and_writes_nothing
+  def test_check_refuses_without_writing
     client = runner_client
     runner = AppStoreReviewSubmission::Runner.new(client, bundle_id: "app.spoonjoy", platform: "IOS", version_string: "1.0",
                                                           build_id: "other", log: StringIO.new)

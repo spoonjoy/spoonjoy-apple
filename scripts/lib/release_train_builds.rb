@@ -16,16 +16,18 @@ module ReleaseTrainBuilds
   }.freeze
   NAMES = { "IOS" => "iOS", "MAC_OS" => "macOS" }.freeze
 
-  def self.candidate_runs(runs, sha)
-    runs.select { |run| run["display_title"] == "TestFlight #{sha}" }.sort_by { |run| run["created_at"].to_s }.reverse
+  # The runs that uploaded a publish summary for sha, newest first.
+  def self.candidate_runs(runs)
+    runs.uniq { |run| run["id"] }.sort_by { |run| run["created_at"].to_s }.reverse
   end
 
   # {"runId", "IOS" => {buildNumber, buildId}, "MAC_OS" => {...}} from the newest run that published both, else Error.
-  # artifacts answers runs (the TestFlight runs) and summary(run_id, artifact, file) (parsed JSON or nil).
+  # artifacts answers runs(sha) ([{id, created_at}] of runs holding a summary artifact for sha) and
+  # summary(run_id, artifact, file) (parsed JSON, or nil when the run has no such artifact).
   def self.find(sha, artifacts)
     reasons = []
-    candidates = candidate_runs(artifacts.runs, sha)
-    reasons << "No TestFlight run is named \"TestFlight #{sha}\"." if candidates.empty?
+    candidates = candidate_runs(artifacts.runs(sha))
+    reasons << "No TestFlight run uploaded a publish summary for it." if candidates.empty?
     candidates.each do |run|
       builds = {}
       problems = SUMMARIES.filter_map do |platform, (artifact, file)|
@@ -52,27 +54,34 @@ module ReleaseTrainBuilds
     "#{name} build #{summary['buildNumber']} is #{state}, not VALID" if state && state != "VALID"
   end
 
-  # Reads TestFlight runs and their artifacts with the gh CLI (GH_TOKEN with actions: read).
+  # Reads publish summary artifacts with the gh CLI (GH_TOKEN with actions: read). Artifacts are found by name, so
+  # any run within artifact retention (90 days) counts, release branch runs included.
   class GitHubArtifacts
-    def initialize(repository, pages: 3)
+    def initialize(repository)
       @repository = repository
-      @pages = pages
     end
 
-    def runs
-      (1..@pages).flat_map do |page|
-        body = gh("api", "repos/#{@repository}/actions/workflows/testflight.yml/runs?per_page=100&page=#{page}")
-        JSON.parse(body).fetch("workflow_runs")
+    def runs(sha)
+      SUMMARIES.values.flat_map do |artifact, _file|
+        body = gh("api", "repos/#{@repository}/actions/artifacts?name=#{format(artifact, sha)}&per_page=100")
+        JSON.parse(body).fetch("artifacts").reject { |row| row["expired"] }.map do |row|
+          { "id" => row.dig("workflow_run", "id"), "created_at" => row["created_at"] }
+        end
       end
     end
 
     def summary(run_id, artifact, file)
+      listed = JSON.parse(gh("api", "repos/#{@repository}/actions/runs/#{run_id}/artifacts?name=#{artifact}"))
+      return nil if listed.fetch("artifacts").none? { |row| !row["expired"] }
+
       Dir.mktmpdir("release-train-builds") do |dir|
-        _out, _err, status = Open3.capture3("gh", "run", "download", run_id.to_s, "-R", @repository, "-n", artifact, "-D", dir)
+        gh("run", "download", run_id.to_s, "-R", @repository, "-n", artifact, "-D", dir)
         path = File.join(dir, file)
-        return nil unless status.success? && File.file?(path)
+        return nil unless File.file?(path)
 
         JSON.parse(File.read(path))
+      rescue JSON::ParserError => e
+        raise Error, "Run #{run_id} #{artifact}/#{file} is not JSON: #{e.message}"
       end
     end
 
