@@ -30,7 +30,8 @@ concurrency:
 # free, so different PRs' required checks now run side by side. Lane c stays one shared lane for all optional work:
 #   lane a: App bundle (required)
 #   lane b: Swift tests, Native scenario verifier, Reins journeys (required, short)
-#   lane c: every optional job: App Intents X-ray, Journeys, Launch smoke, Feel, Beta SDK, Duo tour
+#   lane c: every optional job: App Intents X-ray, Journeys, Launch smoke, Feel, Beta SDK, Browser sign-in on the
+#           iOS simulator, Duo tour
 #   (lane c's group is spoonjoy-macos-lane-c2: GitHub never released spoonjoy-macos-lane-c after the 2026-11-12
 #   outage, so no job in it could start; see #309)
 # Required checks never wait behind optional work. Merge-queue and main or release push jobs take a group of their own,
@@ -85,6 +86,8 @@ jobs:
         run: python3 -I .github/scripts/test_create_newest_simulator.py
       - name: Store scenes come out of their result bundle by name (offline)
         run: python3 -I .github/scripts/test_export_store_scenes.py
+      - name: The Siri journey picker pairs an Xcode with a runtime of its own version (offline)
+        run: python3 -I .github/scripts/test_pick_matching_xcode.py
       - name: Check native design-language contract
         run: ruby scripts/check-native-design-language.rb --web-design-doc docs/source/spoonjoy-v2-design-language.md
       - name: Check web palette contract
@@ -99,6 +102,10 @@ jobs:
         run: ruby scripts/check-design-accessibility-contract.rb
       - name: Check App Intents contract (every domain)
         run: bundle exec ruby scripts/check-app-intents-contract.rb --domain all
+      - name: Check iOS and Mac are on one release train
+        run: |
+          ruby scripts/test/release_train_test.rb
+          ruby scripts/check-release-train.rb
       - name: Check App Store listing and review demo kitchen
         run: |
           ruby scripts/test/app_store_listing_test.rb
@@ -120,8 +127,10 @@ jobs:
           ruby scripts/test/optional_checks_wait_test.rb
           ruby scripts/test/draft_runs_lane_b_test.rb
           ruby scripts/test/no_design_hex_test.rb
+          ruby scripts/test/siri_journey_isolation_test.rb
           ruby scripts/test/app_shortcuts_test.rb
           ruby scripts/test/app_token_vault_test.rb
+          ruby scripts/test/app_server_test.rb
           ruby scripts/test/macos_lanes_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
           ruby scripts/stage-app-store-listing.rb --validate-only --platform MAC_OS
@@ -428,6 +437,72 @@ jobs:
     if: github.event_name == 'pull_request'
     needs: [contracts, swift-tests, reins-journeys, native-scenario-verifier, app-bundle]
     uses: ./.github/workflows/beta-sdk.yml
+
+  # Continue with Google or GitHub on an iOS simulator: SpoonjoyBrowserSignInTests (fresh state per tap, one sheet
+  # open app-wide, the callback checked against its own attempt, the server's exact code and error returns) with a
+  # fake sheet in place of ASWebAuthenticationSession, then the live production chain from the URL the app builds
+  # through /auth/google to accounts.google.com. The live test needs the network and signs nobody in. Swift tests runs
+  # the same suite on macOS, without the live test.
+  browser-sign-in-simulator:
+    name: Browser sign-in on the iOS simulator
+    if: github.event_name == 'pull_request'
+    needs: [contracts, swift-tests, reins-journeys, native-scenario-verifier, app-bundle]
+    runs-on: xcode-27
+    # Lane c of 3: see the note on macOS lanes at the top of native.yml.
+    concurrency:
+      group: >-
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        && format('native-browser-sign-in-simulator-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || 'spoonjoy-macos-lane-c2' }}
+      queue: max
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/select-xcode
+      - name: Resolve iPhone simulator
+        id: sim
+        run: |
+          set -euo pipefail
+          destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
+          [[ "$destination" == "platform=iOS Simulator,arch="*",id="* ]] || { echo "::error::Unexpected simulator destination: $destination"; exit 1; }
+          echo "destination=$destination" >> "$GITHUB_OUTPUT"
+      - name: Boot the simulator
+        timeout-minutes: 4
+        run: xcrun simctl bootstatus "$(sed 's/.*,id=//' <<<'${{ steps.sim.outputs.destination }}')" -b
+      - name: Run the browser sign-in tests on the simulator
+        timeout-minutes: 30
+        env:
+          # Package.swift leaves out the test targets that only build for macOS.
+          SPOONJOY_IOS_SIMULATOR_TESTS: "1"
+          # Passed into the test runner as SPOONJOY_LIVE_OAUTH_CHAIN.
+          TEST_RUNNER_SPOONJOY_LIVE_OAUTH_CHAIN: "1"
+        run: |
+          set -euo pipefail
+          # The repository root holds Spoonjoy.xcodeproj, which xcodebuild would pick over the package, so the package
+          # is tested from a copy of its manifest, sources and tests.
+          package="$RUNNER_TEMP/package"
+          mkdir -p "$package"
+          cp -R Package.swift Sources Tests "$package/"
+          log="$RUNNER_TEMP/browser-sign-in.log"
+          (cd "$package" && xcodebuild test -scheme SpoonjoyApple-Package -destination "${{ steps.sim.outputs.destination }}" \
+            -only-testing:SpoonjoyBrowserSignInTests -derivedDataPath "$RUNNER_TEMP/browser-sign-in-dd" \
+            -resultBundlePath "$RUNNER_TEMP/browser-sign-in.xcresult" CODE_SIGNING_ALLOWED=NO) 2>&1 | tee "$log"
+          # Every test, the live chain included, must have run and passed on the simulator; a skip is a failure here.
+          summary="$(xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/browser-sign-in.xcresult")"
+          echo "$summary"
+          ruby -rjson -e 's = JSON.parse(ARGV[0]); ok = s["result"] == "Passed" && s["skippedTests"].to_i.zero? && s["passedTests"].to_i >= 13; puts "#{s["passedTests"]} passed, #{s["skippedTests"]} skipped, #{s["failedTests"]} failed on #{s.dig("devicesAndConfigurations", 0, "device", "deviceName")} (#{s.dig("devicesAndConfigurations", 0, "device", "osVersion")})"; exit(ok ? 0 : 1)' "$summary" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload the result bundle
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: browser-sign-in-xcresult-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/browser-sign-in.xcresult
+            ${{ runner.temp }}/browser-sign-in.log
+          if-no-files-found: warn
+          retention-days: 30
 
   testflight-release-note:
     name: TestFlight release note

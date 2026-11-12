@@ -10,6 +10,10 @@ on:
         description: Only the parity capture, at the largest accessibility text size (AX5); shots uploaded as parity-ax5-shots-<device>
         type: boolean
         default: false
+      siri_only:
+        description: Only the Siri journey job, so a check of it takes one macOS runner instead of the whole set
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -29,7 +33,7 @@ jobs:
     # network, launch or assertion (scripts/lib/live_journey_failure.rb); network and launch are infrastructure and
     # get one more attempt, on fresh accounts and a rebooted simulator. An assertion failure is never retried.
     name: Live journeys
-    if: ${{ !inputs.ax5 }}
+    if: ${{ !inputs.ax5 && !inputs.siri_only }}
     runs-on: xcode-27
     # Lane c of 3: see the note on macOS lanes at the top of native.yml.
     concurrency:
@@ -205,7 +209,7 @@ jobs:
 
   duo-journeys:
     name: Duo journeys
-    if: ${{ !inputs.ax5 }}
+    if: ${{ !inputs.ax5 && !inputs.siri_only }}
     # The iPhone Duo journey moves the simulator's hinge through Device Hub, so it runs on its own Duo simulator with
     # the posture driver beside it. Its screenshots of both Duo displays are the visual proof for the Duo.
     runs-on: xcode-27
@@ -331,8 +335,134 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  siri-journeys:
+    name: Siri journey
+    if: ${{ !inputs.ax5 }}
+    # SpoonjoySiriJourneys runs the app's App Intents (start cooking a recipe found by name, next, back, read, the step
+    # timer, add to the shopping list) through AppIntentsTesting against a QA account, then checks the screen, the QA
+    # mirror and a relaunch. AppIntentsTesting loads only on a runtime of its Xcode's own SDK version, so this job picks
+    # that pair (.github/scripts/pick-matching-xcode.py) instead of the pinned Xcode the other jobs use. It signs ad hoc,
+    # as ouro-ui-apple's X-ray probe does: unsigned, the test runner stays the xctrunner Apple signed, and every call is
+    # refused (AppIntentsServicesSecurityErrorDomain 803, "Unable to run internal tests on a Customer build").
+    runs-on: xcode-27
+    # Lane c of 3: see the note on macOS lanes at the top of native.yml.
+    concurrency:
+      group: >-
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        && format('journeys-siri-journeys-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || 'spoonjoy-macos-lane-c2' }}
+      queue: max
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Select an Xcode with a runtime of its own version, and boot an iPhone on it
+        id: sim
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          picked="$(python3 -I .github/scripts/pick-matching-xcode.py)"
+          xcode="$(sed -n 1p <<<"$picked")"; runtime="$(sed -n 2p <<<"$picked")"; device="$(sed -n 3p <<<"$picked")"
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+          udid="$(xcrun simctl create spoonjoy-siri-journey "$device" "$runtime")"
+          echo "Created $device $udid on $runtime with $xcode"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          echo "destination=platform=iOS Simulator,arch=$(uname -m),id=$udid" >> "$GITHUB_OUTPUT"
+          echo "booted-at=$(date +%s)" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+      - name: Build the Siri journey for testing
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/siri"
+          log="$RUNNER_TEMP/siri/build.log"
+          xcodebuild build-for-testing -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+            -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoySiriJourneys \
+            -derivedDataPath "$RUNNER_TEMP/siri/DerivedData" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+            PROVISIONING_PROFILE_SPECIFIER= GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$log"
+          ruby scripts/fail-on-warning.rb --log "$log"
+      - name: Wait for the simulator to settle
+        timeout-minutes: 8
+        run: python3 .github/scripts/wait-for-simulator-settle.py "${{ steps.sim.outputs.udid }}" --booted-at "${{ steps.sim.outputs.booted-at }}"
+      - name: Install the app and launch it once, so App Intents knows it
+        # Installed only by the test run, the app was "not present" to AppIntentsServices (MetadataErrorDomain 400).
+        # As ouro-ui-apple's X-ray probe does: install with simctl, launch once, stop it so XCTest launches it fresh.
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/siri/DerivedData/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app"
+          xcrun simctl install "${{ steps.sim.outputs.udid }}" "$app"
+          xcrun simctl launch "${{ steps.sim.outputs.udid }}" app.spoonjoy
+          sleep 10
+          xcrun simctl terminate "${{ steps.sim.outputs.udid }}" app.spoonjoy
+          sleep 3
+      - name: Create a disposable QA account
+        run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 1 --out "$RUNNER_TEMP/siri-secrets/accounts.json"
+      - name: Run the Siri journey
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          # As in the Journeys job, the runner gets only the path of the accounts file, never a credential.
+          export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/siri-secrets/accounts.json"
+          export TEST_RUNNER_SPOONJOY_JOURNEY_SUMMARY_FILE="$GITHUB_STEP_SUMMARY"
+          xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+            -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoySiriJourneys \
+            -derivedDataPath "$RUNNER_TEMP/siri/DerivedData" \
+            -parallel-testing-enabled NO -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 900 -maximum-test-execution-time-allowance 1200 \
+            -collect-test-diagnostics never \
+            -resultBundlePath "$RUNNER_TEMP/siri/SpoonjoySiriJourneys.xcresult" 2>&1 | tee "$RUNNER_TEMP/siri/test.log"
+      - name: Keep the app's log
+        # Siri's recipe query reads only what sync stored, and sync records each page it applies in this log.
+        if: always()
+        run: |
+          xcrun simctl spawn "${{ steps.sim.outputs.udid }}" log show --last 30m --info --debug --style compact \
+            --predicate 'subsystem == "app.spoonjoy"' > "$RUNNER_TEMP/siri/app.log" 2>&1 || true
+          [ -s "$RUNNER_TEMP/siri/app.log" ] || echo "::warning::The app's log came back empty, so it says nothing about sync."
+          grep -E 'native_sync_|app\.bootstrap' "$RUNNER_TEMP/siri/app.log" | tail -n 80 || true
+      - name: Print app crash reports
+        if: failure()
+        run: python3 .github/scripts/print-crash-reports.py "$HOME/Library/Logs/DiagnosticReports"
+      - name: Rotate the QA account password
+        id: rotate
+        if: always()
+        run: scripts/journey-qa-accounts.sh rotate --base-url "$SPOONJOY_QA_BASE_URL" --accounts "$RUNNER_TEMP/siri-secrets/accounts.json"
+      - name: Scan the Siri journey artifacts for passwords
+        id: scan
+        if: always()
+        run: |
+          scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/siri-secrets/accounts.json" \
+            "$RUNNER_TEMP/siri/build.log" \
+            "$RUNNER_TEMP/siri/test.log" \
+            "$RUNNER_TEMP/siri/app.log" \
+            "$RUNNER_TEMP/siri/SpoonjoySiriJourneys.xcresult"
+      - name: Remove credentials
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/siri-secrets"
+      - name: Upload the Siri journey result bundle
+        # Only after the old password is proven dead and no password was found in these files.
+        if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: siri-journey-xcresult-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/siri/SpoonjoySiriJourneys.xcresult
+            ${{ runner.temp }}/siri/test.log
+            ${{ runner.temp }}/siri/build.log
+            ${{ runner.temp }}/siri/app.log
+          if-no-files-found: warn
+          retention-days: 30
+
   parity:
     name: Parity capture (${{ matrix.device }})
+    if: ${{ !inputs.siri_only }}
     # The native half of the web/native parity sheet (scripts/parity-sheet.rb): SpoonjoyParityJourneys shoots every
     # canonical screen in light and dark, on an account of its own, on an iPhone and on an iPad. The Duo journeys job
     # shoots the open Duo. Not a required check. Dispatched with ax5, it runs alone at the largest accessibility text
@@ -479,7 +609,7 @@ jobs:
 
   shopping-ui-tests:
     name: Shopping UI tests
-    if: ${{ !inputs.ax5 }}
+    if: ${{ !inputs.ax5 && !inputs.siri_only }}
     runs-on: xcode-27
     # Lane c of 3: see the note on macOS lanes at the top of native.yml.
     concurrency:
