@@ -35,15 +35,8 @@ class SiriJourneyIsolationTest < Minitest::Test
     refute_empty importers, "the Siri journey should import AppIntentsTesting"
   end
 
-  # That only SpoonjoySiriJourneys compiles Journeys/Siri is scripts/check-xcode-project-contract.rb's to check.
-
-  # Every step can run to its own timeout before the job's does: a cancelled job skips the artifact upload.
-  def test_the_siri_journey_job_outlasts_its_steps
-    job = siri_job
-    job_timeout = job[/^    timeout-minutes: (\d+)/, 1].to_i
-    steps = job.scan(/^        timeout-minutes: (\d+)/).flatten.sum(&:to_i)
-    assert_operator job_timeout, :>, steps, "the job times out (#{job_timeout} min) before its steps can (#{steps} min)"
-  end
+  # Two rules live elsewhere: scripts/check-xcode-project-contract.rb checks that only SpoonjoySiriJourneys compiles
+  # Journeys/Siri, and TestFlightAutomationContractTests that the job outlasts its steps' time limits.
 
   # Built with CODE_SIGNING_ALLOWED=NO, the test runner stays the stock xctrunner signed by Apple, and AppIntentsServices
   # refuses every call from it (AppIntentsServicesSecurityErrorDomain 803, "Unable to run internal tests on a Customer
