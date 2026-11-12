@@ -118,7 +118,7 @@ public final class NativeBrowserOAuthSignIn {
         repository: NativeAuthSessionRepository,
         gate: NativeBrowserOAuthGate = .shared,
         randomSecret: @escaping @MainActor () -> String = OAuthPKCE.randomVerifier,
-        uptime: @escaping @MainActor () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+        uptime: @escaping @MainActor () -> TimeInterval = { NativeBrowserOAuthEarlyCancel.monotonicSeconds() },
         pause: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) },
         log: @escaping @MainActor (String) -> Void = { _ in },
         makeSession: @escaping NativeBrowserOAuthWebSessionFactory

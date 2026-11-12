@@ -15,6 +15,15 @@ public enum NativeBrowserOAuthEarlyCancel {
     /// How long to wait before the one retry, so the fetch the cancel came from can finish.
     public static let retryDelay: Duration = .milliseconds(750)
 
+    /// Seconds since an arbitrary fixed point, on a clock that never jumps. The timing source for `window`.
+    /// It avoids the uptime APIs, which Apple lists as required-reason APIs (system boot time).
+    public static func monotonicSeconds() -> TimeInterval {
+        let elapsed = clockOrigin.duration(to: .now)
+        return Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
+    }
+
+    private static let clockOrigin = ContinuousClock.now
+
     /// ASWebAuthenticationSessionError.canceledLogin.
     public static func isSystemCancel(_ error: (any Error)?) -> Bool {
         guard let error else { return false }

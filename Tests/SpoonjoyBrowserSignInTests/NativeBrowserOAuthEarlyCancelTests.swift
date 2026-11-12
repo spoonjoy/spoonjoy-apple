@@ -22,6 +22,15 @@ struct NativeBrowserOAuthEarlyCancelTests {
         #expect(!NativeBrowserOAuthEarlyCancel.shouldRetry(error: systemCancel, secondsSinceStart: nil, systemUIAppeared: false, alreadyRetried: false))
     }
 
+    @Test("the timing clock moves forward")
+    func monotonicClock() async throws {
+        let first = NativeBrowserOAuthEarlyCancel.monotonicSeconds()
+        try await Task.sleep(for: .milliseconds(20))
+        let second = NativeBrowserOAuthEarlyCancel.monotonicSeconds()
+        #expect(second - first >= 0.015)
+        #expect(second - first < 5)
+    }
+
     @Test("the log lines carry the domain, code and timing, never a description")
     func logLines() {
         #expect(NativeBrowserOAuthEarlyCancel.earlyCancelMessage(error: systemCancel, secondsSinceStart: 0.1754) ==
