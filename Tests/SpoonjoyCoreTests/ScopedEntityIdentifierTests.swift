@@ -31,7 +31,7 @@ struct ScopedEntityIdentifierTests {
     }
 
     @Test("an identifier from another environment, account, kind or schema, or with a bad id, never resolves")
-    func foreignOrMalformedIdentifiersNeverResolve() {
+    func foreignOrMalformedIdentifiersNeverResolve() throws {
         let schema = "schema\(NativeDurableCacheSnapshot.currentSchemaVersion)"
         let rejected = [
             RecipeCookbookEntityCatalog.recipeEntityIdentifier(recipeID: "recipe_1", accountID: "acct", environment: .production),
