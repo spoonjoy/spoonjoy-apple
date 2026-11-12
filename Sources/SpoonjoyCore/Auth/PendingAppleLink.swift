@@ -150,6 +150,9 @@ public enum PendingAppleLinkEvent: Equatable, Sendable {
     case outcome(String)
     /// The pending link expired on the device before it was used.
     case expired
+    /// A sign-in that carried the link failed, or the server could not write the link, so the server spent nothing
+    /// and the app keeps it for the next sign-in.
+    case kept
 
     public enum Method: String, Equatable, Sendable {
         case password
@@ -167,6 +170,8 @@ public enum PendingAppleLinkEvent: Equatable, Sendable {
             "pending_link_\(Self.safeOutcome(outcome))"
         case .expired:
             "pending_link_expired"
+        case .kept:
+            "pending_link_kept"
         }
     }
 

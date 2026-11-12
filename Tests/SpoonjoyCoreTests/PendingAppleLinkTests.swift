@@ -206,7 +206,7 @@ struct PendingAppleLinkTests {
         let sent = await harness.network.passwordCredentials
         #expect(sent.map(\.pendingAppleLinkToken) == [Self.token, Self.token, nil])
         #expect(await harness.events.all == [
-            .received, .sent(via: .password), .sent(via: .password), .outcome("linked")
+            .received, .sent(via: .password), .kept, .sent(via: .password), .outcome("linked")
         ])
     }
 
@@ -263,6 +263,82 @@ struct PendingAppleLinkTests {
             try await clear()
             #expect(await !harness.repository.takeAppleConnectedConfirmation())
         }
+    }
+
+    @Test("a failed browser code exchange keeps the pending link for the next sign-in")
+    func browserFailureKeepsLink() async throws {
+        let harness = try PendingAppleLinkHarness(appleLinkOutcome: "linked")
+        await #expect(throws: APITransportError.self) {
+            _ = try await harness.repository.handleAppleSignInCredential(PendingAppleLinkHarness.appleCredential)
+        }
+        await harness.network.failNextExchange()
+        await #expect(throws: URLError.self) {
+            _ = try await harness.signInWithBrowser()
+        }
+        #expect(await harness.repository.hasPendingAppleLink())
+        _ = try await harness.signInWithBrowser()
+        #expect(await !harness.repository.hasPendingAppleLink())
+        #expect(await harness.repository.takeAppleConnectedConfirmation())
+        #expect(await harness.network.grants.map(\.pendingAppleLinkToken) == [Self.token, Self.token])
+        #expect(await harness.events.all == [
+            .received, .sent(via: .browser), .kept, .sent(via: .browser), .outcome("linked")
+        ])
+    }
+
+    @Test("a sign-in the server answers with appleLink error keeps the link, because the server put it back")
+    func errorOutcomeKeepsLink() async throws {
+        let harness = try PendingAppleLinkHarness(appleLinkOutcome: "error")
+        await #expect(throws: APITransportError.self) {
+            _ = try await harness.repository.handleAppleSignInCredential(PendingAppleLinkHarness.appleCredential)
+        }
+        _ = try await harness.repository.handlePasswordSignInCredential(PendingAppleLinkHarness.passwordCredential)
+        #expect(await harness.repository.hasPendingAppleLink())
+        #expect(await !harness.repository.takeAppleConnectedConfirmation())
+        _ = try await harness.repository.handlePasswordSignInCredential(PendingAppleLinkHarness.passwordCredential)
+        #expect(await harness.network.passwordCredentials.map(\.pendingAppleLinkToken) == [Self.token, Self.token])
+        #expect(await harness.events.all == [
+            .received, .sent(via: .password), .outcome("error"), .kept, .sent(via: .password), .outcome("error"), .kept
+        ])
+    }
+
+    @Test("a newer Apple link that arrives while a password attempt is out is not replaced by the old one")
+    func newerLinkWinsOverHandBack() async throws {
+        let newer = "pal_" + String(repeating: "N", count: 43)
+        let harness = try PendingAppleLinkHarness()
+        await #expect(throws: APITransportError.self) {
+            _ = try await harness.repository.handleAppleSignInCredential(PendingAppleLinkHarness.appleCredential)
+        }
+        let repository = harness.repository
+        let network = harness.network
+        let newerRefusal = try Self.serverRefusal(token: newer)
+        await harness.network.failNextPassword(whileOut: {
+            await network.refuseApple(with: newerRefusal)
+            _ = try? await repository.handleAppleSignInCredential(PendingAppleLinkHarness.appleCredential)
+        })
+        await #expect(throws: URLError.self) {
+            _ = try await harness.repository.handlePasswordSignInCredential(PendingAppleLinkHarness.passwordCredential)
+        }
+        _ = try await harness.repository.handlePasswordSignInCredential(PendingAppleLinkHarness.passwordCredential)
+        #expect(await harness.network.passwordCredentials.map(\.pendingAppleLinkToken) == [Self.token, newer])
+    }
+
+    @Test("a link handed back after a refused password still expires thirty minutes after the Apple answer")
+    func handedBackLinkExpires() async throws {
+        let harness = try PendingAppleLinkHarness()
+        await #expect(throws: APITransportError.self) {
+            _ = try await harness.repository.handleAppleSignInCredential(PendingAppleLinkHarness.appleCredential)
+        }
+        await harness.clock.advance(by: 20 * 60)
+        await harness.network.failNextPassword()
+        await #expect(throws: URLError.self) {
+            _ = try await harness.repository.handlePasswordSignInCredential(PendingAppleLinkHarness.passwordCredential)
+        }
+        #expect(await harness.repository.hasPendingAppleLink())
+        await harness.clock.advance(by: 10 * 60)
+        #expect(await !harness.repository.hasPendingAppleLink())
+        _ = try await harness.repository.handlePasswordSignInCredential(PendingAppleLinkHarness.passwordCredential)
+        #expect(await harness.network.passwordCredentials.map(\.pendingAppleLinkToken) == [Self.token, nil])
+        #expect(await harness.events.all == [.received, .sent(via: .password), .kept, .expired])
     }
 
     @Test("only a linked or already-linked answer confirms Apple; other outcomes don't")
@@ -363,7 +439,7 @@ struct PendingAppleLinkTests {
         _ = try await harness.repository.handlePasswordSignInCredential(PendingAppleLinkHarness.passwordCredential)
         let events = await harness.events.all
         #expect(events == [.received, .sent(via: .password), .outcome("linked")])
-        for event in events + [.expired, .outcome("free text \(Self.token)")] {
+        for event in events + [.expired, .kept, .outcome("free text \(Self.token)")] {
             let descriptor = event.telemetryDescriptor(sessionState: nil)
             let telemetry = try NativeTelemetryRequests.recordEvent(
                 descriptor.telemetryEvent(environment: "test", metadata: .unknown)
@@ -417,7 +493,10 @@ private actor EventLog {
 }
 
 private actor PendingAppleLinkNetwork {
-    private let refusal: APITransportError
+    private var refusal: APITransportError
+    private var exchangeFails = false
+    func refuseApple(with refusal: APITransportError) { self.refusal = refusal }
+    func failNextExchange() { exchangeFails = true }
     private let appleLinkOutcome: String?
     private var appleSucceeds = false
     private var passwordFails = false
@@ -455,8 +534,12 @@ private actor PendingAppleLinkNetwork {
         return response(outcome: credential.carriesPendingAppleLink ? appleLinkOutcome : nil)
     }
 
-    func exchange(_ grant: NativeAuthorizationCodeGrant) -> OAuthTokenResponse {
+    func exchange(_ grant: NativeAuthorizationCodeGrant) throws -> OAuthTokenResponse {
         grants.append(grant)
+        if exchangeFails {
+            exchangeFails = false
+            throw URLError(.timedOut)
+        }
         return response(outcome: grant.carriesPendingAppleLink ? appleLinkOutcome : nil)
     }
 
@@ -502,7 +585,7 @@ private struct PendingAppleLinkHarness {
             clientName: "Spoonjoy Apple",
             registerClient: { _, _ in "client-1" },
             exchangeCode: { _, _, _, _ in throw NativeAuthSessionError.missingAuthorizationCode },
-            exchangeAuthorizationCode: { grant in await network.exchange(grant) },
+            exchangeAuthorizationCode: { grant in try await network.exchange(grant) },
             exchangeAppleCredential: { credential in try await network.apple(credential) },
             exchangePasswordCredential: { credential in try await network.password(credential) },
             refresh: { _, _ in throw URLError(.badServerResponse) },
