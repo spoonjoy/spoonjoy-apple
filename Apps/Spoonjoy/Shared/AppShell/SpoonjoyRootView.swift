@@ -1045,14 +1045,7 @@ struct SpoonjoyRootView: View {
     }
 
     private static func defaultAPIConfiguration(environment: [String: String]) -> APIClientConfiguration {
-#if DEBUG
-        if let rawURL = environment["SPOONJOY_API_BASE_URL"]?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !rawURL.isEmpty,
-           let baseURL = URL(string: rawURL) {
-            return APIClientConfiguration(baseURL: baseURL)
-        }
-#endif
-        return .spoonjoyProduction
+        SpoonjoyAppServer.configuration(environment: environment)
     }
 
     private static func defaultOAuthRedirectURI(environment: [String: String]) -> URL {
