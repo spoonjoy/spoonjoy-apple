@@ -446,6 +446,12 @@ struct SignedOutSetupView: View {
         switch start {
         case .opened, .alreadyInProgress:
             authStatus = "Finish \(provider.displayName) sign-in in the browser."
+        case .stopped:
+            // Cancelled or replaced while waiting to retry its request: nothing opened, so free the buttons quietly.
+            pendingOAuthProvider = nil
+            isSigningIn = false
+            statusTone = .neutral
+            authStatus = "Browser sign-in canceled."
         case .couldNotOpen:
             let reason = signIn.startFailure.map(NativeBrowserOAuthSignIn.diagnosticReason) ?? "unknown"
             Self.browserSignInLogger.error("Browser sign-in did not start: \(reason, privacy: .public)")
