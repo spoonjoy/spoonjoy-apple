@@ -89,7 +89,7 @@ struct RecipeCookbookEntityTests {
                     "NativeProcessSyncStore.shared(appDirectory:",
                     "loadSnapshot()",
                     "trustedIntentScope",
-                    "KeychainTokenVault()",
+                    "SpoonjoyAppTokenVault.current()",
                     "scope.accountID",
                     "scope.environment"
                 ],

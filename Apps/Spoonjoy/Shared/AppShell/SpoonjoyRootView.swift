@@ -852,17 +852,13 @@ struct SpoonjoyRootView: View {
         let appDirectory = NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()
 #if DEBUG
         _ = Self.journeyLaunchReset
-        let vault: any TokenVault = screenshotValidationTokenVault(environment: environment) ?? debugTokenVault(
-            environment: environment,
-            appDirectory: appDirectory
-        )
         let bootstrapMode: NativeLiveAppBootstrapMode = screenshotRestoreCacheOnlyEnabled(environment: environment)
             ? .restoreCacheOnly
             : .liveFirst
 #else
-        let vault: any TokenVault = KeychainTokenVault()
         let bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst
 #endif
+        let vault: any TokenVault = SpoonjoyAppTokenVault.current(environment: environment)
         let appleSignInTelemetry = Self.defaultAppleSignInTelemetryClient()
         let authRepository = NativeAuthSessionRepository(
             vault: vault,
@@ -1175,28 +1171,6 @@ struct SpoonjoyRootView: View {
     }
 
 #if DEBUG
-    private static func screenshotValidationTokenVault(environment: [String: String]) -> (any TokenVault)? {
-        guard truthy("SPOONJOY_SCREENSHOT_AUTH", in: environment) else {
-            return nil
-        }
-        let accountID = environment["SPOONJOY_SCREENSHOT_ACCOUNT_ID"] ?? "chef_settings_capture"
-        guard let session = try? AuthSession(
-            clientID: "cm_screenshot_validation",
-            accessToken: "screenshot_access_token",
-            refreshToken: "screenshot_refresh_token",
-            tokenType: "Bearer",
-            expiresAt: Date(timeIntervalSince1970: 2_000_000_000),
-            scope: NativeAuthSession.defaultScope,
-            accountID: accountID
-        ) else {
-            return nil
-        }
-        return SpoonjoyScreenshotValidationTokenVault(
-            clientID: "cm_screenshot_validation",
-            session: session
-        )
-    }
-
     private static func screenshotRestoreCacheOnlyEnabled(environment: [String: String]) -> Bool {
         truthy("SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY", in: environment)
     }
@@ -1219,13 +1193,6 @@ struct SpoonjoyRootView: View {
         UserDefaults.standard.removePersistentDomain(forName: Bundle.main.bundleIdentifier ?? "app.spoonjoy")
     }()
 
-    private static func debugTokenVault(environment: [String: String], appDirectory: URL) -> any TokenVault {
-        if truthy("SPOONJOY_DEBUG_KEYCHAIN_AUTH", in: environment) {
-            return KeychainTokenVault(allowsUnsignedLocalFallback: true)
-        }
-        return FileBackedTokenVault(fileURL: appDirectory.appendingPathComponent("debug-auth-session.json"))
-    }
-
     private static func truthy(_ key: String, in environment: [String: String]) -> Bool {
         switch environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "1", "true", "yes":
@@ -1238,40 +1205,6 @@ struct SpoonjoyRootView: View {
 }
 
 #if DEBUG
-private actor SpoonjoyScreenshotValidationTokenVault: TokenVault {
-    private var clientID: String?
-    private var session: AuthSession?
-
-    init(clientID: String, session: AuthSession) {
-        self.clientID = clientID
-        self.session = session
-    }
-
-    func loadClientID() async throws -> String? {
-        clientID
-    }
-
-    func saveClientID(_ clientID: String) async throws {
-        self.clientID = clientID
-    }
-
-    func clearClientID() async throws {
-        clientID = nil
-    }
-
-    func loadSession() async throws -> AuthSession? {
-        session
-    }
-
-    func saveSession(_ session: AuthSession) async throws {
-        self.session = session
-    }
-
-    func clearSession() async throws {
-        session = nil
-    }
-}
-
 /// Satisfies `NativeSyncTriggerRunning` without touching the network, cache, or keychain. Used only to back the
 /// shopping UI test platform fixture's `PlatformNavigationView`, whose own foreground-sync `.task` would otherwise
 /// call the real sync engine as soon as the fixture appears (evidence: CI run 36349596485 logged

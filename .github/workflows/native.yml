@@ -116,6 +116,7 @@ jobs:
           ruby scripts/test/draft_runs_lane_b_test.rb
           ruby scripts/test/no_design_hex_test.rb
           ruby scripts/test/app_shortcuts_test.rb
+          ruby scripts/test/app_token_vault_test.rb
           ruby scripts/test/macos_lanes_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
           ruby scripts/stage-app-store-listing.rb --validate-only --platform MAC_OS
