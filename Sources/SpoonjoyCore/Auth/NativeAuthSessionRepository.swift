@@ -53,7 +53,14 @@ public actor NativeAuthSessionRepository {
     /// An Apple sign-in that found no account, waiting to be linked by the next sign-in another way. Memory only:
     /// it is never written to the vault, and it goes with one sign-in attempt, sign-out, expiry, or an Apple
     /// sign-in that succeeds.
-    private var pendingAppleLink: PendingAppleLink?
+    private var pendingAppleLink: PendingAppleLink? {
+        didSet { pendingAppleLinkGeneration &+= 1 }
+    }
+    /// Moves on every change to `pendingAppleLink`, so a password attempt hands its link back only when nothing
+    /// (sign-out, an Apple sign-in, a newer link) changed it while the attempt was out.
+    private var pendingAppleLinkGeneration = 0
+    /// True when the last sign-in's server answer said Apple is now connected to the account.
+    private var appleConnectedOnLastSignIn = false
 
     public init(
         vault: any TokenVault,
@@ -221,7 +228,19 @@ public actor NativeAuthSessionRepository {
     public func handlePasswordSignInCredential(_ credential: NativePasswordSignInCredential) async throws -> AuthSession {
         _ = try NativePasswordSignInRequests.exchangeCredential(credential)
         let link = await takePendingAppleLink(sendingVia: .password)
-        let response = try await exchangePasswordCredential(credential.linkingApple(link))
+        let generation = pendingAppleLinkGeneration
+        let response: OAuthTokenResponse
+        do {
+            response = try await exchangePasswordCredential(credential.linkingApple(link))
+        } catch {
+            // The server spends a link only on a sign-in that succeeds, so a mistyped password must not cost the
+            // chef their Apple link. A sign-in that did succeed but whose answer was lost leaves a spent link; the
+            // server answers that with `consumed`, which is harmless.
+            if let link, pendingAppleLinkGeneration == generation {
+                pendingAppleLink = link
+            }
+            throw error
+        }
         await reportOutcome(of: link, in: response)
         let clientID = nativeClientID(issuedIn: response)
         let session = try AuthSession(
@@ -259,6 +278,7 @@ public actor NativeAuthSessionRepository {
     /// The pending link for the sign-in about to go out, forgotten as it is handed over: the server spends it on
     /// the first sign-in that succeeds, so one attempt carries it whatever that attempt's result.
     private func takePendingAppleLink(sendingVia method: PendingAppleLinkEvent.Method) async -> PendingAppleLink? {
+        appleConnectedOnLastSignIn = false
         guard let link = await currentPendingAppleLink() else {
             return nil
         }
@@ -271,7 +291,15 @@ public actor NativeAuthSessionRepository {
         guard link != nil, let outcome = response.appleLinkOutcome else {
             return
         }
+        appleConnectedOnLastSignIn = PendingAppleLinkEvent.connectedOutcomes.contains(outcome)
         await onPendingAppleLinkEvent(.outcome(outcome))
+    }
+
+    /// True once after a sign-in whose server answer said Apple is now connected to the account (`linked`, or
+    /// `already_linked`), so the screen can say so; false after that, and after any other sign-in.
+    public func takeAppleConnectedConfirmation() -> Bool {
+        defer { appleConnectedOnLastSignIn = false }
+        return appleConnectedOnLastSignIn
     }
 
     /// The client id the server issued a native sign-in's tokens to: the response's own `client_id`, else the

@@ -176,6 +176,9 @@ public enum PendingAppleLinkEvent: Equatable, Sendable {
         "linked", "already_linked", "taken", "provider_already_linked", "expired", "consumed", "invalid", "error"
     ]
 
+    /// The outcomes that leave Apple connected to the account that just signed in.
+    static let connectedOutcomes: Set<String> = ["linked", "already_linked"]
+
     private static func safeOutcome(_ outcome: String) -> String {
         knownOutcomes.contains(outcome) ? outcome : "unknown"
     }
