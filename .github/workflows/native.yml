@@ -26,7 +26,7 @@ concurrency:
 # request jobs held all 5 for over 90 minutes while a merge-queue entry's jobs, queued earlier, got none. So the macOS
 # jobs of pull request, after-TestFlight and dispatch runs join one of three lanes and run one at a time within it,
 # waiting (queue: max) instead of queueing for a runner. Pull requests share two lanes a and two lanes b, picked by the
-# parity of their number (spoonjoy-macos-lane-a-pr-0 or -1; Actions expressions have no %). One shared lane held about
+# parity of their number (spoonjoy-macos-lane-a-pr-even or -odd; Actions expressions have no %). One shared lane held about
 # 10 PRs pending for hours on 2026-11-12 while Macs sat free; a lane per PR then let about 15 open PRs take every
 # macos-26 runner while the merge queue's head waited 3 hours. Lane c stays one shared lane for all optional work:
 #   lane a: App bundle (required)
@@ -146,7 +146,7 @@ jobs:
         endsWith(format('{0}', github.event.pull_request.number), '2') ||
         endsWith(format('{0}', github.event.pull_request.number), '4') ||
         endsWith(format('{0}', github.event.pull_request.number), '6') ||
-        endsWith(format('{0}', github.event.pull_request.number), '8')) && '0' || '1')
+        endsWith(format('{0}', github.event.pull_request.number), '8')) && 'even' || 'odd')
         || 'spoonjoy-macos-lane-b' }}
       queue: max
     timeout-minutes: 30
@@ -185,7 +185,7 @@ jobs:
         endsWith(format('{0}', github.event.pull_request.number), '2') ||
         endsWith(format('{0}', github.event.pull_request.number), '4') ||
         endsWith(format('{0}', github.event.pull_request.number), '6') ||
-        endsWith(format('{0}', github.event.pull_request.number), '8')) && '0' || '1')
+        endsWith(format('{0}', github.event.pull_request.number), '8')) && 'even' || 'odd')
         || 'spoonjoy-macos-lane-b' }}
       queue: max
     timeout-minutes: 20
@@ -236,7 +236,7 @@ jobs:
         endsWith(format('{0}', github.event.pull_request.number), '2') ||
         endsWith(format('{0}', github.event.pull_request.number), '4') ||
         endsWith(format('{0}', github.event.pull_request.number), '6') ||
-        endsWith(format('{0}', github.event.pull_request.number), '8')) && '0' || '1')
+        endsWith(format('{0}', github.event.pull_request.number), '8')) && 'even' || 'odd')
         || 'spoonjoy-macos-lane-b' }}
       queue: max
     timeout-minutes: 30
@@ -286,7 +286,7 @@ jobs:
         endsWith(format('{0}', github.event.pull_request.number), '2') ||
         endsWith(format('{0}', github.event.pull_request.number), '4') ||
         endsWith(format('{0}', github.event.pull_request.number), '6') ||
-        endsWith(format('{0}', github.event.pull_request.number), '8')) && '0' || '1')
+        endsWith(format('{0}', github.event.pull_request.number), '8')) && 'even' || 'odd')
         || 'spoonjoy-macos-lane-a' }}
       queue: max
     timeout-minutes: 30

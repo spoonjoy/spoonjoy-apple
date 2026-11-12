@@ -101,14 +101,14 @@ class MacosLanesTest < Minitest::Test
   end
 
   # One shared lane a and b held about 10 PRs pending for hours on 2026-11-12 while Macs sat free; a lane per PR (#321)
-  # then let about 15 open PRs take every macos-26 runner, and the merge queue's head waited 3 hours. So PRs share a
-  # pool of two lanes a and two lanes b, by the parity of their number (Actions expressions have no %): PR work holds at
-  # most 4 runners, and merge-queue and push runs keep the rest. Optional work stays in the one shared lane c.
+  # then let about 15 open PRs take every macos-26 runner, and the merge queue's head waited 3 hours. So PRs share two
+  # lanes a and two lanes b, by the parity of their number (Actions expressions have no %). With the one shared lane c,
+  # PR work holds at most 5 macOS jobs, so a merge-queue job waits behind those, not behind every open PR.
   PR_POOL = "(endsWith(format('{0}', github.event.pull_request.number), '0') || " \
             "endsWith(format('{0}', github.event.pull_request.number), '2') || " \
             "endsWith(format('{0}', github.event.pull_request.number), '4') || " \
             "endsWith(format('{0}', github.event.pull_request.number), '6') || " \
-            "endsWith(format('{0}', github.event.pull_request.number), '8')) && '0' || '1'"
+            "endsWith(format('{0}', github.event.pull_request.number), '8')) && 'even' || 'odd'"
 
   def test_pull_request_required_jobs_share_a_pool_of_two_lanes
     macos_jobs("native.yml").each do |id, job|
@@ -117,7 +117,7 @@ class MacosLanesTest < Minitest::Test
       if lane
         assert_includes group,
                         "github.event_name == 'pull_request' && format('spoonjoy-macos-lane-#{lane}-pr-{0}', #{PR_POOL})",
-                        "native.yml job #{id}: a pull request's required job waits in lane #{lane}-pr-0 or -1, by its number's parity"
+                        "native.yml job #{id}: a pull request's required job waits in lane #{lane}-pr-even or -odd, by its number's parity"
         refute_includes group, "format('spoonjoy-macos-lane-#{lane}-pr-{0}', github.event.pull_request.number)",
                         "native.yml job #{id}: a lane per PR lets open PRs take every runner"
       else
