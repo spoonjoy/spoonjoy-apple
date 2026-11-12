@@ -79,6 +79,8 @@ jobs:
           bundler-cache: true
       - name: The simulator helper picks and lists simulators right (offline, no simulator)
         run: python3 -I .github/scripts/test_create_newest_simulator.py
+      - name: Store scenes come out of their result bundle by name (offline)
+        run: python3 -I .github/scripts/test_export_store_scenes.py
       - name: Check native design-language contract
         run: ruby scripts/check-native-design-language.rb --web-design-doc docs/source/spoonjoy-v2-design-language.md
       - name: Check web palette contract
