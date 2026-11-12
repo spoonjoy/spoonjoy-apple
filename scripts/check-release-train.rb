@@ -12,7 +12,8 @@
 #
 # --app-store-connect reads both platforms' newest App Store versions, read-only (it never writes to App Store
 # Connect), and keeps one GitHub issue labelled release-train when their version, state or shared copy differ.
-# Needs ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_BASE64, and GITHUB_TOKEN and GITHUB_REPOSITORY unless --no-issue.
+# Needs ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_BASE64, and GITHUB_TOKEN and GITHUB_REPOSITORY unless --no-issue,
+# which instead exits 1 on drift.
 require "base64"
 require "optparse"
 require_relative "lib/release_train"
@@ -58,6 +59,8 @@ begin
                                               label: ReleaseTrain::LABEL,
                                               description: "iOS and Mac out of line in App Store Connect, kept by the drift job")
     ReleaseTrain::DriftIssue.new(issues).keep(differences, ios: ios, mac: mac)
+  elsif !differences.empty?
+    exit 1
   end
 rescue AppStoreListing::Error => e
   abort e.message

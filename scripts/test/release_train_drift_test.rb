@@ -82,8 +82,10 @@ class ReleaseTrainDriftTest < Minitest::Test
   end
 
   def test_the_reader_takes_each_platforms_newest_version
-    asc = FakeAsc.new("IOS" => [["v1", "1.0", "READY_FOR_SALE", "2026-10-01T00:00:00Z"],
-                                ["v2", "1.2", "READY_FOR_SALE", "2026-11-10T00:00:00Z"]],
+    # Newest first, and across the DST change: 01:30-07:00 is 08:30Z, after 01:00-08:00 (09:00Z) is not.
+    asc = FakeAsc.new("IOS" => [["v2", "1.2", "READY_FOR_SALE", "2026-11-01T01:00:00-08:00"],
+                                ["v1", "1.0", "READY_FOR_SALE", "2026-11-01T01:30:00-07:00"],
+                                ["v0", "0.9", "READY_FOR_SALE", nil]],
                       "MAC_OS" => [["m1", "1.1", "IN_REVIEW", "2026-11-01T00:00:00Z"]])
     reader = ReleaseTrain::LiveReader.new(asc, bundle_id: "app.spoonjoy")
     ios = reader.latest("IOS")
@@ -141,6 +143,7 @@ class ReleaseTrainDriftTest < Minitest::Test
     assert_equal "closed", issues.issues.first["state"]
     assert_match(/back in line/, issues.comments.last.last)
   end
+
   def test_the_drift_workflow_runs_daily_and_only_reads
     path = File.expand_path("../../.github/workflows/release-train-drift.yml", __dir__)
     workflow = YAML.safe_load(File.read(path), aliases: true)

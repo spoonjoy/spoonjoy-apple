@@ -2,6 +2,7 @@
 
 require "digest"
 require "json"
+require "time"
 require_relative "app_store_listing"
 
 # iOS and Mac move as one release train: one version, one What's New decision and one set of shared URLs. The
@@ -88,7 +89,8 @@ module ReleaseTrain
   end
 
   PLATFORM_NAMES = AppStoreListing::PLATFORM_NAMES
-  COPY_FIELDS = SHARED_FIELDS + PLATFORM_COPY_FIELDS
+  # privacyPolicyUrl is app-level in App Store Connect (one appInfo for both platforms), so only version copy is read.
+  COPY_FIELDS = (SHARED_FIELDS - %w[privacyPolicyUrl]) + PLATFORM_COPY_FIELDS
   LABEL = "release-train"
   ISSUE_TITLE = "Release train: iOS and Mac have drifted"
   MARKER = /<!-- release-train differences=([0-9a-f]{64}) -->/.freeze
@@ -107,6 +109,13 @@ module ReleaseTrain
       differences << "#{field}: iOS #{a}, macOS #{b}" unless a == b
     end
     differences
+  end
+
+  # App Store Connect dates carry a Pacific offset, so they compare as times, never as text.
+  def self.created_at(version)
+    Time.iso8601(version.dig("attributes", "createdDate").to_s)
+  rescue ArgumentError
+    Time.at(0)
   end
 
   # Only reads: the drift job can never write to App Store Connect, whatever it calls.
@@ -143,7 +152,7 @@ module ReleaseTrain
 
     def latest(platform)
       versions = @asc.get_all("/v1/apps/#{app_id}/appStoreVersions", "filter[platform]" => platform)
-      newest = versions.max_by { |v| v.dig("attributes", "createdDate").to_s }
+      newest = versions.max_by { |v| ReleaseTrain.created_at(v) }
       return nil unless newest
 
       attributes = newest["attributes"]
