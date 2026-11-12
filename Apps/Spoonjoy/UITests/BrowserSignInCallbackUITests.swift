@@ -52,12 +52,17 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         // alert on some iOS versions and the app on others.
         let prompts = [springboard.buttons["Continue"], app.alerts.buttons["Continue"]]
         let status = element("native sign-in status")
-        for attempt in 1...2 {
+        let attempts = 4
+        for attempt in 1...attempts {
             google.tap()
-            let promptDeadline = Date().addingTimeInterval(Self.interactionTimeout)
+            let tappedAt = Date()
+            let promptDeadline = tappedAt.addingTimeInterval(Self.interactionTimeout)
             var selfCanceled = false
             while Date() < promptDeadline, !prompts.contains(where: \.exists) {
-                if attempt == 1, status.exists, status.label.localizedCaseInsensitiveContains("canceled") {
+                // After a retry the status still reads canceled from the attempt before, so a retry's own cancel is
+                // only counted once the prompt has had 5 s to appear.
+                let settled = attempt == 1 || Date().timeIntervalSince(tappedAt) > 5
+                if settled, status.exists, status.label.localizedCaseInsensitiveContains("canceled") {
                     selfCanceled = true
                     break
                 }
@@ -70,12 +75,13 @@ final class BrowserSignInCallbackUITests: XCTestCase {
             }
             // Runs 43191690879 and 43214640448: the session ended with ASWebAuthenticationSessionError 1 before any
             // prompt, in the same millisecond swcd began re-fetching spoonjoy.app's association because the app's
-            // install identity had changed. Nobody can cancel a prompt that never appeared, so one retry is allowed
-            // and recorded; a second self-cancel fails the test.
-            guard selfCanceled, attempt == 1 else { break }
-            screenshot("01-self-canceled-before-prompt")
-            XCTContext.runActivity(named: "Self-cancel before any prompt; retrying once") { _ in }
-            RunLoop.current.run(until: Date().addingTimeInterval(10))
+            // install identity had changed. In run 43239521975 swcd only began the download 10 s later, and a retry
+            // then canceled too. Nobody can cancel a prompt that never appeared, so the test retries every 20 s, up to
+            // a minute, recording each one; if every attempt cancels, the test fails.
+            guard selfCanceled, attempt < attempts else { break }
+            screenshot("01-self-canceled-before-prompt-\(attempt)")
+            XCTContext.runActivity(named: "Self-cancel before any prompt on attempt \(attempt); retrying") { _ in }
+            RunLoop.current.run(until: Date().addingTimeInterval(20))
         }
 
         let identifier = try XCTUnwrap(
