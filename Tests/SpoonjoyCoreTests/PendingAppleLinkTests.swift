@@ -88,6 +88,37 @@ struct PendingAppleLinkTests {
         }
         let unrelated = URLError(.timedOut)
         #expect((PendingAppleLink.redacting(unrelated) as? URLError) == unrelated)
+
+        // Errors that carry no link pass through untouched, wrapped or bare.
+        let tokenless = try Self.serverRefusal(token: nil, expiresAt: nil)
+        #expect((PendingAppleLink.redacting(tokenless) as? APITransportError) == tokenless)
+        let bareTokenless = try #require(tokenless.apiError)
+        #expect((PendingAppleLink.redacting(bareTokenless) as? APIError) == bareTokenless)
+
+        // A blank or overlong token is no link at all.
+        #expect(PendingAppleLink.from(try Self.serverRefusal(token: "  "), receivedAt: Self.receivedAt) == nil)
+        let overlong = "pal_" + String(repeating: "a", count: 125)
+        #expect(PendingAppleLink.from(try Self.serverRefusal(token: overlong), receivedAt: Self.receivedAt) == nil)
+    }
+
+    @Test("a repository with no event handler still keeps and sends the pending link")
+    func defaultEventHandler() async throws {
+        let network = PendingAppleLinkNetwork(refusal: try Self.serverRefusal(), appleLinkOutcome: "linked")
+        let repository = NativeAuthSessionRepository(
+            vault: InMemoryTokenVault(),
+            clientName: "Spoonjoy Apple",
+            registerClient: { _, _ in "client-1" },
+            exchangeCode: { _, _, _, _ in throw NativeAuthSessionError.missingAuthorizationCode },
+            exchangeAppleCredential: { credential in try await network.apple(credential) },
+            exchangePasswordCredential: { credential in try await network.password(credential) },
+            refresh: { _, _ in throw URLError(.badServerResponse) },
+            revoke: { _, _ in }
+        )
+        await #expect(throws: APITransportError.self) {
+            _ = try await repository.handleAppleSignInCredential(PendingAppleLinkHarness.appleCredential)
+        }
+        _ = try await repository.handlePasswordSignInCredential(PendingAppleLinkHarness.passwordCredential)
+        #expect(await network.passwordCredentials.map(\.pendingAppleLinkToken) == [Self.token])
     }
 
     @Test("password sign-in carries the token in its JSON body only when there is one")
