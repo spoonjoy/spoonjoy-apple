@@ -462,9 +462,16 @@ struct SignedOutSetupView: View {
             authStatus = "Finish \(provider.displayName) sign-in in the browser."
         } catch {
             // The status line is the same for every cause; the log says which step failed (no secrets in these errors).
-            // Domain and code only: an error's description can carry a URL or a server response.
-            let nsError = error as NSError
-            Self.browserSignInLogger.error("Browser sign-in did not start: \(nsError.domain, privacy: .public) \(nsError.code, privacy: .public)")
+            // Kind, status and request id, or domain and code: never the description, which can carry a URL or a
+            // server response. A bridged Swift struct always reports code 1, so transport errors say their kind.
+            let reason: String
+            if let transport = error as? APITransportError {
+                reason = "\(transport.kind) status \(transport.statusCode.map { String($0) } ?? "none") request \(transport.requestID ?? "none")"
+            } else {
+                let nsError = error as NSError
+                reason = "\(nsError.domain) \(nsError.code)"
+            }
+            Self.browserSignInLogger.error("Browser sign-in did not start: \(reason, privacy: .public)")
             pendingOAuthState = nil
             pendingOAuthCodeVerifier = nil
             pendingOAuthProvider = nil
