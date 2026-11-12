@@ -33,7 +33,7 @@ struct CookbooksView: View {
     }
 
     var body: some View {
-        KitchenTablePage(maxContentWidth: 860, bottomReserve: cookbookPageBottomReserve) {
+        KitchenTablePage(maxContentWidth: usesWideShelf ? 1120 : 860, bottomReserve: cookbookPageBottomReserve) {
             header
             statusBanner
 
@@ -102,6 +102,16 @@ struct CookbooksView: View {
 #endif
     }
 
+    /// A regular-width iPad sets the shelf across the Kitchen's 1,120 pt page with covers up to 300 pt wide, so a 13"
+    /// screen holds four real books a row instead of a row of small ones down its left side.
+    private var usesWideShelf: Bool {
+#if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .pad && horizontalSizeClass == .regular
+#else
+        false
+#endif
+    }
+
     private var cookbookPageBottomReserve: CGFloat {
         usesCompactCookbookLayout ? 196 : KitchenTableTheme.compactDockReserve
     }
@@ -111,6 +121,9 @@ struct CookbooksView: View {
     private var shelfColumns: [GridItem] {
         if dynamicTypeSize.isAccessibilitySize {
             return [GridItem(.flexible(), alignment: .top)]
+        }
+        if usesWideShelf {
+            return [GridItem(.adaptive(minimum: 200, maximum: 300), spacing: 28, alignment: .top)]
         }
         return [GridItem(.adaptive(minimum: 148, maximum: 220), spacing: 18, alignment: .top)]
     }
