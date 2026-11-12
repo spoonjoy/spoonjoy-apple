@@ -76,8 +76,9 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         let password = try XCTUnwrap(webElement(.secureTextField, label: "Password"), "The login page has no Password field.")
         identifier.typeText("\t")
         // Web fields in the sheet do not report hasKeyboardFocus (run 43186142426: Tab moved the caret, the check failed),
-        // so the paste below is checked by the field's value instead.
-        XCTAssertTrue(waitUntilHittable(password), "The Password field never became hittable after Tab.")
+        // so the paste below is checked by the field's value instead. Nor is isHittable a gate: in run 43196617025 the
+        // field was focused and on screen and still reported false. A short pause lets focus settle before the paste.
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
         XCTAssertEqual(identifier.value as? String, account.username, "The username changed while moving to the Password field.")
 
         // Pasted, not typed, so the password never appears in activity titles, the log or the result bundle.
@@ -117,17 +118,6 @@ final class BrowserSignInCallbackUITests: XCTestCase {
 
     /// The sign-in sheet's web content is in the app's tree on some iOS versions and in SafariViewService's on others.
     /// Waits for the element in either tree; nil when neither shows it in time.
-    private func waitUntilHittable(_ element: XCUIElement, timeout: TimeInterval = 15) -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if element.exists, element.isHittable {
-                return true
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
-        }
-        return false
-    }
-
     private func webElement(_ type: XCUIElement.ElementType, label: String, timeout: TimeInterval = BrowserSignInCallbackUITests.interactionTimeout) -> XCUIElement? {
         let predicate = NSPredicate(format: "label == %@ OR placeholderValue == %@", label, label)
         let candidates = [app, webSheet].map { $0.descendants(matching: type).matching(predicate).firstMatch }
