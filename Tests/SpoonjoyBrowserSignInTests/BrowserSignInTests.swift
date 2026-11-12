@@ -51,6 +51,66 @@ struct BrowserSignInTests {
         #expect(attempt.provider == .google)
     }
 
+    @Test("the login-page launch variable is honoured only when it is exactly 1")
+    func loginPageVariable() {
+        #expect(NativeBrowserOAuthSignIn.loginPageRequested(environment: ["SPOONJOY_UI_TEST_BROWSER_SIGN_IN_LOGIN_PAGE": "1"]))
+        #expect(!NativeBrowserOAuthSignIn.loginPageRequested(environment: [:]))
+        #expect(!NativeBrowserOAuthSignIn.loginPageRequested(environment: ["SPOONJOY_UI_TEST_BROWSER_SIGN_IN_LOGIN_PAGE": "0"]))
+    }
+
+    @Test("a sheet that closes without a callback passes its error on; a cancel by the app passes none")
+    func cancelPassesTheSheetErrorThrough() async throws {
+        let closed = Harness()
+        let closedFinishes = FinishLog()
+        _ = await closed.flow.begin(provider: .google) { closedFinishes.record($0) }
+        await closed.sheets.close(0)
+        guard case let .canceled(error)? = closedFinishes.all.first else {
+            Issue.record("The sheet's close did not finish as canceled")
+            return
+        }
+        let nsError = try #require(error) as NSError
+        #expect(nsError.domain == NSURLErrorDomain)
+        #expect(nsError.code == URLError.userCancelledAuthentication.rawValue)
+        #expect(NativeBrowserOAuthSignIn.diagnosticReason(nsError) == "\(NSURLErrorDomain) \(URLError.userCancelledAuthentication.rawValue)")
+
+        let byApp = Harness()
+        let byAppFinishes = FinishLog()
+        _ = await byApp.flow.begin(provider: .google) { byAppFinishes.record($0) }
+        byApp.flow.cancel()
+        guard case let .canceled(appError)? = byAppFinishes.all.first else {
+            Issue.record("The app's cancel did not finish as canceled")
+            return
+        }
+        #expect(appError == nil)
+    }
+
+    @Test("a start that cannot open says why: the registration's error, a refused sheet or a bad secret")
+    func startFailureSaysWhy() async throws {
+        let offline = Harness(registrationFails: true)
+        #expect(await offline.flow.begin(provider: .google) { _ in } == .couldNotOpen)
+        #expect((offline.flow.startFailure as? URLError)?.code == .notConnectedToInternet)
+
+        let refused = Harness(sheetStarts: false)
+        #expect(await refused.flow.begin(provider: .google) { _ in } == .couldNotOpen)
+        #expect(refused.flow.startFailure as? NativeBrowserOAuthStartFailure == .sheetRefused)
+
+        let badSecret = Harness(randomSecret: { "not a verifier" })
+        #expect(await badSecret.flow.begin(provider: .google) { _ in } == .couldNotOpen)
+        #expect(badSecret.flow.startFailure as? NativeBrowserOAuthStartFailure == .invalidSecret)
+
+        let opened = Harness()
+        #expect(await opened.flow.begin(provider: .google) { _ in } != .couldNotOpen)
+        #expect(opened.flow.startFailure == nil)
+    }
+
+    @Test("a transport error logs its kind, status and request id, never its description")
+    func transportReason() {
+        let error = APITransportError(kind: .apiError, requestID: "req_1", statusCode: 503, apiError: nil, retryDecision: .doNotRetry)
+        #expect(NativeBrowserOAuthSignIn.diagnosticReason(error) == "apiError status 503 request req_1")
+        let bare = APITransportError(kind: .offline, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        #expect(NativeBrowserOAuthSignIn.diagnosticReason(bare) == "offline status none request none")
+    }
+
     @Test("each tap starts a fresh attempt with its own state, verifier and sheet")
     func eachTapStartsAFreshAttempt() async throws {
         let harness = Harness()

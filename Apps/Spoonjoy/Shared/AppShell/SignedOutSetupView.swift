@@ -1,4 +1,5 @@
 import AuthenticationServices
+import OSLog
 import Security
 import SpoonjoyCore
 import SwiftUI
@@ -8,6 +9,7 @@ struct SignedOutSetupView: View {
     private static let livePasswordSignInIdentifier = "native password sign-in"
     fileprivate static let liveGoogleOAuthSignInIdentifier = "native Google OAuth sign-in"
     fileprivate static let liveGitHubOAuthSignInIdentifier = "native GitHub OAuth sign-in"
+    private static let browserSignInLogger = Logger(subsystem: "app.spoonjoy", category: "auth.browser")
     private static let appleSignInEntitlement = "com.apple.developer.applesignin"
 
     let authRepository: NativeAuthSessionRepository
@@ -432,7 +434,7 @@ struct SignedOutSetupView: View {
             makeSession: SpoonjoyBrowserOAuthWebSession.make
         )
         browserSignIn = signIn
-        let start = await signIn.begin(provider: provider, sendsProviderHint: Self.authorizeProviderHint(for: provider) != nil, onReturn: {
+        let start = await signIn.begin(provider: provider, sendsProviderHint: Self.sendsProviderHint(), onReturn: {
             statusTone = .progress
             authStatus = "Finishing Spoonjoy sign-in."
         }) { finish in
@@ -444,6 +446,8 @@ struct SignedOutSetupView: View {
         case .opened, .alreadyInProgress:
             authStatus = "Finish \(provider.displayName) sign-in in the browser."
         case .couldNotOpen:
+            let reason = signIn.startFailure.map(NativeBrowserOAuthSignIn.diagnosticReason) ?? "unknown"
+            Self.browserSignInLogger.error("Browser sign-in did not start: \(reason, privacy: .public)")
             pendingOAuthProvider = nil
             isSigningIn = false
             statusTone = .error
@@ -451,20 +455,16 @@ struct SignedOutSetupView: View {
         }
     }
 
-    /// The provider hint sent to /oauth/authorize. Release builds always send it, so the sheet goes straight to Google or
-    /// GitHub. Debug builds launched with `SPOONJOY_UI_TEST_BROWSER_SIGN_IN_LOGIN_PAGE=1` leave it out, so the server
-    /// shows spoonjoy.app/login in the same ASWebAuthenticationSession: BrowserSignInCallbackUITests signs a throwaway
-    /// account in there with a password and proves the https callback comes back to the app.
-    static func authorizeProviderHint(
-        for provider: OAuthProviderHint,
-        environment: [String: String] = ProcessInfo.processInfo.environment
-    ) -> OAuthProviderHint? {
+    /// Whether /oauth/authorize gets the provider hint. Release builds always send it, so the sheet goes straight to
+    /// Google or GitHub. Debug builds launched with `SPOONJOY_UI_TEST_BROWSER_SIGN_IN_LOGIN_PAGE=1` leave it out, so the
+    /// server shows spoonjoy.app/login in the same ASWebAuthenticationSession: BrowserSignInCallbackUITests signs a
+    /// throwaway account in there with a password and proves the https callback comes back to the app.
+    static func sendsProviderHint(environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
 #if DEBUG
-        if environment["SPOONJOY_UI_TEST_BROWSER_SIGN_IN_LOGIN_PAGE"] == "1" {
-            return nil
-        }
+        return !NativeBrowserOAuthSignIn.loginPageRequested(environment: environment)
+#else
+        return true
 #endif
-        return provider
     }
 
     @MainActor
@@ -479,7 +479,9 @@ struct SignedOutSetupView: View {
         case .failed:
             statusTone = .error
             authStatus = "Could not finish browser sign-in. Try again."
-        case .canceled:
+        case let .canceled(error):
+            let reason = error.map(NativeBrowserOAuthSignIn.diagnosticReason) ?? "closed by the app"
+            Self.browserSignInLogger.error("Browser sign-in ended without a callback: \(reason, privacy: .public)")
             statusTone = .neutral
             authStatus = "Browser sign-in canceled."
         case .superseded:
