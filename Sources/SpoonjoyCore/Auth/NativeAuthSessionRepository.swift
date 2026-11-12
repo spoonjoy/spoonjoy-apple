@@ -12,6 +12,12 @@ public typealias NativeCodeExchangeOperation = @Sendable (
     _ codeVerifier: String
 ) async throws -> OAuthTokenResponse
 
+/// The authorization_code exchange with the whole grant, which may carry a pending Apple link
+/// (`OAuthRequests.exchangeCode(_:)` sends it). Prefer it to `NativeCodeExchangeOperation`, which cannot.
+public typealias NativeAuthorizationCodeExchangeOperation = @Sendable (
+    _ grant: NativeAuthorizationCodeGrant
+) async throws -> OAuthTokenResponse
+
 public typealias NativeAppleSignInExchangeOperation = @Sendable (
     _ credential: NativeAppleSignInCredential
 ) async throws -> OAuthTokenResponse
@@ -35,6 +41,7 @@ public actor NativeAuthSessionRepository {
     private let scope: String
     private let registerClient: NativeClientRegistrationOperation
     private let exchangeCode: NativeCodeExchangeOperation
+    private let exchangeAuthorizationCode: NativeAuthorizationCodeExchangeOperation?
     private let exchangeAppleCredential: NativeAppleSignInExchangeOperation
     private let exchangePasswordCredential: NativePasswordSignInExchangeOperation
     private let revoke: NativeRevokeOperation
@@ -42,6 +49,11 @@ public actor NativeAuthSessionRepository {
     private let serverBaseURL: URL?
     private let now: @Sendable () -> Date
     private let refreshCoordinator: RefreshCoordinator
+    private let onPendingAppleLinkEvent: PendingAppleLinkEventHandler
+    /// An Apple sign-in that found no account, waiting to be linked by the next sign-in another way. Memory only:
+    /// it is never written to the vault, and it goes with one sign-in attempt, sign-out, expiry, or an Apple
+    /// sign-in that succeeds.
+    private var pendingAppleLink: PendingAppleLink?
 
     public init(
         vault: any TokenVault,
@@ -50,6 +62,7 @@ public actor NativeAuthSessionRepository {
         scope: String = NativeAuthSession.defaultScope,
         registerClient: @escaping NativeClientRegistrationOperation,
         exchangeCode: @escaping NativeCodeExchangeOperation,
+        exchangeAuthorizationCode: NativeAuthorizationCodeExchangeOperation? = nil,
         exchangeAppleCredential: @escaping NativeAppleSignInExchangeOperation = { _ in
             throw NativeAuthSessionError.appleSignInUnavailable
         },
@@ -61,7 +74,8 @@ public actor NativeAuthSessionRepository {
         reusesSavedClientID: Bool = true,
         serverBaseURL: URL? = nil,
         refreshLock: RefreshLock? = nil,
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        onPendingAppleLinkEvent: @escaping PendingAppleLinkEventHandler = { _ in }
     ) {
         self.vault = vault
         self.clientName = clientName
@@ -69,6 +83,8 @@ public actor NativeAuthSessionRepository {
         self.scope = scope
         self.registerClient = registerClient
         self.exchangeCode = exchangeCode
+        self.exchangeAuthorizationCode = exchangeAuthorizationCode
+        self.onPendingAppleLinkEvent = onPendingAppleLinkEvent
         self.exchangeAppleCredential = exchangeAppleCredential
         self.exchangePasswordCredential = exchangePasswordCredential
         self.revoke = revoke
@@ -144,7 +160,20 @@ public actor NativeAuthSessionRepository {
             codeVerifier: codeVerifier
         )
 
-        let response = try await exchangeCode(clientID, redirectURI, code, codeVerifier)
+        let response: OAuthTokenResponse
+        if let exchangeAuthorizationCode {
+            let link = await takePendingAppleLink(sendingVia: .browser)
+            response = try await exchangeAuthorizationCode(NativeAuthorizationCodeGrant(
+                clientID: clientID,
+                redirectURI: redirectURI,
+                code: code,
+                codeVerifier: codeVerifier,
+                pendingAppleLinkToken: link?.token
+            ))
+            await reportOutcome(of: link, in: response)
+        } else {
+            response = try await exchangeCode(clientID, redirectURI, code, codeVerifier)
+        }
         let session = try AuthSession(
             clientID: clientID,
             accessToken: response.accessToken,
@@ -161,7 +190,19 @@ public actor NativeAuthSessionRepository {
 
     public func handleAppleSignInCredential(_ credential: NativeAppleSignInCredential) async throws -> AuthSession {
         _ = try NativeAppleSignInRequests.exchangeCredential(credential)
-        let response = try await exchangeAppleCredential(credential)
+        let response: OAuthTokenResponse
+        do {
+            response = try await exchangeAppleCredential(credential)
+        } catch {
+            if let link = PendingAppleLink.from(error, receivedAt: now()) {
+                pendingAppleLink = link
+                await onPendingAppleLinkEvent(.received)
+            }
+            // The token stays here; what leaves the repository can be shown and logged.
+            throw PendingAppleLink.redacting(error)
+        }
+        // Apple signs in on its own now, so nothing is left to link.
+        pendingAppleLink = nil
         let clientID = nativeClientID(issuedIn: response)
         let session = try AuthSession(
             clientID: clientID,
@@ -179,7 +220,9 @@ public actor NativeAuthSessionRepository {
 
     public func handlePasswordSignInCredential(_ credential: NativePasswordSignInCredential) async throws -> AuthSession {
         _ = try NativePasswordSignInRequests.exchangeCredential(credential)
-        let response = try await exchangePasswordCredential(credential)
+        let link = await takePendingAppleLink(sendingVia: .password)
+        let response = try await exchangePasswordCredential(credential.linkingApple(link))
+        await reportOutcome(of: link, in: response)
         let clientID = nativeClientID(issuedIn: response)
         let session = try AuthSession(
             clientID: clientID,
@@ -193,6 +236,42 @@ public actor NativeAuthSessionRepository {
         try await vault.saveClientID(clientID)
         try await vault.saveSession(session)
         return session
+    }
+
+    /// True while an Apple sign-in that found no account is waiting for the next sign-in another way to link it.
+    public func hasPendingAppleLink() async -> Bool {
+        await currentPendingAppleLink() != nil
+    }
+
+    /// The pending link, or nil once it has expired (which forgets it).
+    private func currentPendingAppleLink() async -> PendingAppleLink? {
+        guard let link = pendingAppleLink else {
+            return nil
+        }
+        guard !link.isExpired(at: now()) else {
+            pendingAppleLink = nil
+            await onPendingAppleLinkEvent(.expired)
+            return nil
+        }
+        return link
+    }
+
+    /// The pending link for the sign-in about to go out, forgotten as it is handed over: the server spends it on
+    /// the first sign-in that succeeds, so one attempt carries it whatever that attempt's result.
+    private func takePendingAppleLink(sendingVia method: PendingAppleLinkEvent.Method) async -> PendingAppleLink? {
+        guard let link = await currentPendingAppleLink() else {
+            return nil
+        }
+        pendingAppleLink = nil
+        await onPendingAppleLinkEvent(.sent(via: method))
+        return link
+    }
+
+    private func reportOutcome(of link: PendingAppleLink?, in response: OAuthTokenResponse) async {
+        guard link != nil, let outcome = response.appleLinkOutcome else {
+            return
+        }
+        await onPendingAppleLinkEvent(.outcome(outcome))
     }
 
     /// The client id the server issued a native sign-in's tokens to: the response's own `client_id`, else the
@@ -251,6 +330,7 @@ public actor NativeAuthSessionRepository {
     /// Forgets the stored session and client id without telling the server, for a session the server already
     /// reported as revoked, or after the account itself was deleted (the server dropped every token with it).
     public func clearLocalSession() async throws {
+        pendingAppleLink = nil
         try await refreshCoordinator.disconnect()
     }
 
@@ -259,6 +339,7 @@ public actor NativeAuthSessionRepository {
     /// the server no longer recognises), so a shared device can always be signed out.
     /// The server revoke is best-effort.
     public func revokeAndLogout() async throws {
+        pendingAppleLink = nil
         if let session = try? await vault.loadSession() {
             do {
                 _ = try OAuthRequests.revoke(refreshToken: session.refreshToken, clientID: session.clientID)
