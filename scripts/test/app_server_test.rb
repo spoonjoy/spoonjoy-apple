@@ -29,11 +29,20 @@ class AppServerTest < Minitest::Test
     refute root.include?(%(environment["SPOONJOY_API_BASE_URL"])), "the root view still reads SPOONJOY_API_BASE_URL itself"
   end
 
+  # Two uses that send no session: the DEBUG-only hermetic shopping UI-test runner and the disabled telemetry client.
+  ALLOWED = [
+    "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
+    "Apps/Spoonjoy/Shared/AppShell/NativeAppleSignInTelemetry.swift"
+  ].freeze
+
   def test_no_intent_names_a_server_of_its_own
-    offenders = Dir.glob(File.join(ROOT, "Apps/Spoonjoy/Shared/Native/*.swift")).filter_map do |path|
+    # Journeys and UI tests run in the test runner, not the app, so they are outside this rule.
+    offenders = Dir.glob(File.join(ROOT, "Apps/**/*.swift")).filter_map do |path|
       relative = path.delete_prefix("#{ROOT}/")
-      next if relative == FACTORY
+      next if relative == FACTORY || relative.start_with?("Apps/Spoonjoy/Journeys/", "Apps/Spoonjoy/UITests/")
+      allowed = ALLOWED.include?(relative) ? 1 : 0
       lines = File.readlines(path).each_with_index.select { |line, _| line.include?("spoonjoyProduction") }
+      lines = lines.drop(allowed)
       lines.map { |_, index| "#{relative}:#{index + 1}" } unless lines.empty?
     end.flatten
     assert_empty offenders, "use SpoonjoyAppServer.configuration(), so Siri talks to the server the app signed in to"
