@@ -157,7 +157,13 @@ final class BrowserSignInCallbackUITests: XCTestCase {
                     let alert = owner.alerts["Save Password?"]
                     guard alert.exists else { continue }
                     screenshot("03b-save-password-offered")
-                    alert.buttons["Not Now"].tap()
+                    // The alert can close by itself when the callback arrives first (run 43274026769), so a tap that
+                    // finds nothing is expected; the kitchen check below still decides the test.
+                    continueAfterFailure = true
+                    XCTExpectFailure("The Save Password alert closed before the tap.", options: .nonStrict()) {
+                        alert.buttons["Not Now"].tap()
+                    }
+                    continueAfterFailure = false
                     answered = true
                     break
                 }
