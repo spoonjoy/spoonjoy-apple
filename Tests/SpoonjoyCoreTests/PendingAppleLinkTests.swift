@@ -224,6 +224,47 @@ struct PendingAppleLinkTests {
         #expect(await !harness.repository.hasPendingAppleLink())
     }
 
+    @Test("a refused password sign-in does not bring back a link that sign-out cleared while the attempt was reported")
+    func passwordFailureAfterSignOutDuringSentEvent() async throws {
+        let box = RepositoryBox()
+        let harness = try PendingAppleLinkHarness(onEvent: { event in
+            if case .sent = event, let repository = box.repository {
+                try? await repository.revokeAndLogout()
+            }
+        })
+        box.repository = harness.repository
+        await #expect(throws: APITransportError.self) {
+            _ = try await harness.repository.handleAppleSignInCredential(PendingAppleLinkHarness.appleCredential)
+        }
+        await harness.network.failNextPassword()
+        await #expect(throws: URLError.self) {
+            _ = try await harness.repository.handlePasswordSignInCredential(PendingAppleLinkHarness.passwordCredential)
+        }
+        #expect(await !harness.repository.hasPendingAppleLink())
+    }
+
+    @Test("sign-out and an Apple sign-in clear an unread confirmation, and a later sign-in never shows a stale one")
+    func confirmationClearing() async throws {
+        let harness = try PendingAppleLinkHarness(appleLinkOutcome: "linked")
+        for clear in [
+            { try await harness.repository.revokeAndLogout() },
+            { try await harness.repository.clearLocalSession() },
+            {
+                await harness.network.allowApple()
+                _ = try await harness.repository.handleAppleSignInCredential(PendingAppleLinkHarness.appleCredential)
+                await harness.network.refuseApple()
+            },
+            { _ = try await harness.repository.handlePasswordSignInCredential(PendingAppleLinkHarness.passwordCredential) }
+        ] as [@Sendable () async throws -> Void] {
+            await #expect(throws: APITransportError.self) {
+                _ = try await harness.repository.handleAppleSignInCredential(PendingAppleLinkHarness.appleCredential)
+            }
+            _ = try await harness.signInWithBrowser()
+            try await clear()
+            #expect(await !harness.repository.takeAppleConnectedConfirmation())
+        }
+    }
+
     @Test("only a linked or already-linked answer confirms Apple; other outcomes don't")
     func confirmationOutcomes() async throws {
         for (outcome, confirmed) in [("linked", true), ("already_linked", true), ("taken", false), ("consumed", false)] {
@@ -362,6 +403,11 @@ private final class ClockBox: @unchecked Sendable {
     }
 }
 
+/// Lets an event handler reach the repository it was built into.
+private final class RepositoryBox: @unchecked Sendable {
+    var repository: NativeAuthSessionRepository?
+}
+
 private actor EventLog {
     private(set) var all: [PendingAppleLinkEvent] = []
 
@@ -438,7 +484,11 @@ private struct PendingAppleLinkHarness {
         func advance(by interval: TimeInterval) async { box.advance(by: interval) }
     }
 
-    init(serverExpiresAt: String? = nil, appleLinkOutcome: String? = nil) throws {
+    init(
+        serverExpiresAt: String? = nil,
+        appleLinkOutcome: String? = nil,
+        onEvent: @escaping PendingAppleLinkEventHandler = { _ in }
+    ) throws {
         let box = ClockBox(PendingAppleLinkTests.receivedAt)
         clock = ClockHandle(box: box)
         let network = PendingAppleLinkNetwork(
@@ -458,7 +508,10 @@ private struct PendingAppleLinkHarness {
             refresh: { _, _ in throw URLError(.badServerResponse) },
             revoke: { _, _ in },
             now: { box.now },
-            onPendingAppleLinkEvent: { event in await events.append(event) }
+            onPendingAppleLinkEvent: { event in
+                await events.append(event)
+                await onEvent(event)
+            }
         )
     }
 
