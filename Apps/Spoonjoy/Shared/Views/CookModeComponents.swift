@@ -279,3 +279,18 @@ extension EnvironmentValues {
     /// Whether a cook timer shows its start hint under the ring; false where only the compact ring fits.
     @Entry var cookTimerShowsHint: Bool = true
 }
+
+extension DynamicTypeSize {
+    /// `steps` sizes larger, for a big canvas that sets its text up to match its step: never past the largest standard
+    /// size, and never smaller than the person's own setting, so an accessibility size is left as it is.
+    func stepped(up steps: Int) -> DynamicTypeSize {
+        let sizes = DynamicTypeSize.allCases
+        guard steps > 0, self < .xxxLarge,
+              let index = sizes.firstIndex(of: self),
+              let ceiling = sizes.firstIndex(of: .xxxLarge)
+        else {
+            return self
+        }
+        return sizes[min(index + steps, ceiling)]
+    }
+}

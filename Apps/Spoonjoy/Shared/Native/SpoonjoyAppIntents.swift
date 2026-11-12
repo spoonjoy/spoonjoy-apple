@@ -1754,7 +1754,7 @@ struct SpoonjoyIntentTelemetry {
 
     private static func record(_ descriptor: NativeIntentTelemetryDescriptor) async {
         do {
-            let refresher = SpoonjoyIntentAPIRefresher(vault: KeychainTokenVault())
+            let refresher = SpoonjoyIntentAPIRefresher(vault: SpoonjoyAppTokenVault.current())
             let configuration = try await refresher.validConfiguration()
             _ = try await URLSessionAPITransport(authenticationRefresher: refresher).send(
                 try NativeTelemetryRequests.recordEvent(descriptor.telemetryEvent(
@@ -2030,7 +2030,7 @@ private struct SpoonjoyIntentStateWriter {
         fileURL: URL = NativeAppStateLocation.defaultFileURL(),
         syncStore: (any NativeSyncStore)? = nil,
         cacheStore: NativeDurableCacheStore? = nil,
-        authVault: (any TokenVault)? = KeychainTokenVault(),
+        authVault: (any TokenVault)? = SpoonjoyAppTokenVault.current(),
         connectivityProbe: (@Sendable () async -> SettingsSurfaceConnectivity)? = nil
     ) throws {
         store = NativeAppStateStore(fileURL: fileURL)
