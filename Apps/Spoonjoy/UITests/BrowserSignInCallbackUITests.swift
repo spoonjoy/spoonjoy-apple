@@ -150,27 +150,38 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         let kitchen = element("kitchen.root")
         let deadline = Date().addingTimeInterval(Self.networkTimeout)
         var answered = false
+        var captured = false
         repeat {
             if kitchen.exists { return true }
             if !answered {
                 for owner: XCUIApplication in [app!, webSheet, springboard] {
                     let alert = owner.alerts["Save Password?"]
                     guard alert.exists else { continue }
-                    screenshot("03b-save-password-offered")
-                    // The alert can close by itself when the callback arrives first (run 43274026769), so a tap that
-                    // finds nothing is expected; the kitchen check below still decides the test.
-                    continueAfterFailure = true
-                    XCTExpectFailure("The Save Password alert closed before the tap.", options: .nonStrict()) {
-                        alert.buttons["Not Now"].tap()
+                    if !captured {
+                        screenshot("03b-save-password-offered")
+                        captured = true
                     }
-                    continueAfterFailure = false
-                    answered = true
+                    // The alert can close by itself when the callback arrives first (run 43274026769), and a failed
+                    // element tap ends the test even inside XCTExpectFailure (run 43282912644). So the button is read
+                    // from a snapshot, which throws instead of failing, and tapped by its screen point.
+                    if !kitchen.exists,
+                       let snapshot = try? alert.snapshot(),
+                       let notNow = snapshot.children.flatMap(Self.flatten).first(where: { $0.elementType == .button && $0.label == "Not Now" }) {
+                        owner.coordinate(withNormalizedOffset: .zero)
+                            .withOffset(CGVector(dx: notNow.frame.midX, dy: notNow.frame.midY))
+                            .tap()
+                        answered = true
+                    }
                     break
                 }
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         } while Date() < deadline
         return kitchen.exists
+    }
+
+    private static func flatten(_ snapshot: XCUIElementSnapshot) -> [XCUIElementSnapshot] {
+        [snapshot] + snapshot.children.flatMap(flatten)
     }
 
     private func dismissKeyboardTip() {
