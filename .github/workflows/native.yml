@@ -36,6 +36,11 @@ concurrency:
 # so at least 2 slots stay outside the lanes; TestFlight, the signing dry run and the review demo launch share those 2
 # and are not laned. A lane holds at most 100 waiting jobs; past that GitHub cancels the newest, which only lane c can reach.
 
+# Ari's Mac. A self-hosted runner on Ari's Mac (labels: spoonjoy-local-mac only, registered to this repository alone)
+# takes App bundle on merge-queue and main or release push runs when it is idle, so the merge queue doesn't wait hours
+# for one of the org's few hosted Macs. The "Mac runner" job picks local or hosted (scripts/pick-mac-runner.rb); pull
+# requests never reach it, and the runner's own job-started hook refuses any other event or repository.
+
 permissions:
   contents: read
 
@@ -126,6 +131,7 @@ jobs:
           ruby scripts/test/app_shortcuts_test.rb
           ruby scripts/test/app_token_vault_test.rb
           ruby scripts/test/macos_lanes_test.rb
+          ruby scripts/test/pick_mac_runner_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
           ruby scripts/stage-app-store-listing.rb --validate-only --platform MAC_OS
           ruby scripts/seed-review-demo-account.rb --validate-only
@@ -253,13 +259,51 @@ jobs:
           scripts/verify-native-scenarios.sh --stage final 2>&1 | tee "$scenario_log"
           ruby scripts/fail-on-warning.rb --log "$scenario_log"
 
+  mac-runner:
+    # Picks where App bundle runs on a merge-queue or main/release push run: the local Mac when it is up and idle,
+    # otherwise a hosted xcode-27 runner (see the note on Ari's Mac at the top of native.yml). Pull requests skip it.
+    name: Mac runner
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    # One pick at a time, so a pick sees the App bundle job the previous one sent to the Mac.
+    concurrency:
+      group: >-
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push') && 'spoonjoy-local-mac-pick'
+        || format('native-mac-runner-{0}-{1}', github.run_id, github.run_attempt) }}
+      queue: max
+    outputs:
+      app-bundle: ${{ steps.pick.outputs.app-bundle }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/pick-mac-runner.rb
+          sparse-checkout-cone-mode: false
+      - name: Pick the local Mac or a hosted runner
+        id: pick
+        # A failed pick leaves the output empty, which means hosted: it never blocks App bundle.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SPOONJOY_LOCAL_MAC: ${{ vars.SPOONJOY_LOCAL_MAC }}
+        run: ruby scripts/pick-mac-runner.rb
+
   app-bundle:
     name: App bundle
+    needs: mac-runner
     # A draft pull request skips App bundle, and with it every optional job (they need it), so drafts fill only
     # lane b and never the 15-20 min App bundle lane. A skipped check can't merge a draft, and ready_for_review
     # reruns Native on the same commit with App bundle. Re-running an old draft run replays draft: true, so it skips again.
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: xcode-27
+    # !cancelled(): App bundle still runs when Mac runner is skipped (pull requests) or fails (then it runs hosted).
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+    # The local Mac only for merge-queue and main/release push runs whose Mac runner job picked it.
+    runs-on: >-
+      ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+      && needs.mac-runner.outputs.app-bundle == 'local' && 'spoonjoy-local-mac' || 'xcode-27' }}
     # Lane a of 3: see the note on macOS lanes at the top of native.yml.
     concurrency:
       group: >-
@@ -274,25 +318,36 @@ jobs:
         with:
           persist-credentials: false
       - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        if: runner.environment == 'github-hosted'
         with:
           ruby-version: '3.3'
           bundler-cache: true
+      # The local Mac has Homebrew's Ruby 3.3; setup-ruby's prebuilt Rubies only run from the hosted toolcache path.
+      # App bundle's scripts use only the standard library, so no gems are installed.
+      - name: Use the local Mac's Ruby 3.3
+        if: runner.environment == 'self-hosted'
+        run: |
+          set -euo pipefail
+          echo /opt/homebrew/opt/ruby@3.3/bin >> "$GITHUB_PATH"
+          /opt/homebrew/opt/ruby@3.3/bin/ruby -e 'abort "Ruby #{RUBY_VERSION} is not 3.3" unless RUBY_VERSION.start_with?("3.3.")'
       - uses: ./.github/actions/select-xcode
+      # Every xcodebuild here uses $RUNNER_TEMP/DerivedData, which the runner empties after each job, so the local
+      # Mac keeps no build products and never shares DerivedData with other work on it.
       - name: Build iOS and macOS app bundles
         run: |
           set -euo pipefail
           ios_build_log="$RUNNER_TEMP/xcode-ios-build.log"
           macos_build_log="$RUNNER_TEMP/xcode-macos-build.log"
-          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$ios_build_log"
+          xcodebuild -project Spoonjoy.xcodeproj -derivedDataPath "$RUNNER_TEMP/DerivedData" -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$ios_build_log"
           ruby scripts/fail-on-warning.rb --log "$ios_build_log"
-          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$macos_build_log"
+          xcodebuild -project Spoonjoy.xcodeproj -derivedDataPath "$RUNNER_TEMP/DerivedData" -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$macos_build_log"
           ruby scripts/fail-on-warning.rb --log "$macos_build_log"
       # The App Intents X-ray job reads the iOS app's App Intents metadata, Info.plist and any skills bundles; only
       # this runner has the iOS 27 SDK to build them, so they travel as a small artifact.
       - name: Collect the iOS app's App Intents metadata for the X-ray
         run: |
           set -euo pipefail
-          app="$(xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' -showBuildSettings -json 2>/dev/null | ruby -rjson -e 'settings = JSON.parse(STDIN.read).find { |entry| entry["target"] == "Spoonjoy iOS" }.fetch("buildSettings"); puts File.join(settings.fetch("BUILT_PRODUCTS_DIR"), settings.fetch("WRAPPER_NAME"))')"
+          app="$(xcodebuild -project Spoonjoy.xcodeproj -derivedDataPath "$RUNNER_TEMP/DerivedData" -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' -showBuildSettings -json 2>/dev/null | ruby -rjson -e 'settings = JSON.parse(STDIN.read).find { |entry| entry["target"] == "Spoonjoy iOS" }.fetch("buildSettings"); puts File.join(settings.fetch("BUILT_PRODUCTS_DIR"), settings.fetch("WRAPPER_NAME"))')"
           out="$RUNNER_TEMP/xray-input/Spoonjoy.app"
           mkdir -p "$out"
           cp "$app/Info.plist" "$out/"
@@ -316,7 +371,7 @@ jobs:
           set -euo pipefail
           for spec in "Spoonjoy iOS|generic/platform=iOS Simulator|" "Spoonjoy macOS|generic/platform=macOS|Contents/Resources/"; do
             IFS='|' read -r scheme destination resources <<<"$spec"
-            app="$(xcodebuild -project Spoonjoy.xcodeproj -scheme "$scheme" -configuration BootstrapDebug -destination "$destination" -showBuildSettings -json 2>/dev/null | ruby -rjson -e 'target = ARGV[0]; settings = JSON.parse(STDIN.read).find { |entry| entry["target"] == target }.fetch("buildSettings"); puts File.join(settings.fetch("BUILT_PRODUCTS_DIR"), settings.fetch("WRAPPER_NAME"))' "$scheme")"
+            app="$(xcodebuild -project Spoonjoy.xcodeproj -derivedDataPath "$RUNNER_TEMP/DerivedData" -scheme "$scheme" -configuration BootstrapDebug -destination "$destination" -showBuildSettings -json 2>/dev/null | ruby -rjson -e 'target = ARGV[0]; settings = JSON.parse(STDIN.read).find { |entry| entry["target"] == target }.fetch("buildSettings"); puts File.join(settings.fetch("BUILT_PRODUCTS_DIR"), settings.fetch("WRAPPER_NAME"))' "$scheme")"
             manifest="$app/${resources}PrivacyInfo.xcprivacy"
             if [ ! -f "$manifest" ]; then
               echo "$scheme bundle is missing ${resources}PrivacyInfo.xcprivacy ($app)"
@@ -332,7 +387,7 @@ jobs:
           fonts=("Fraunces[SOFT,WONK,opsz,wght].ttf" "SourceSerif4[opsz,wght].ttf" IBMPlexSansCondensed-{Regular,Medium,SemiBold,Bold}.ttf OFL-{Fraunces,SourceSerif4,IBMPlexSansCondensed}.txt)
           for spec in "Spoonjoy iOS|generic/platform=iOS Simulator|" "Spoonjoy iOS|generic/platform=iOS Simulator|PlugIns/SpoonjoyCookTimerWidget.appex/" "Spoonjoy macOS|generic/platform=macOS|Contents/Resources/"; do
             IFS='|' read -r scheme destination resources <<<"$spec"
-            app="$(xcodebuild -project Spoonjoy.xcodeproj -scheme "$scheme" -configuration BootstrapDebug -destination "$destination" -showBuildSettings -json 2>/dev/null | ruby -rjson -e 'target = ARGV[0]; settings = JSON.parse(STDIN.read).find { |entry| entry["target"] == target }.fetch("buildSettings"); puts File.join(settings.fetch("BUILT_PRODUCTS_DIR"), settings.fetch("WRAPPER_NAME"))' "$scheme")"
+            app="$(xcodebuild -project Spoonjoy.xcodeproj -derivedDataPath "$RUNNER_TEMP/DerivedData" -scheme "$scheme" -configuration BootstrapDebug -destination "$destination" -showBuildSettings -json 2>/dev/null | ruby -rjson -e 'target = ARGV[0]; settings = JSON.parse(STDIN.read).find { |entry| entry["target"] == target }.fetch("buildSettings"); puts File.join(settings.fetch("BUILT_PRODUCTS_DIR"), settings.fetch("WRAPPER_NAME"))' "$scheme")"
             for font in "${fonts[@]}"; do
               if [ ! -f "$app/$resources$font" ]; then
                 echo "$scheme bundle is missing $resources$font ($app)"
@@ -347,9 +402,9 @@ jobs:
           set -euo pipefail
           ios_release_log="$RUNNER_TEMP/xcode-ios-release-build.log"
           macos_release_log="$RUNNER_TEMP/xcode-macos-release-build.log"
-          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$ios_release_log"
+          xcodebuild -project Spoonjoy.xcodeproj -derivedDataPath "$RUNNER_TEMP/DerivedData" -scheme "Spoonjoy iOS" -configuration Release -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$ios_release_log"
           ruby scripts/fail-on-warning.rb --log "$ios_release_log"
-          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration Release -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$macos_release_log"
+          xcodebuild -project Spoonjoy.xcodeproj -derivedDataPath "$RUNNER_TEMP/DerivedData" -scheme "Spoonjoy macOS" -configuration Release -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$macos_release_log"
           ruby scripts/fail-on-warning.rb --log "$macos_release_log"
 
   app-intents-xray:
