@@ -59,18 +59,27 @@ public enum OAuthRequests {
         code: String,
         codeVerifier: String
     ) throws -> APIRequestBuilder {
-        _ = try OAuthRedirectValidator.validate(redirectURI)
-
-        return formRequest(
-            pathComponents: ["oauth", "token"],
-            fields: [
-                URLQueryItem(name: "grant_type", value: "authorization_code"),
-                URLQueryItem(name: "client_id", value: clientID),
-                URLQueryItem(name: "redirect_uri", value: redirectURI.absoluteString),
-                URLQueryItem(name: "code", value: code),
-                URLQueryItem(name: "code_verifier", value: codeVerifier)
-            ]
+        try exchangeCode(
+            NativeAuthorizationCodeGrant(clientID: clientID, redirectURI: redirectURI, code: code, codeVerifier: codeVerifier)
         )
+    }
+
+    /// The authorization_code exchange. A grant carrying a pending Apple link adds `pending_apple_link_token`,
+    /// which the server honors only for Spoonjoy's own native client.
+    public static func exchangeCode(_ grant: NativeAuthorizationCodeGrant) throws -> APIRequestBuilder {
+        _ = try OAuthRedirectValidator.validate(grant.redirectURI)
+
+        var fields = [
+            URLQueryItem(name: "grant_type", value: "authorization_code"),
+            URLQueryItem(name: "client_id", value: grant.clientID),
+            URLQueryItem(name: "redirect_uri", value: grant.redirectURI.absoluteString),
+            URLQueryItem(name: "code", value: grant.code),
+            URLQueryItem(name: "code_verifier", value: grant.codeVerifier)
+        ]
+        if let pendingAppleLinkToken = grant.pendingAppleLinkToken {
+            fields.append(URLQueryItem(name: "pending_apple_link_token", value: pendingAppleLinkToken))
+        }
+        return formRequest(pathComponents: ["oauth", "token"], fields: fields)
     }
 
     public static func refreshToken(
@@ -130,6 +139,51 @@ public enum OAuthRequests {
             queryItems: [],
             headers: ["Content-Type": "application/x-www-form-urlencoded"],
             body: Data(components.percentEncodedQuery!.utf8)
+        )
+    }
+}
+
+/// An authorization code to exchange for tokens, with the pending Apple link it carries, if any.
+public struct NativeAuthorizationCodeGrant: Equatable, Sendable {
+    public let clientID: String
+    public let redirectURI: URL
+    public let code: String
+    public let codeVerifier: String
+    /// Set only by `NativeAuthSessionRepository`, and never printed.
+    let pendingAppleLinkToken: String?
+
+    public init(clientID: String, redirectURI: URL, code: String, codeVerifier: String) {
+        self.init(clientID: clientID, redirectURI: redirectURI, code: code, codeVerifier: codeVerifier, pendingAppleLinkToken: nil)
+    }
+
+    init(clientID: String, redirectURI: URL, code: String, codeVerifier: String, pendingAppleLinkToken: String?) {
+        self.clientID = clientID
+        self.redirectURI = redirectURI
+        self.code = code
+        self.codeVerifier = codeVerifier
+        self.pendingAppleLinkToken = pendingAppleLinkToken
+    }
+
+    /// True when this exchange will ask the server to link a pending Apple sign-in to the account.
+    public var carriesPendingAppleLink: Bool {
+        pendingAppleLinkToken != nil
+    }
+}
+
+extension NativeAuthorizationCodeGrant: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
+    public var description: String {
+        "NativeAuthorizationCodeGrant(clientID: \(clientID), redirectURI: \(redirectURI), code: <redacted>, codeVerifier: <redacted>, pendingAppleLink: \(carriesPendingAppleLink))"
+    }
+
+    public var debugDescription: String {
+        description
+    }
+
+    public var customMirror: Mirror {
+        Mirror(
+            self,
+            children: ["clientID": clientID, "redirectURI": redirectURI, "carriesPendingAppleLink": carriesPendingAppleLink],
+            displayStyle: .struct
         )
     }
 }
