@@ -2,6 +2,9 @@ name: Native
 
 on:
   pull_request:
+    # ready_for_review starts a full run on the same commit: a draft runs only lane b (see app-bundle below), so
+    # marking it ready is what builds App bundle and starts the optional jobs.
+    types: [opened, synchronize, reopened, ready_for_review]
   # main has a merge queue (ruleset "main merge queue"); branch protection is not strict, the queue keeps main current.
   # The merge queue tests each entry on top of main plus the entries ahead of it. Required checks report here;
   # the optional jobs below skip (they run on pull_request) and TestFlight ignores these branches.
@@ -109,8 +112,10 @@ jobs:
           ruby scripts/test/parity_sheet_test.rb
           ruby scripts/test/release_branch_workflow_test.rb
           ruby scripts/test/optional_checks_wait_test.rb
+          ruby scripts/test/draft_runs_lane_b_test.rb
           ruby scripts/test/no_design_hex_test.rb
           ruby scripts/test/app_shortcuts_test.rb
+          ruby scripts/test/macos_lanes_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
           ruby scripts/stage-app-store-listing.rb --validate-only --platform MAC_OS
           ruby scripts/seed-review-demo-account.rb --validate-only
@@ -237,6 +242,10 @@ jobs:
 
   app-bundle:
     name: App bundle
+    # A draft pull request skips App bundle, and with it every optional job (they need it), so drafts fill only
+    # lane b and never the 15-20 min App bundle lane. A skipped check can't merge a draft, and ready_for_review
+    # reruns Native on the same commit with App bundle. Re-running an old draft run replays draft: true, so it skips again.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: xcode-27
     # Lane a of 3: see the note on macOS lanes at the top of native.yml.
     concurrency:
@@ -426,20 +435,26 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 1
+          # The parent tells the changelog which fragments this commit added.
+          fetch-depth: 2
           persist-credentials: false
 
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+
+      # What to Test comes from the changelog fragments (changes/README.md): the lines this commit added, then the
+      # rest of the version's. A commit with no fragment says so and names its subject.
       - name: Create exact-SHA TestFlight release note
         run: |
           set -euo pipefail
           note_dir="$RUNNER_TEMP/testflight-release-note"
           mkdir -p "$note_dir"
-          notes="$(git log -1 --format=%s "$GITHUB_SHA" | tr '\n\r' '  ')"
+          notes="$(ruby scripts/changelog.rb testflight-notes --since "$GITHUB_SHA^")"
           [[ -n "${notes//[[:space:]]/}" ]] || {
-            echo "The exact source commit must have a non-empty subject for TestFlight notes." >&2
+            echo "The changelog gave empty TestFlight notes for $GITHUB_SHA." >&2
             exit 1
           }
-          notes="${notes:0:4000}"
           generated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           jq -n \
             --arg sourceSha "$GITHUB_SHA" \
