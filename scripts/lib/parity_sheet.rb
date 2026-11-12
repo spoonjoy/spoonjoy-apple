@@ -136,8 +136,9 @@ module ParitySheet
     ["magick", "-background", "white", *side(pair.web), *side(pair.native), "+append", "-quality", "85", output]
   end
 
+  # -auto-orient first: a turned iPad's shot is portrait pixels with an orientation tag, which -resize ignores.
   def side(path)
-    return ["(", path, "-resize", SHOT_HEIGHT, ")"] if path
+    return ["(", path, "-auto-orient", "-resize", SHOT_HEIGHT, ")"] if path
 
     ["(", "-size", PANEL_SIZE, "xc:#d9d9d9", ")"]
   end

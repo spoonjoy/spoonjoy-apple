@@ -86,6 +86,15 @@ class ParitySheetTest < Minitest::Test
     assert_equal "/out/recipe-desktop-dark.jpg", argv.last
   end
   
+  def test_each_shot_is_turned_upright_before_it_is_scaled
+    pair = ParitySheet::Pair.new("recipe", "ipad-landscape", "light", "/w/r.png", "/n/r.png")
+    argv = ParitySheet.compose_command(pair, "/out/recipe-ipad-landscape-light.jpg")
+    ["/w/r.png", "/n/r.png"].each do |path|
+      at = argv.index(path)
+      assert_equal ["-auto-orient", "-resize"], argv[at + 1, 2], "#{path} is scaled before it is turned upright"
+    end
+  end
+
   def test_both_sides_missing_still_draws_two_panels
     pair = ParitySheet::Pair.new("chef", "ipad", "light", nil, nil)
     argv = ParitySheet.compose_command(pair, "/out/chef-ipad-light.jpg")
