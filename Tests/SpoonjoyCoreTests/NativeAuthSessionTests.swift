@@ -442,14 +442,12 @@ struct NativeAuthSessionTests {
                 "NativePasswordSignInCredential",
                 "handleAppleSignInCredential",
                 "handlePasswordSignInCredential",
-                "SpoonjoyWebAuthenticationSession(callbackURL:",
+                "NativeBrowserOAuthSignIn(",
+                "SpoonjoyBrowserOAuthWebSession.make",
                 "handleBrowserOAuthSignIn",
                 "handleBrowserOAuthSignIn(provider:",
-                "handleBrowserOAuthCallback",
-                "handleBrowserOAuthCancellation",
-                "authRepository.startSignIn",
-                "authRepository.handleOAuthCallback",
-                "providerHint:",
+                "signIn.begin(provider: provider",
+                "handleBrowserOAuthFinish",
                 "pendingOAuthProvider",
                 "Continue with Google",
                 "Continue with GitHub",
@@ -556,6 +554,9 @@ struct NativeAuthSessionTests {
                 "ASWebAuthenticationSession",
                 "SpoonjoyWebAuthenticationSession",
                 "SpoonjoyLoopbackWebAuthenticationSession",
+                "SpoonjoySystemWebAuthenticationSession",
+                "private let presentationContextProvider: any ASWebAuthenticationPresentationContextProviding",
+                "session.presentationContextProvider = presentationContextProvider",
                 "NSWorkspace.shared.open",
                 "127.0.0.1",
                 "53123",
@@ -571,7 +572,7 @@ struct NativeAuthSessionTests {
                 "loopback(host: String, port: UInt16, path: String)",
                 "handleOAuthCallback",
                 "cancel()",
-                "OAuthState",
+                "SpoonjoyBrowserOAuthWebSession: NativeBrowserOAuthWebSession",
                 "SpoonjoyAuthenticationPresentationContextProvider.make()",
                 "SpoonjoyUnavailableWebAuthenticationSession",
                 "activeSession = didStart ? session : nil",
@@ -1825,6 +1826,7 @@ private func expectKeychainStatus(
 }
 
 private let webAuthenticationSessionAdapterContractSource = #"""
+import AuthenticationServices
 import Foundation
 import Testing
 @testable import SpoonjoyCore
@@ -1833,6 +1835,32 @@ import Testing
 @MainActor
 @Suite("Web authentication session adapter contract")
 struct WebAuthenticationSessionAdapterContract {
+    @Test("system session keeps its presentation provider alive until start")
+    func systemSessionKeepsItsPresentationProviderAliveUntilStart() throws {
+        let url = URL(string: "https://spoonjoy.app/oauth/authorize?state=s")!
+        let callback = ASWebAuthenticationSession.Callback.https(host: "spoonjoy.app", path: "/oauth/callback")
+
+        // The bug: ASWebAuthenticationSession holds its provider weakly, so a provider that only
+        // a local variable owned is gone once that scope ends, and start() returns false.
+        let bare = ASWebAuthenticationSession(url: url, callback: callback) { _, _ in }
+        do {
+            let provider = ProbePresentationContextProvider()
+            bare.presentationContextProvider = provider
+        }
+        #expect(bare.presentationContextProvider == nil)
+
+        // The fix: the wrapper owns the provider, so it is still attached after the factory's scope ends.
+        let wrapped: SpoonjoySystemWebAuthenticationSession
+        do {
+            let provider = ProbePresentationContextProvider()
+            wrapped = SpoonjoySystemWebAuthenticationSession(
+                session: ASWebAuthenticationSession(url: url, callback: callback) { _, _ in },
+                presentationContextProvider: provider
+            )
+        }
+        #expect(wrapped.attachedPresentationContextProvider != nil)
+    }
+
     @Test("adapter configures exact HTTPS callback forwards callback and cancels")
     func adapterConfiguresExactHTTPSCallbackForwardsCallbackAndCancels() throws {
         let factory = FakeSessionFactory()
@@ -1848,9 +1876,7 @@ struct WebAuthenticationSessionAdapterContract {
             }
         )
         let authorizationURL = URL(string: "https://spoonjoy.app/oauth/authorize?client_id=cm_native_spoonjoy&state=state_123")!
-        let state = try #require(OAuthState(rawValue: "state_123"))
-
-        #expect(try adapter.start(authorizationURL: authorizationURL, oauthState: state))
+        #expect(try adapter.start(authorizationURL: authorizationURL))
         #expect(factory.requests == [
             FakeSessionRequest(
                 authorizationURL: authorizationURL,
@@ -1881,9 +1907,7 @@ struct WebAuthenticationSessionAdapterContract {
             }
         )
         let authorizationURL = URL(string: "https://spoonjoy.app/oauth/authorize?client_id=cm_native_spoonjoy&state=state_123")!
-        let state = try #require(OAuthState(rawValue: "state_123"))
-
-        #expect(try !adapter.start(authorizationURL: authorizationURL, oauthState: state))
+        #expect(try !adapter.start(authorizationURL: authorizationURL))
         let session = try #require(factory.sessions.first)
         #expect(session.startCount == 1)
 
@@ -1908,9 +1932,7 @@ struct WebAuthenticationSessionAdapterContract {
             }
         )
         let authorizationURL = URL(string: "https://spoonjoy.app/oauth/authorize?client_id=cm_native_spoonjoy&state=state_123")!
-        let state = try #require(OAuthState(rawValue: "state_123"))
-
-        #expect(try adapter.start(authorizationURL: authorizationURL, oauthState: state))
+        #expect(try adapter.start(authorizationURL: authorizationURL))
         factory.complete(with: nil, error: TestAuthenticationError.canceled)
 
         #expect(forwardedCallbacks.isEmpty)
@@ -1976,6 +1998,12 @@ private final class FakeWebAuthenticationSession: SpoonjoyWebAuthenticationSessi
     }
 }
 
+
+final class ProbePresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        ASPresentationAnchor()
+    }
+}
 """#
 
 private let nativeAuthBehaviorContractSource = ##"""

@@ -25,6 +25,8 @@ struct RecipeIndexRow: View {
     private let action: () -> Void
     /// How "Open in New Window" opens the recipe: on its page, or in cook mode for a recipe part-way cooked.
     private var windowPresentation: RecipePresentation = .detail
+    /// True when the row's tap target fills the height it is offered, as the shorter cell of a two-column index row.
+    private var fillsHeight = false
 
     @Environment(\.spoonjoyAddRecipeToList) private var addRecipeToList
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -110,7 +112,12 @@ struct RecipeIndexRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.vertical, 11)
-            .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .leading)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: KitchenTableTheme.minimumTouchTarget,
+                maxHeight: fillsHeight ? .infinity : nil,
+                alignment: fillsHeight ? .topLeading : .leading
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -138,6 +145,14 @@ struct RecipeIndexRow: View {
 
 extension RecipeIndexRow {
     /// The same row, with "Open in New Window" opening the recipe straight into cook mode on its saved step.
+    /// Stretches the tap target to the height the row is offered, so the shorter cell of a grid row is tappable
+    /// below its text.
+    func fillingHeight() -> RecipeIndexRow {
+        var row = self
+        row.fillsHeight = true
+        return row
+    }
+
     func opensNewWindowInCookMode() -> RecipeIndexRow {
         var row = self
         row.windowPresentation = .cook

@@ -273,6 +273,16 @@ The branch name must match `^release/[0-9][0-9A-Za-z.-]*$`; every workflow rejec
 
 Publish only from green: before "Stage App Store listing" or "Submit for App Review" sees an App Store Connect secret, `scripts/require-green-commit.rb` requires the source commit (main's head, or the release branch head) to have a green Native push run with every required check passed, and the job then checks out exactly that commit. A red, unfinished or never-built commit stops the run, dry runs included: wait for Native to finish on that commit, then dispatch.
 
+### Release train
+
+iOS and Mac move as one release train. `scripts/check-release-train.rb` runs in Contracts on every pull request and fails when:
+
+- `MARKETING_VERSION` in `Spoonjoy.xcodeproj/project.pbxproj` or `scripts/generate-xcode-project.rb`, `version.versionString` in `listing.json`, or a channel's `store.version` in `apple-distribution.json` differ, or `listing.json`'s `mac` section sets its own `version.versionString`;
+- a `whatsNew` is written in `listing.json` for one platform and left out for the other. Write it for both or for neither, or set `null` for a platform's first version;
+- the privacy, support or marketing URL differs between the platforms.
+
+Keywords and promotional text may differ only where the `mac` section gives its own on purpose (Mac search terms, a Mac promo line). Every copy field the `mac` section leaves alone must match on both platforms' live versions; the App Store Connect drift job compares them.
+
 ### CI signing
 
 CI signs with one long-lived Apple Distribution certificate, so a TestFlight run creates no certificate and `xcodebuild` makes no Apple network calls. Before this, each runner started with an empty keychain and `xcodebuild -allowProvisioningUpdates` with the App Store Connect API key minted a new "Created via API" Apple Development certificate on every run, which Apple emailed about on each create and revoke, and Xcode's own profile fetch failed on transient network loss.

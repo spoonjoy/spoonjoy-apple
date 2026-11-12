@@ -80,8 +80,10 @@ final class SpoonjoyWebAuthenticationSession {
                         completionHandler(url, error)
                     }
                 }
-                session.presentationContextProvider = presentationContextProvider
-                return session
+                return SpoonjoySystemWebAuthenticationSession(
+                    session: session,
+                    presentationContextProvider: presentationContextProvider
+                )
             },
             callbackHandler: callbackHandler,
             cancellationHandler: cancellationHandler
@@ -89,7 +91,7 @@ final class SpoonjoyWebAuthenticationSession {
     }
 
     @discardableResult
-    func start(authorizationURL: URL, oauthState _: OAuthState) throws -> Bool {
+    func start(authorizationURL: URL) throws -> Bool {
         _ = try OAuthRedirectValidator.validate(oauthCallback)
         let session = sessionFactory(
             authorizationURL,
@@ -128,6 +130,47 @@ final class SpoonjoyWebAuthenticationSession {
     func cancel() {
         activeSession?.cancel()
         activeSession = nil
+    }
+}
+
+/// The system sheet for one browser sign-in attempt, as `NativeBrowserOAuthSignIn` drives it: one per attempt, so
+/// every tap gets a fresh ASWebAuthenticationSession.
+@MainActor
+final class SpoonjoyBrowserOAuthWebSession: NativeBrowserOAuthWebSession {
+    private let authorizationURL: URL
+    private var session: SpoonjoyWebAuthenticationSession?
+
+    static func make(
+        authorizationURL: URL,
+        redirectURI: URL,
+        completion: @escaping @MainActor (URL?, (any Error)?) async -> Void
+    ) -> any NativeBrowserOAuthWebSession {
+        SpoonjoyBrowserOAuthWebSession(authorizationURL: authorizationURL, redirectURI: redirectURI, completion: completion)
+    }
+
+    private init(
+        authorizationURL: URL,
+        redirectURI: URL,
+        completion: @escaping @MainActor (URL?, (any Error)?) async -> Void
+    ) {
+        self.authorizationURL = authorizationURL
+        session = SpoonjoyWebAuthenticationSession(
+            callbackURL: redirectURI,
+            callbackHandler: { callbackURL in
+                Task { await completion(callbackURL, nil) }
+            },
+            cancellationHandler: { error in
+                Task { await completion(nil, error) }
+            }
+        )
+    }
+
+    func start() -> Bool {
+        (try? session?.start(authorizationURL: authorizationURL)) == true
+    }
+
+    func cancel() {
+        session?.cancel()
     }
 }
 
@@ -288,6 +331,38 @@ private final class SpoonjoyLoopbackWebAuthenticationSession: SpoonjoyWebAuthent
     }
 }
 #endif
+
+/// ASWebAuthenticationSession holds its presentation context provider weakly, and `start()` returns false
+/// once the provider is gone. This wrapper owns the provider for as long as the session is in use.
+@MainActor
+final class SpoonjoySystemWebAuthenticationSession: SpoonjoyWebAuthenticationSessionProtocol {
+    private let session: ASWebAuthenticationSession
+    private let presentationContextProvider: any ASWebAuthenticationPresentationContextProviding
+
+    init(session: ASWebAuthenticationSession, presentationContextProvider: any ASWebAuthenticationPresentationContextProviding) {
+        self.session = session
+        self.presentationContextProvider = presentationContextProvider
+        session.presentationContextProvider = presentationContextProvider
+    }
+
+    /// What the system session sees at `start()`; nil means `start()` would return false.
+    var attachedPresentationContextProvider: (any ASWebAuthenticationPresentationContextProviding)? {
+        session.presentationContextProvider
+    }
+
+    var prefersEphemeralWebBrowserSession: Bool {
+        get { session.prefersEphemeralWebBrowserSession }
+        set { session.prefersEphemeralWebBrowserSession = newValue }
+    }
+
+    func start() -> Bool {
+        session.start()
+    }
+
+    func cancel() {
+        session.cancel()
+    }
+}
 
 private final class SpoonjoyAuthenticationPresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
     private let anchor: ASPresentationAnchor

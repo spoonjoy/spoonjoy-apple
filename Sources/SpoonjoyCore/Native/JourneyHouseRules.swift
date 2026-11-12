@@ -68,8 +68,9 @@ public enum JourneyHouseRules {
         "return", "in", "case", "where", "try", "await", "throw", "is", "as", "if", "guard", "while", "switch", "else"
     ]
 
-    /// `.yml`/`.yaml` workflows and `.sh` scripts are checked as shell; `.swift` under `Support/` is support
-    /// code and every other `.swift` file is a journey.
+    /// `.yml`/`.yaml` workflows and `.sh` scripts are checked as shell; `.swift` under `Support/`, or under
+    /// `Siri/Support/` (the Siri journey's target of its own), is support code and every other `.swift`
+    /// file is a journey.
     public static func kind(forRelativePath path: String) -> JourneyFileKind? {
         if path.hasSuffix(".yml") || path.hasSuffix(".yaml") || path.hasSuffix(".sh") {
             return .workflow
@@ -77,7 +78,7 @@ public enum JourneyHouseRules {
         guard path.hasSuffix(".swift") else {
             return nil
         }
-        return path.hasPrefix("Support/") ? .support : .journey
+        return path.hasPrefix("Support/") || path.hasPrefix("Siri/Support/") ? .support : .journey
     }
 
     public static func check(fileName: String, source: String, kind: JourneyFileKind) -> [JourneyRuleViolation] {

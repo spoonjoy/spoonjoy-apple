@@ -46,6 +46,12 @@ let package = Package(
             name: "SpoonjoyReinsTests",
             dependencies: ["SpoonjoyReins", "SpoonjoyCore", .product(name: "OuroReins", package: "ouro-ui-apple")]
         ),
+        // Browser sign-in (Continue with Google or GitHub) with a fake sheet. Foundation only, so it also runs on an iOS
+        // simulator (native.yml, "Browser sign-in on the iOS simulator").
+        .testTarget(
+            name: "SpoonjoyBrowserSignInTests",
+            dependencies: ["SpoonjoyCore"]
+        ),
         .testTarget(
             name: "SpoonjoyCoreTests",
             dependencies: [
@@ -56,3 +62,10 @@ let package = Package(
         )
     ]
 )
+
+// The iOS simulator job (native.yml, "Browser sign-in on the iOS simulator") builds the package's tests for iOS, where
+// only SpoonjoyBrowserSignInTests compiles (the other test targets use AppKit and Process), so it sets
+// SPOONJOY_IOS_SIMULATOR_TESTS=1 to leave them out.
+if Context.environment["SPOONJOY_IOS_SIMULATOR_TESTS"] == "1" {
+    package.targets.removeAll { $0.type == .test && $0.name != "SpoonjoyBrowserSignInTests" }
+}

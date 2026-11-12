@@ -38,6 +38,8 @@ DUO_JOURNEYS_TARGET = "SpoonjoyDuoJourneys"
 DUO_JOURNEYS_BUNDLE_ID = "app.spoonjoy.duo-journeys"
 PARITY_JOURNEYS_TARGET = "SpoonjoyParityJourneys"
 PARITY_JOURNEYS_BUNDLE_ID = "app.spoonjoy.parity-journeys"
+SIRI_JOURNEYS_TARGET = "SpoonjoySiriJourneys"
+SIRI_JOURNEYS_BUNDLE_ID = "app.spoonjoy.siri-journeys"
 WIDGET_TARGET = "SpoonjoyCookTimerWidget"
 WIDGET_BUNDLE_ID = "app.spoonjoy.cook-timer-widget"
 WIDGET_INFO_PLIST = APP_ROOT.join("LiveActivity/Widget/Info.plist")
@@ -232,15 +234,18 @@ end
 
 # The wide-screen journeys (Journeys/Wide) are their own target, which the Duo tour runs, and the iPhone Duo journey
 # (Journeys/Duo) is another, which the Duo journeys job runs, and the parity capture (Journeys/Parity) another, which
-# the Parity job runs; every target shares Journeys/Support.
+# the Parity job runs, and the Siri journey (Journeys/Siri) another, the only one that may import AppIntentsTesting;
+# every target shares Journeys/Support.
 wide_journey_files = swift_files_under(APP_ROOT.join("Journeys/Wide"))
 duo_journey_files = swift_files_under(APP_ROOT.join("Journeys/Duo"))
 parity_journey_files = swift_files_under(APP_ROOT.join("Journeys/Parity"))
+siri_journey_files = swift_files_under(APP_ROOT.join("Journeys/Siri"))
 support_journey_files = swift_files_under(APP_ROOT.join("Journeys/Support"))
 layout_audit_collector = APP_ROOT.join("UITests/LayoutAuditCollector.swift").to_s
 {
   # Every journey target also compiles the UI tests' layout audit, to hold screens to no truncated text.
-  JOURNEYS_TARGET => [JOURNEYS_BUNDLE_ID, (swift_files_under(APP_ROOT.join("Journeys")) - wide_journey_files - duo_journey_files - parity_journey_files + [layout_audit_collector]).sort, "Apps/Spoonjoy/Journeys/**/*.swift outside Wide/, Duo/ and Parity/, and UITests/LayoutAuditCollector.swift"],
+  JOURNEYS_TARGET => [JOURNEYS_BUNDLE_ID, (swift_files_under(APP_ROOT.join("Journeys")) - wide_journey_files - duo_journey_files - parity_journey_files - siri_journey_files + [layout_audit_collector]).sort, "Apps/Spoonjoy/Journeys/**/*.swift outside Wide/, Duo/, Parity/ and Siri/, and UITests/LayoutAuditCollector.swift"],
+  SIRI_JOURNEYS_TARGET => [SIRI_JOURNEYS_BUNDLE_ID, (siri_journey_files + support_journey_files + [layout_audit_collector]).sort, "Apps/Spoonjoy/Journeys/{Siri,Support}/**/*.swift and UITests/LayoutAuditCollector.swift"],
   WIDE_JOURNEYS_TARGET => [WIDE_JOURNEYS_BUNDLE_ID, (wide_journey_files + support_journey_files + [layout_audit_collector]).sort, "Apps/Spoonjoy/Journeys/{Wide,Support}/**/*.swift and UITests/LayoutAuditCollector.swift"],
   DUO_JOURNEYS_TARGET => [DUO_JOURNEYS_BUNDLE_ID, (duo_journey_files + support_journey_files + [layout_audit_collector]).sort, "Apps/Spoonjoy/Journeys/{Duo,Support}/**/*.swift and UITests/LayoutAuditCollector.swift"],
   PARITY_JOURNEYS_TARGET => [PARITY_JOURNEYS_BUNDLE_ID, (parity_journey_files + support_journey_files + [layout_audit_collector]).sort, "Apps/Spoonjoy/Journeys/{Parity,Support}/**/*.swift and UITests/LayoutAuditCollector.swift"]

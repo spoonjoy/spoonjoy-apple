@@ -23,6 +23,7 @@ struct RecipesView: View {
     @State private var state: RecipeCatalogState
     @State private var query: String
     @State private var isLoading = false
+    @State private var containerWidth: CGFloat = 0
     /// The tab stack's cover-zoom namespace, so a tapped cover grows into its recipe; its own outside a tab stack.
     @Environment(\.recipeZoomNamespace) private var tabRecipeTransition
     @Namespace private var localRecipeTransition
@@ -62,7 +63,7 @@ struct RecipesView: View {
     }
 
     var body: some View {
-        KitchenTablePage {
+        KitchenTablePage(maxContentWidth: CGFloat(RecipeIndexColumns.pageWidth(columns: indexColumns))) {
             KitchenTableHeader(
                 eyebrow: headerEyebrow,
                 title: title,
@@ -80,6 +81,7 @@ struct RecipesView: View {
                 recipeIndex(rows: state.rows)
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { containerWidth = $0 }
         .reloadsOnPull { await loadCatalog(query: query) }
         .searchable(text: $query, prompt: searchPrompt)
         .onSubmit(of: .search) {
@@ -127,18 +129,75 @@ struct RecipesView: View {
         .accessibilityIdentifier("recipes.emptyState")
     }
 
-    private func recipeIndex(rows: [RecipeCatalogRowViewModel]) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(rows) { row in
-                if row.id != rows.first?.id {
-                    RecipeIndexRowSeparator()
+    /// True when the page shows the index, not the loading view or an empty state.
+    private var showsIndex: Bool {
+        !(isLoading && state.rows.isEmpty) && state.resolvedEmptyState(overridingDefaultWith: emptyStateOverride) == nil
+    }
+
+    /// How many columns the index takes: two on an iPad page with room for two 380 pt columns (an 11" or 13" iPad
+    /// held sideways beside the sidebar, the 11" iPad Pro upright with the sidebar hidden, or wider; `RecipeIndexColumns`),
+    /// otherwise one. Worked out from the container, before the page is capped, so the page widens only when two
+    /// columns are drawn: a loading, empty or one-recipe list, a phone, the Duo, the Mac and accessibility text sizes
+    /// keep the 720 pt page.
+    private var indexColumns: Int {
+        RecipeIndexColumns.count(
+            containerWidth: Double(containerWidth),
+            rows: showsIndex ? state.rows.count : 0,
+            setsColumns: Self.setsIndexInColumns && !dynamicTypeSize.isAccessibilitySize
+        )
+    }
+
+    /// The index, in two columns read across and then down when `indexColumns` allows. The rows are built eagerly,
+    /// as in one column, so every row is in the accessibility tree.
+    @ViewBuilder private func recipeIndex(rows: [RecipeCatalogRowViewModel]) -> some View {
+        let columns = indexColumns
+        if columns > 1 {
+            Grid(alignment: .topLeading, horizontalSpacing: CGFloat(RecipeIndexColumns.columnSpacing), verticalSpacing: 0) {
+                ForEach(Array(stride(from: 0, to: rows.count, by: columns)), id: \.self) { start in
+                    GridRow(alignment: .top) {
+                        ForEach(start..<min(start + columns, rows.count), id: \.self) { index in
+                            let row = rows[index]
+                            VStack(alignment: .leading, spacing: 0) {
+                                if RecipeIndexColumns.hasRowAbove(index: index, columns: columns) {
+                                    RecipeIndexRowSeparator()
+                                }
+                                indexRow(row, fillsHeight: true)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .id(row.id)
+                        }
+                    }
                 }
-                RecipeIndexRow(row: row, namespace: recipeTransition) {
-                    openRoute(row.openRoute)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(rows) { row in
+                    if row.id != rows.first?.id {
+                        RecipeIndexRowSeparator()
+                    }
+                    indexRow(row)
                 }
-                .accessibilityIdentifier("recipes.row")
             }
         }
+    }
+
+    @ViewBuilder private func indexRow(_ row: RecipeCatalogRowViewModel, fillsHeight: Bool = false) -> some View {
+        let indexRow = RecipeIndexRow(row: row, namespace: recipeTransition) {
+            openRoute(row.openRoute)
+        }
+        Group {
+            if fillsHeight { indexRow.fillingHeight() } else { indexRow }
+        }
+        .accessibilityIdentifier("recipes.row")
+    }
+
+    /// Only the iPad sets its index in columns; every iPhone, the Duo included, and the Mac keep the one column.
+    private static var setsIndexInColumns: Bool {
+#if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .pad
+#else
+        false
+#endif
     }
 }
 
