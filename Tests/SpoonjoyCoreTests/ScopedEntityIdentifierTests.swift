@@ -61,5 +61,16 @@ struct ScopedEntityIdentifierTests {
         #expect(throws: SpoonEntityCatalogError.self) {
             _ = try SpoonEntityCatalog.resolvedSpoonID(from: "spoon:production:\(schema):acct:s", accountID: "acct", environment: Self.qa)
         }
+        // The account is part of the matched prefix, so an id can never borrow from it to reach another account.
+        let colonAccount = RecipeCookbookEntityCatalog.recipeEntityIdentifier(recipeID: "x", accountID: "a:b", environment: Self.qa)
+        #expect(try RecipeCookbookEntityCatalog.resolvedRecipeID(from: colonAccount, accountID: "a:b", environment: Self.qa) == "x")
+        #expect(throws: RecipeCookbookEntityCatalogError.self) {
+            _ = try RecipeCookbookEntityCatalog.resolvedRecipeID(from: colonAccount, accountID: "a", environment: Self.qa)
+        }
+        // Only recipe and cookbook identifiers are trimmed first, as before.
+        let paddedSpoon = " " + SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "s", accountID: "acct", environment: Self.qa)
+        #expect(throws: SpoonEntityCatalogError.self) {
+            _ = try SpoonEntityCatalog.resolvedSpoonID(from: paddedSpoon, accountID: "acct", environment: Self.qa)
+        }
     }
 }
