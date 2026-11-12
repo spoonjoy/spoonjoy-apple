@@ -649,6 +649,16 @@ struct SignedOutSetupView: View {
                 authStatus = "Apple sign-in canceled."
                 return
             }
+            // Apple vouched for this Apple ID but sent no email, and no account has it yet. That is a next step,
+            // not a failure: the next sign-in with Google, GitHub or a password connects Apple to that account.
+            if let message = PendingAppleLink.userMessage(for: error) {
+                await appleSignInTelemetry.recordPhase("sign_in_needs_account",
+                    outcome: .completed
+                )
+                statusTone = .warning
+                authStatus = message
+                return
+            }
             NativeAppleSignInTelemetry.logFailure(
                 phase: "sign_in_failed",
                 code: NativeAppleSignInTelemetry.diagnosticCode(for: error)
@@ -657,13 +667,6 @@ struct SignedOutSetupView: View {
                 code: NativeAppleSignInTelemetry.diagnosticCode(for: error),
                 error: error
             )
-            // Apple vouched for this Apple ID but sent no email, and no account has it yet. That is a next step,
-            // not a failure: the next sign-in with Google, GitHub or a password connects Apple to that account.
-            if let message = PendingAppleLink.userMessage(for: error) {
-                statusTone = .warning
-                authStatus = message
-                return
-            }
             statusTone = .error
             authStatus = Self.signInFailureMessage(for: error)
         }

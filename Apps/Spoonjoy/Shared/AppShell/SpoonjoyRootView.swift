@@ -953,7 +953,8 @@ struct SpoonjoyRootView: View {
             serverBaseURL: configuration.baseURL,
             refreshLock: .keychain,
             onPendingAppleLinkEvent: { event in
-                await appleSignInTelemetry.recordPendingAppleLink(event)
+                // Diagnostic only: never hold a sign-in request back for the telemetry round trip.
+                Task.detached { await appleSignInTelemetry.recordPendingAppleLink(event) }
             }
         )
         let cacheStore = NativeDurableCacheStore(

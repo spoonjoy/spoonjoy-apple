@@ -36,20 +36,16 @@ public struct PendingAppleLink: Equatable, Sendable {
         date >= expiresAt
     }
 
-    /// The pending link an Apple sign-in failure carries, or nil when the failure is anything else. The expiry is
-    /// the server's when it sent one (never later than the server's lifetime from now), else thirty minutes from
-    /// `receivedAt`.
+    /// The pending link an Apple sign-in failure carries, or nil when the failure is anything else. It expires on
+    /// the device thirty minutes after `receivedAt`, the server's own lifetime. The server's
+    /// `pendingAppleLinkExpiresAt` is server time; comparing it with a device clock that runs fast would drop the
+    /// link early, and the server checks its own expiry anyway.
     public static func from(_ error: Error, receivedAt: Date) -> PendingAppleLink? {
         guard let apiError = appleEmailUnavailableError(error),
               case .string(let token)? = apiError.details[tokenDetailKey] else {
             return nil
         }
-        let fallback = receivedAt.addingTimeInterval(lifetime)
-        var expiresAt = fallback
-        if case .string(let raw)? = apiError.details[expiresAtDetailKey], let serverExpiry = parseDate(raw) {
-            expiresAt = min(serverExpiry, fallback)
-        }
-        return PendingAppleLink(token: token, expiresAt: expiresAt)
+        return PendingAppleLink(token: token, expiresAt: receivedAt.addingTimeInterval(lifetime))
     }
 
     /// True when `error` is the server's "no account for this Apple ID yet" answer, with or without a token.
@@ -57,40 +53,66 @@ public struct PendingAppleLink: Equatable, Sendable {
         appleEmailUnavailableError(error) != nil
     }
 
+    /// Said when the server could not keep a pending link, so signing in another way will not connect Apple.
+    public static let noLinkMessage =
+        "We couldn't find a Spoonjoy account for this Apple ID yet. Sign in with Google, GitHub or your password."
+
     /// The words to show for the "no account for this Apple ID yet" answer: the server's message, or the same
-    /// copy when the server sent none. Nil for any other failure.
+    /// copy when the server sent none. When the answer carries no pending link, nothing will be connected, so the
+    /// words don't promise it. Nil for any other failure.
     public static func userMessage(for error: Error) -> String? {
         guard let apiError = appleEmailUnavailableError(error) else {
             return nil
+        }
+        // A redacted error has lost its token but keeps this marker, so the view still knows a link is waiting.
+        let carriesLink = apiError.details[tokenDetailKey] != nil || apiError.details[linkKeptDetailKey] != nil
+        guard carriesLink else {
+            return noLinkMessage
         }
         let message = apiError.message.trimmingCharacters(in: .whitespacesAndNewlines)
         return message.isEmpty ? defaultMessage : message
     }
 
+    /// Put in place of the token by `redacting`: says a link is waiting without carrying it.
+    static let linkKeptDetailKey = "pendingAppleLinkKept"
+
     /// `error` with the pending link token and its expiry taken out of the API error details, so the error can
     /// be logged, reported or shown without carrying the token. Anything else passes through unchanged.
     public static func redacting(_ error: Error) -> Error {
+        if let apiError = error as? APIError {
+            return redacted(apiError) ?? apiError
+        }
         guard let transport = error as? APITransportError,
               let apiError = transport.apiError,
-              apiError.details[tokenDetailKey] != nil || apiError.details[expiresAtDetailKey] != nil else {
+              let redactedError = redacted(apiError) else {
             return error
         }
-        var details = apiError.details
-        details[tokenDetailKey] = nil
-        details[expiresAtDetailKey] = nil
         return APITransportError(
             kind: transport.kind,
             requestID: transport.requestID,
             statusCode: transport.statusCode,
-            apiError: APIError(
-                requestID: apiError.requestID,
-                code: apiError.code,
-                message: apiError.message,
-                status: apiError.status,
-                retryAfterSeconds: apiError.retryAfterSeconds,
-                details: details
-            ),
+            apiError: redactedError,
             retryDecision: transport.retryDecision
+        )
+    }
+
+    private static func redacted(_ apiError: APIError) -> APIError? {
+        guard apiError.details[tokenDetailKey] != nil || apiError.details[expiresAtDetailKey] != nil else {
+            return nil
+        }
+        var details = apiError.details
+        if details[tokenDetailKey] != nil {
+            details[linkKeptDetailKey] = .bool(true)
+        }
+        details[tokenDetailKey] = nil
+        details[expiresAtDetailKey] = nil
+        return APIError(
+            requestID: apiError.requestID,
+            code: apiError.code,
+            message: apiError.message,
+            status: apiError.status,
+            retryAfterSeconds: apiError.retryAfterSeconds,
+            details: details
         )
     }
 
@@ -100,15 +122,6 @@ public struct PendingAppleLink: Equatable, Sendable {
             return nil
         }
         return apiError
-    }
-
-    private static func parseDate(_ raw: String) -> Date? {
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = fractional.date(from: raw) {
-            return date
-        }
-        return ISO8601DateFormatter().date(from: raw)
     }
 }
 

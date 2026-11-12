@@ -45,23 +45,20 @@ struct PendingAppleLinkTests {
         #expect(PendingAppleLink.isAppleEmailUnavailable(refusal))
         #expect(PendingAppleLink.userMessage(for: refusal) == PendingAppleLink.defaultMessage)
 
-        // The server's expiry wins when it is sooner than thirty minutes from receipt...
+        // The server's expiry is server time, so the device counts its own thirty minutes from receipt: a fast
+        // device clock must not expire the link early.
         let iso = ISO8601DateFormatter()
         let receipt = try #require(iso.date(from: "2027-01-15T08:00:00Z"))
-        let sooner = try #require(PendingAppleLink.from(
-            try Self.serverRefusal(expiresAt: "2027-01-15T08:20:00.000Z"), receivedAt: receipt
-        ))
-        #expect(sooner.expiresAt == iso.date(from: "2027-01-15T08:20:00Z"))
-        // ...but a later one is capped at the server's own lifetime, so a skewed clock can't stretch it.
-        let capped = try #require(PendingAppleLink.from(
-            try Self.serverRefusal(expiresAt: "2027-01-15T09:00:00Z"), receivedAt: receipt
-        ))
-        #expect(capped.expiresAt == receipt.addingTimeInterval(30 * 60))
+        for serverExpiry in ["2027-01-15T08:20:00.000Z", "2027-01-15T09:00:00Z", "not a date"] {
+            let link = try #require(PendingAppleLink.from(try Self.serverRefusal(expiresAt: serverExpiry), receivedAt: receipt))
+            #expect(link.expiresAt == receipt.addingTimeInterval(30 * 60))
+        }
 
         // The same answer without a token (the server could not save one) still gets the guidance, but no link.
         let tokenless = try Self.serverRefusal(token: nil, expiresAt: nil)
         #expect(PendingAppleLink.from(tokenless, receivedAt: Self.receivedAt) == nil)
-        #expect(PendingAppleLink.userMessage(for: tokenless) == PendingAppleLink.defaultMessage)
+        // Nothing will be connected then, so the words don't promise it.
+        #expect(PendingAppleLink.userMessage(for: tokenless) == PendingAppleLink.noLinkMessage)
 
         // A blank server message falls back to the same copy; another failure gets no guidance at all.
         #expect(PendingAppleLink.userMessage(for: try Self.serverRefusal(message: " ")) == PendingAppleLink.defaultMessage)
@@ -74,6 +71,23 @@ struct PendingAppleLinkTests {
         #expect(PendingAppleLink.from(other, receivedAt: Self.receivedAt) == nil)
         #expect(PendingAppleLink.userMessage(for: other) == nil)
         #expect(PendingAppleLink.userMessage(for: URLError(.timedOut)) == nil)
+    }
+
+    @Test("redaction strips the token from a transport error and a bare API error, and keeps the guidance")
+    func redaction() throws {
+        let refusal = try Self.serverRefusal()
+        let bare = try #require(refusal.apiError)
+        for error in [refusal, bare] as [Error] {
+            let redacted = PendingAppleLink.redacting(error)
+            #expect(PendingAppleLink.from(redacted, receivedAt: Self.receivedAt) == nil)
+            #expect(PendingAppleLink.userMessage(for: redacted) == PendingAppleLink.defaultMessage)
+            var dumped = ""
+            dump(redacted, to: &dumped)
+            #expect(!dumped.contains("pal_"))
+            #expect(!String(describing: redacted).contains("pal_"))
+        }
+        let unrelated = URLError(.timedOut)
+        #expect((PendingAppleLink.redacting(unrelated) as? URLError) == unrelated)
     }
 
     @Test("password sign-in carries the token in its JSON body only when there is one")
