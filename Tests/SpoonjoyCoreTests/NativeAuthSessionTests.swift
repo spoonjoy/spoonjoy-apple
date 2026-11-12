@@ -578,7 +578,15 @@ struct NativeAuthSessionTests {
                 "activeSession = didStart ? session : nil",
                 "preferredPresentationAnchor",
                 "NSApplication.shared.keyWindow",
-                "ASPresentationAnchor(windowScene: windowScene)"
+                "ASPresentationAnchor(windowScene: windowScene)",
+                // The early-cancel retry's signals: the app resigning active (and, on macOS, a sheet or key change),
+                // and a view controller presented since start. The tests run on macOS, so the iOS names are checked here.
+                "UIApplication.willResignActiveNotification",
+                "NSApplication.willResignActiveNotification",
+                "NSWindow.willBeginSheetNotification",
+                "NSWindow.didResignKeyNotification",
+                "rootViewController?.presentedViewController",
+                "presentedAtStart = SpoonjoyAuthenticationPresentationContextProvider.presentedUI()"
             ],
             forbids: [
                 "preconditionFailure",
@@ -597,6 +605,35 @@ struct NativeAuthSessionTests {
         )
 
         #expect(result.status == 0, Comment(rawValue: result.truncatedOutput))
+    }
+
+    @Test("no sign-in session is ever ephemeral: the iOS early-cancel retry gate relies on the prompt a non-ephemeral session shows")
+    func browserSignInSessionsAreNeverEphemeral() throws {
+        // NativeBrowserOAuthEarlyCancel retries a canceledLogin on iOS only when the app never resigned active. That
+        // proves nothing was shown only because a non-ephemeral session always shows the "wants to use spoonjoy.app to
+        // sign in" prompt first. An ephemeral session skips the prompt, so a person's Cancel would look like the system's.
+        let fileManager = FileManager.default
+        var offenders: [String] = []
+        for root in ["Apps", "Sources"] {
+            let base = repoRoot().appendingPathComponent(root)
+            let files = fileManager.enumerator(at: base, includingPropertiesForKeys: nil)?
+                .compactMap { $0 as? URL }
+                .filter { $0.pathExtension == "swift" } ?? []
+            for file in files {
+                let text = try String(contentsOf: file, encoding: .utf8)
+                if text.range(of: #"prefersEphemeralWebBrowserSession\s*=\s*true"#, options: .regularExpression) != nil {
+                    offenders.append(file.path)
+                }
+            }
+        }
+        #expect(offenders.isEmpty, "Ephemeral sign-in sessions break the iOS early-cancel retry gate: \(offenders)")
+        let path = "Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift"
+        expectContent(
+            try readRepoFile(path),
+            in: path,
+            contains: ["prefersEphemeralWebBrowserSession = false"],
+            forbids: []
+        )
     }
 
     @Test("Keychain token vault stores auth material outside general cache")
@@ -1979,7 +2016,8 @@ private final class FakeSessionFactory {
 
 @MainActor
 private final class FakeWebAuthenticationSession: SpoonjoyWebAuthenticationSessionProtocol {
-    var prefersEphemeralWebBrowserSession = false
+    /// Starts true, so a test sees whether the adapter set it.
+    var prefersEphemeralWebBrowserSession = true
     private(set) var startCount = 0
     private(set) var cancelCount = 0
     private let startResult: Bool

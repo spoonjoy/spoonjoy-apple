@@ -1,17 +1,33 @@
 import Foundation
 
 /// Right after the app is installed or updated, iOS can end a browser sign-in session by itself: the session
-/// finishes with ASWebAuthenticationSessionError.canceledLogin (code 1) within a few hundred milliseconds of
-/// `start()`, before any prompt, while swcd re-fetches spoonjoy.app's association because the app's install identity
-/// changed (spoonjoy-apple#320). The person sees nothing happen. The app then starts one fresh session.
+/// finishes with ASWebAuthenticationSessionError.canceledLogin (code 1) before any prompt, while swcd re-fetches
+/// spoonjoy.app's association because the app's install identity changed (spoonjoy-apple#320). The person sees
+/// nothing happen. The app then starts one fresh session.
 ///
-/// A Cancel by the person reports the same error, so a retry needs both: no sign that the system showed anything for
-/// the session, and a cancel within `window` of `start()`. The app supplies the sign. On iOS it is the app resigning
-/// active, which the "wants to use spoonjoy.app to sign in" prompt always causes before the sheet. On macOS the prompt
-/// and sheet attach to the app's own window, so the app may stay active; there a window beginning a sheet or
-/// resigning key also counts, and with no such sign the gate is only the window and the error code.
+/// A Cancel by the person reports the same error, so a retry needs proof that the system showed nothing for the
+/// session. Two signals must both be absent:
+/// - The app resigning active. On iOS the "wants to use spoonjoy.app to sign in" prompt always causes it before the
+///   sheet, for a non-ephemeral session (the app always asks for one). On macOS a window beginning a sheet or resigning
+///   key also counts, since the prompt and sheet attach to the app's own window and the app may stay active.
+/// - A new view controller (on macOS, a sheet) presented on the anchor window, seen when the cancel arrives. The
+///   system sheet is usually out of process, so this rarely fires, but it can only block a retry.
+///
+/// On iOS there is no time limit. The cancel can come seconds after `start()`: in CI run 43312729950 it came 5242 ms
+/// after, 13 ms after swcd logged "app PI changed". If the resign signal ever failed to fire, a person's Cancel would
+/// reopen the sheet once, which is bounded. On macOS, where the signals are not guaranteed, the cancel must also come
+/// within `window` of `start()`.
 public enum NativeBrowserOAuthEarlyCancel {
+    /// The macOS time limit. See `platformWindow`.
     public static let window: TimeInterval = 1.5
+    /// The time limit for a retry on this platform: none on iOS, `window` on macOS.
+    public static var platformWindow: TimeInterval? {
+        #if os(macOS)
+        window
+        #else
+        nil
+        #endif
+    }
     /// How long to wait before the one retry, so the fetch the cancel came from can finish.
     public static let retryDelay: Duration = .milliseconds(750)
 
@@ -31,16 +47,21 @@ public enum NativeBrowserOAuthEarlyCancel {
         return nsError.domain == "com.apple.AuthenticationServices.WebAuthenticationSession" && nsError.code == 1
     }
 
+    /// `window` nil means no time limit (iOS).
     public static func shouldRetry(
         error: (any Error)?,
         secondsSinceStart: TimeInterval?,
         systemUIAppeared: Bool,
-        alreadyRetried: Bool
+        presentedViewController: Bool,
+        alreadyRetried: Bool,
+        window: TimeInterval?
     ) -> Bool {
-        guard !alreadyRetried, !systemUIAppeared, isSystemCancel(error), let secondsSinceStart else {
+        guard !alreadyRetried, !systemUIAppeared, !presentedViewController, isSystemCancel(error),
+              let secondsSinceStart, secondsSinceStart >= 0 else {
             return false
         }
-        return secondsSinceStart >= 0 && secondsSinceStart < window
+        guard let window else { return true }
+        return secondsSinceStart < window
     }
 
     /// A start failure or a session's cancel error for the log: the transport kind, status and request id, or the
@@ -63,10 +84,15 @@ public enum NativeBrowserOAuthEarlyCancel {
     public static let callbackMessage = "Browser sign-in callback received"
 
     public static func earlyCancelMessage(error: (any Error)?, secondsSinceStart: TimeInterval?) -> String {
-        "Browser sign-in early cancel: \(error.map(diagnosticReason) ?? "no error") after \(milliseconds(secondsSinceStart)) ms, systemUIAppeared=false; retrying once"
+        "Browser sign-in early cancel: \(error.map(diagnosticReason) ?? "no error") after \(milliseconds(secondsSinceStart)) ms, systemUIAppeared=false, presentedVC=false; retrying once"
     }
 
-    public static func endedMessage(error: (any Error)?, secondsSinceStart: TimeInterval?, systemUIAppeared: Bool) -> String {
-        "Browser sign-in ended without a callback: \(error.map(diagnosticReason) ?? "no error") after \(milliseconds(secondsSinceStart)) ms, systemUIAppeared=\(systemUIAppeared)"
+    public static func endedMessage(
+        error: (any Error)?,
+        secondsSinceStart: TimeInterval?,
+        systemUIAppeared: Bool,
+        presentedViewController: Bool
+    ) -> String {
+        "Browser sign-in ended without a callback: \(error.map(diagnosticReason) ?? "no error") after \(milliseconds(secondsSinceStart)) ms, systemUIAppeared=\(systemUIAppeared), presentedVC=\(presentedViewController)"
     }
 }

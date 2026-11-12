@@ -103,6 +103,8 @@ final class SpoonjoyWebAuthenticationSession {
             }
             self?.handleOAuthCallback(callbackURL)
         }
+        // Never ephemeral: the iOS early-cancel retry relies on the "wants to use spoonjoy.app to sign in" prompt, which
+        // only a non-ephemeral session shows, to tell the person's Cancel from the system's (NativeBrowserOAuthEarlyCancel).
         session.prefersEphemeralWebBrowserSession = false
         let didStart = session.start()
         activeSession = didStart ? session : nil
@@ -166,6 +168,10 @@ final class SpoonjoyBrowserOAuthWebSession: NativeBrowserOAuthWebSession {
     }
 
     private(set) var systemUIAppeared = false
+    private var presentedAtStart: ObjectIdentifier?
+    var presentedViewController: Bool {
+        SpoonjoyAuthenticationPresentationContextProvider.presentedUI() != presentedAtStart
+    }
     // Written on the main actor in start(); read only in deinit. NotificationCenter removal is thread-safe.
     nonisolated(unsafe) private var resignObserver: (any NSObjectProtocol)?
     #if os(macOS)
@@ -189,6 +195,7 @@ final class SpoonjoyBrowserOAuthWebSession: NativeBrowserOAuthWebSession {
             ]
         }
         #endif
+        presentedAtStart = SpoonjoyAuthenticationPresentationContextProvider.presentedUI()
         return (try? session?.start(authorizationURL: authorizationURL)) == true
     }
 
@@ -430,6 +437,22 @@ private final class SpoonjoyAuthenticationPresentationContextProvider: NSObject,
 
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         anchor
+    }
+
+    /// The topmost view controller presented on the anchor window (on macOS, its attached sheet), or nil.
+    @MainActor
+    static func presentedUI() -> ObjectIdentifier? {
+        #if os(iOS) || os(tvOS) || os(visionOS)
+        var presented = (preferredPresentationAnchor as UIWindow?)?.rootViewController?.presentedViewController
+        while let next = presented?.presentedViewController {
+            presented = next
+        }
+        return presented.map(ObjectIdentifier.init)
+        #elseif os(macOS)
+        return preferredPresentationAnchor?.attachedSheet.map(ObjectIdentifier.init)
+        #else
+        return nil
+        #endif
     }
 
     @MainActor

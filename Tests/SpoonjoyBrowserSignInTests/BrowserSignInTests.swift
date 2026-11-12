@@ -134,7 +134,7 @@ struct BrowserSignInTests {
         #expect(await harness.network.exchanges.map(\.codeVerifier) == [attempt.codeVerifier])
         #expect(harness.logs.lines == [
             "Browser sign-in sheet started",
-            "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 200 ms, systemUIAppeared=false; retrying once",
+            "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 200 ms, systemUIAppeared=false, presentedVC=false; retrying once",
             "Browser sign-in retried: sheet started again",
             "Browser sign-in callback received"
         ])
@@ -187,6 +187,65 @@ struct BrowserSignInTests {
         #expect(otherFinishes.names == ["canceled"])
         #expect(other.sheets.sessions.count == 1)
         #expect(other.pauses.all.isEmpty)
+    }
+
+    @Test("iOS: a system cancel 5 s after start, with nothing shown, still gets one fresh sheet; a second one finishes as canceled")
+    func iOSLateEarlyCancelRetries() async throws {
+        // CI run 43312729950: the cancel came 5242 ms after start, 13 ms after swcd's "app PI changed".
+        let harness = Harness(earlyCancelWindow: nil)
+        let finishes = FinishLog()
+        _ = await harness.flow.begin(provider: .google) { finishes.record($0) }
+
+        harness.clock.advance(5.242)
+        await harness.sheets.close(0, error: systemCancel)
+        await harness.flow.retryTask?.value
+        #expect(finishes.names.isEmpty)
+        #expect(harness.sheets.sessions.map(\.startCount) == [1, 1])
+
+        harness.clock.advance(5)
+        await harness.sheets.close(1, error: systemCancel)
+        #expect(finishes.names == ["canceled"])
+        #expect(harness.sheets.sessions.count == 2)
+        #expect(harness.logs.lines.last ==
+            "Browser sign-in ended without a callback: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 5000 ms, systemUIAppeared=false, presentedVC=false")
+    }
+
+    @Test("macOS: the same 5 s cancel is outside the window and finishes as canceled")
+    func macLateCancelDoesNotRetry() async throws {
+        let harness = Harness(earlyCancelWindow: NativeBrowserOAuthEarlyCancel.window)
+        let finishes = FinishLog()
+        _ = await harness.flow.begin(provider: .google) { finishes.record($0) }
+        harness.clock.advance(5.242)
+        await harness.sheets.close(0, error: systemCancel)
+        #expect(finishes.names == ["canceled"])
+        #expect(harness.sheets.sessions.count == 1)
+        #expect(harness.pauses.all.isEmpty)
+    }
+
+    private enum Shown: CaseIterable {
+        case resignedActive, presentedViewController, both
+    }
+
+    @Test("the person's Cancel after the sheet was shown never relaunches it, early or late, on either platform")
+    func personCancelAfterSheetShown() async throws {
+        for window in [nil, NativeBrowserOAuthEarlyCancel.window] {
+            for seconds in [0.3, 5.242] {
+                for shown in Shown.allCases {
+                    let harness = Harness(earlyCancelWindow: window)
+                    let finishes = FinishLog()
+                    _ = await harness.flow.begin(provider: .google) { finishes.record($0) }
+                    harness.sheets.sessions[0].systemUIAppeared = shown != .presentedViewController
+                    harness.sheets.sessions[0].presentedViewController = shown != .resignedActive
+                    harness.clock.advance(seconds)
+                    await harness.sheets.close(0, error: systemCancel)
+                    let label = Comment(rawValue: "window \(String(describing: window)) after \(seconds) s, \(shown)")
+                    #expect(finishes.names == ["canceled"], label)
+                    #expect(harness.sheets.sessions.count == 1, label)
+                    #expect(harness.pauses.all.isEmpty, label)
+                    #expect(harness.flow.retryTask == nil, label)
+                }
+            }
+        }
     }
 
     @Test("a cancel by the app never starts the sheet again")
@@ -609,7 +668,8 @@ private final class Harness {
         registrationLatch: Latch? = nil,
         exchangeLatch: Latch? = nil,
         randomSecret: @escaping @MainActor () -> String = OAuthPKCE.randomVerifier,
-        pauseLatch: Latch? = nil
+        pauseLatch: Latch? = nil,
+        earlyCancelWindow: TimeInterval? = NativeBrowserOAuthEarlyCancel.window
     ) {
         let vault = InMemoryTokenVault()
         let network = NetworkSpy(
@@ -640,6 +700,7 @@ private final class Harness {
             gate: gate,
             randomSecret: randomSecret,
             uptime: { [clock] in clock.now },
+            earlyCancelWindow: earlyCancelWindow,
             pause: { [pauses] duration in
                 pauses.record(duration)
                 await pauseLatch?.reach()
@@ -809,6 +870,7 @@ private final class FakeSheet: NativeBrowserOAuthWebSession {
     private(set) var startCount = 0
     private(set) var cancelCount = 0
     var systemUIAppeared = false
+    var presentedViewController = false
 
     init(startResult: Bool) {
         self.startResult = startResult

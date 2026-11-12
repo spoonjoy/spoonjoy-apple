@@ -10,6 +10,9 @@ public protocol NativeBrowserOAuthWebSession: AnyObject {
     /// spoonjoy.app to sign in" prompt, which always comes before the sheet and makes the app resign active. A cancel
     /// after that came from the person, never from the system.
     var systemUIAppeared: Bool { get }
+    /// True when the anchor window has a view controller (on macOS, a sheet) presented now that it did not have at
+    /// `start()`. The system sheet is usually out of process, so this rarely fires, but it can only block a retry.
+    var presentedViewController: Bool { get }
 }
 
 /// Makes the sheet for one attempt. `completion` gets the callback URL, or nil and an error when the sheet closed
@@ -92,6 +95,7 @@ public final class NativeBrowserOAuthSignIn {
     private let makeSession: NativeBrowserOAuthWebSessionFactory
     private let randomSecret: @MainActor () -> String
     private let uptime: @MainActor () -> TimeInterval
+    private let retryWindow: TimeInterval?
     private let pause: @MainActor (Duration) async -> Void
     private let log: @MainActor (String) -> Void
 
@@ -110,7 +114,8 @@ public final class NativeBrowserOAuthSignIn {
     /// The pause before an early-cancel retry. It holds this object weakly, so a view torn down mid-pause opens no sheet.
     private(set) var retryTask: Task<Void, Never>?
 
-    /// A cancel this soon after `start()`, with nothing shown, came from the system, not the person.
+    /// On macOS, a cancel with nothing shown is retried only this soon after `start()`. iOS has no time limit
+    /// (`NativeBrowserOAuthEarlyCancel.platformWindow`).
     public static let earlyCancelWindow = NativeBrowserOAuthEarlyCancel.window
     public static let earlyCancelRetryDelay = NativeBrowserOAuthEarlyCancel.retryDelay
 
@@ -119,6 +124,7 @@ public final class NativeBrowserOAuthSignIn {
         gate: NativeBrowserOAuthGate = .shared,
         randomSecret: @escaping @MainActor () -> String = OAuthPKCE.randomVerifier,
         uptime: @escaping @MainActor () -> TimeInterval = { NativeBrowserOAuthEarlyCancel.monotonicSeconds() },
+        earlyCancelWindow: TimeInterval? = NativeBrowserOAuthEarlyCancel.platformWindow,
         pause: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) },
         log: @escaping @MainActor (String) -> Void = { _ in },
         makeSession: @escaping NativeBrowserOAuthWebSessionFactory
@@ -127,6 +133,7 @@ public final class NativeBrowserOAuthSignIn {
         self.gate = gate
         self.randomSecret = randomSecret
         self.uptime = uptime
+        self.retryWindow = earlyCancelWindow
         self.pause = pause
         self.log = log
         self.makeSession = makeSession
@@ -236,11 +243,14 @@ public final class NativeBrowserOAuthSignIn {
         guard let callbackURL else {
             let elapsed = sessionStartedAt.map { uptime() - $0 }
             let systemUIAppeared = session?.systemUIAppeared ?? true
+            let presentedViewController = session?.presentedViewController ?? true
             if NativeBrowserOAuthEarlyCancel.shouldRetry(
                 error: error,
                 secondsSinceStart: elapsed,
                 systemUIAppeared: systemUIAppeared,
-                alreadyRetried: retriedAttemptID == attemptID
+                presentedViewController: presentedViewController,
+                alreadyRetried: retriedAttemptID == attemptID,
+                window: retryWindow
             ) {
                 retriedAttemptID = attemptID
                 log(NativeBrowserOAuthEarlyCancel.earlyCancelMessage(error: error, secondsSinceStart: elapsed))
@@ -250,7 +260,8 @@ public final class NativeBrowserOAuthSignIn {
             log(NativeBrowserOAuthEarlyCancel.endedMessage(
                 error: error,
                 secondsSinceStart: elapsed,
-                systemUIAppeared: systemUIAppeared
+                systemUIAppeared: systemUIAppeared,
+                presentedViewController: presentedViewController
             ))
             clear(attemptID: attemptID)
             finish(.canceled(error))
