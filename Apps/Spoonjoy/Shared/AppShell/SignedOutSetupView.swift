@@ -657,6 +657,13 @@ struct SignedOutSetupView: View {
                 code: NativeAppleSignInTelemetry.diagnosticCode(for: error),
                 error: error
             )
+            // Apple vouched for this Apple ID but sent no email, and no account has it yet. That is a next step,
+            // not a failure: the next sign-in with Google, GitHub or a password connects Apple to that account.
+            if let message = PendingAppleLink.userMessage(for: error) {
+                statusTone = .warning
+                authStatus = message
+                return
+            }
             statusTone = .error
             authStatus = Self.signInFailureMessage(for: error)
         }

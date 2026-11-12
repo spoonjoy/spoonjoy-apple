@@ -886,6 +886,13 @@ struct SpoonjoyRootView: View {
                     configuration: configuration
                 )
             },
+            // The exchange that can carry a pending Apple link, so Google, GitHub or a passkey can connect Apple.
+            exchangeAuthorizationCode: { grant in
+                try await OAuthURLSessionSupport.sendDecoded(
+                    try OAuthRequests.exchangeCode(grant),
+                    configuration: configuration
+                )
+            },
             exchangeAppleCredential: { credential in
                 NativeAppleSignInTelemetry.logPhase("backend_request_started")
                 await appleSignInTelemetry.recordPhase("backend_request_started",
@@ -944,7 +951,10 @@ struct SpoonjoyRootView: View {
             },
             reusesSavedClientID: Self.reusesSavedOAuthClientID(environment: environment),
             serverBaseURL: configuration.baseURL,
-            refreshLock: .keychain
+            refreshLock: .keychain,
+            onPendingAppleLinkEvent: { event in
+                await appleSignInTelemetry.recordPendingAppleLink(event)
+            }
         )
         let cacheStore = NativeDurableCacheStore(
             fileURL: appDirectory.appendingPathComponent("native-durable-cache.json")
