@@ -84,4 +84,4 @@ Every green Native run on `main` publishes that exact commit to the internal Tes
 
 ## License
 
-Spoonjoy is source-available under the [Functional Source License, Version 1.1, MIT Future License](LICENSE.md) (FSL-1.1-MIT), copyright Ari Mendelow. You may read, run, modify and learn from the code, including copying its Ouro UI patterns into your own app, for any purpose except offering a competing commercial product or service. Each release becomes available under the MIT license two years after it is published.
+Spoonjoy is source-available under the [Functional Source License, Version 1.1, MIT Future License](LICENSE.md) (FSL-1.1-MIT), copyright Ari Mendelow. You may read, run, modify and learn from the code for any purpose except offering a competing commercial product or service. Each release becomes available under the MIT license two years after it is published. The Ouro UI packages it builds on come from [ouro-ui-apple](https://github.com/ourostack/ouro-ui-apple), which is MIT-licensed.
