@@ -334,7 +334,7 @@ if domain == "recipe-cookbook"
       "NativeProcessSyncStore.shared(appDirectory:",
       "loadSnapshot()",
       "trustedIntentScope",
-      "KeychainTokenVault()",
+      "SpoonjoyAppTokenVault.current()",
       "scope.accountID",
       "scope.environment"
     ],
@@ -634,7 +634,7 @@ if domain == "shopping"
       "NativeProcessSyncStore.shared(appDirectory:",
       "loadSnapshot()",
       "trustedIntentScope",
-      "KeychainTokenVault()",
+      "SpoonjoyAppTokenVault.current()",
       "scope.accountID",
       "scope.environment"
     ],
@@ -938,7 +938,7 @@ if domain == "spoon"
       "NativeProcessSyncStore.shared(appDirectory:",
       "loadSnapshot()",
       "trustedIntentScope",
-      "KeychainTokenVault()",
+      "SpoonjoyAppTokenVault.current()",
       "scope.accountID",
       "scope.environment"
     ],
@@ -1088,7 +1088,7 @@ if domain == "chef-profile"
       "NativeProcessSyncStore.shared(appDirectory:",
       "NativeDurableCacheStore",
       "trustedIntentScope",
-      "KeychainTokenVault()",
+      "SpoonjoyAppTokenVault.current()",
       "scope.accountID",
       "scope.environment"
     ],
@@ -1256,7 +1256,7 @@ if domain == "capture-draft"
       "NativeAppStateStore",
       "NativeDurableCacheStore",
       "trustedIntentScope",
-      "KeychainTokenVault()",
+      "SpoonjoyAppTokenVault.current()",
       "scope.accountID",
       "scope.environment"
     ],
