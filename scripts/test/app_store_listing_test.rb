@@ -431,8 +431,10 @@ class AppStoreListingTest < Minitest::Test
       whats_new = platform_listing["localizations"]["en-US"]["whatsNew"].to_s
       assert_operator whats_new.length, :<=, AppStoreListing::LIMITS.fetch("whatsNew")
     end
-    ios_whats_new = listing["localizations"]["en-US"]["whatsNew"]
-    refute_equal ios_whats_new, mac_listing["localizations"]["en-US"]["whatsNew"] unless ios_whats_new.nil?
+    # A fragment for both platforms gives iOS and Mac the same tale, as #280 intends. Only an iOS What's New
+    # written by hand in listing.json must stay off the Mac.
+    ios_written = raw_listing["localizations"]["en-US"]["whatsNew"]
+    refute_equal ios_written, mac_listing["localizations"]["en-US"]["whatsNew"] unless ios_written.nil?
   end
 
   # The build App Store Connect attaches must carry the listing's version, or the upload lands on the wrong version.

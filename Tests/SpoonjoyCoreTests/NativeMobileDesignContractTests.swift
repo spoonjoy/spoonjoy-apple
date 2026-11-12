@@ -68,7 +68,7 @@ struct NativeMobileDesignContractTests {
             in: recipePath,
             contains: [
                 "if usesCompactRecipeDock {\n            singlePageLayout",
-                "SpreadLayoutReader(isRegularWidth: true)",
+                "SpreadLayoutReader(isRegularWidth: true, allowsTallSpread: Self.allowsTallSpread)",
                 "recipeSpread(layout)",
                 "RecipeSpreadIngredientIndex(stepSections: viewModel.stepSections)",
                 "spreadSelection.toggle(stepID: stepID)",

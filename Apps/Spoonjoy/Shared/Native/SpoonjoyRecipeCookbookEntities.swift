@@ -151,7 +151,7 @@ struct SpoonjoyRecipeEntityQuery: EntityQuery, EntityStringQuery {
 
     private func scope(syncStore: any NativeSyncStore) async throws -> (accountID: String, environment: NativeCacheEnvironment) {
         let syncSnapshot = try await syncStore.loadSnapshot()
-        return try await SpoonjoyIntentScopeProvider(authVault: KeychainTokenVault()).trustedIntentScope(from: syncSnapshot)
+        return try await SpoonjoyIntentScopeProvider(authVault: SpoonjoyAppTokenVault.current()).trustedIntentScope(from: syncSnapshot)
     }
 }
 
@@ -193,7 +193,7 @@ struct SpoonjoyCookbookEntityQuery: EntityQuery, EntityStringQuery {
 
     private func scope(syncStore: any NativeSyncStore) async throws -> (accountID: String, environment: NativeCacheEnvironment) {
         let syncSnapshot = try await syncStore.loadSnapshot()
-        return try await SpoonjoyIntentScopeProvider(authVault: KeychainTokenVault()).trustedIntentScope(from: syncSnapshot)
+        return try await SpoonjoyIntentScopeProvider(authVault: SpoonjoyAppTokenVault.current()).trustedIntentScope(from: syncSnapshot)
     }
 }
 
@@ -207,7 +207,7 @@ struct SpoonjoyIntentSyncStoreFactory {
 struct SpoonjoyIntentScopeProvider {
     private let authVault: (any TokenVault)?
 
-    init(authVault: (any TokenVault)? = KeychainTokenVault()) {
+    init(authVault: (any TokenVault)? = SpoonjoyAppTokenVault.current()) {
         self.authVault = authVault
     }
 
