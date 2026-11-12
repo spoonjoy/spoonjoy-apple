@@ -500,7 +500,7 @@ struct SignedOutSetupView: View {
             )
             canDisconnect = true
             statusTone = .success
-            authStatus = "Signed in. Restoring Spoonjoy."
+            authStatus = await Self.signedInStatus(appleConnected: authRepository.takeAppleConnectedConfirmation())
             await onSignedIn()
         } catch {
             statusTone = .error
@@ -551,7 +551,7 @@ struct SignedOutSetupView: View {
             focusedField = nil
             canDisconnect = true
             statusTone = .success
-            authStatus = "Signed in. Restoring Spoonjoy."
+            authStatus = await Self.signedInStatus(appleConnected: authRepository.takeAppleConnectedConfirmation())
             await onSignedIn()
         } catch {
             statusTone = .error
@@ -670,6 +670,12 @@ struct SignedOutSetupView: View {
             statusTone = .error
             authStatus = Self.signInFailureMessage(for: error)
         }
+    }
+
+    /// The status after a sign-in by another method. When that sign-in also connected an Apple ID that had found no
+    /// account, it says so, so the chef knows Sign in with Apple works from now on.
+    private static func signedInStatus(appleConnected: Bool) -> String {
+        appleConnected ? "Signed in, and Apple is connected. Restoring Spoonjoy." : "Signed in. Restoring Spoonjoy."
     }
 
     private static func passwordSignInFailureMessage(for error: Error) -> String {
