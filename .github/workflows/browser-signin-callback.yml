@@ -18,14 +18,14 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: spoonjoy-browser-signin-callback
-  cancel-in-progress: false
-
 jobs:
   callback:
     name: Browser sign-in callback (iPhone)
     runs-on: xcode-27
+    # Lane c of 3: see the note on macOS lanes at the top of native.yml. The lane also keeps runs one at a time.
+    concurrency:
+      group: spoonjoy-macos-lane-c
+      queue: max
     timeout-minutes: 70
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
