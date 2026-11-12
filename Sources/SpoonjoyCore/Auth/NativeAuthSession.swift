@@ -6,6 +6,8 @@ public enum NativeAuthSessionError: Error, Equatable, Sendable {
     case missingAuthorizationCode
     case invalidCallbackURL(String)
     case stateMismatch(expected: String, actual: String?)
+    /// The server sent the cook back with an OAuth `error` (for example `access_denied`) instead of a code.
+    case authorizationFailed(String)
     case appleSignInUnavailable
     case passwordSignInUnavailable
 }
@@ -126,6 +128,9 @@ public enum NativeAuthSession {
         let returnedState = components?.queryItems?.first { $0.name == "state" }?.value
         guard expectedState.matches(returnedState: returnedState) else {
             throw NativeAuthSessionError.stateMismatch(expected: expectedState.rawValue, actual: returnedState)
+        }
+        if let error = components?.queryItems?.first(where: { $0.name == "error" })?.value {
+            throw NativeAuthSessionError.authorizationFailed(error)
         }
         guard let code = components?.queryItems?.first(where: { $0.name == "code" })?.value,
               !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {

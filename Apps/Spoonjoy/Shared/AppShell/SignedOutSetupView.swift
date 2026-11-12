@@ -25,10 +25,8 @@ struct SignedOutSetupView: View {
     @State private var isSigningIn = false
     @State private var canDisconnect = false
     @State private var currentNonce: String?
-    @State private var pendingOAuthState: OAuthState?
-    @State private var pendingOAuthCodeVerifier: String?
     @State private var pendingOAuthProvider: OAuthProviderHint?
-    @State private var webAuthenticationSession: SpoonjoyWebAuthenticationSession?
+    @State private var browserSignIn: NativeBrowserOAuthSignIn?
     @State private var appleSignInCapability = Self.currentAppleSignInCapability()
     @FocusState private var focusedField: SignInField?
 
@@ -416,6 +414,9 @@ struct SignedOutSetupView: View {
         }
     }
 
+    /// Google or GitHub in the system browser sheet. `NativeBrowserOAuthSignIn` gives each attempt its own state and
+    /// verifier and keeps one sheet open app-wide, because the web app holds one provider sign-in per browser cookie
+    /// jar: a second start would turn the first one's return into `invalid_state`.
     private func handleBrowserOAuthSignIn(provider: OAuthProviderHint) async {
         guard !isSigningIn else {
             return
@@ -426,43 +427,24 @@ struct SignedOutSetupView: View {
         statusTone = .progress
         authStatus = "Opening \(provider.displayName) sign-in."
 
-        do {
-            let verifier = OAuthPKCE.randomVerifier()
-            let challenge = try OAuthPKCE.codeChallenge(for: verifier)
-            guard let state = OAuthState(rawValue: OAuthPKCE.randomVerifier()) else {
-                throw BrowserOAuthSignInError.invalidState
+        let signIn = browserSignIn ?? NativeBrowserOAuthSignIn(
+            repository: authRepository,
+            makeSession: SpoonjoyBrowserOAuthWebSession.make
+        )
+        browserSignIn = signIn
+        let start = await signIn.begin(provider: provider, onReturn: {
+            statusTone = .progress
+            authStatus = "Finishing Spoonjoy sign-in."
+        }) { finish in
+            Task {
+                await handleBrowserOAuthFinish(finish)
             }
-            let start = try await authRepository.startSignIn(
-                state: state,
-                codeChallenge: challenge,
-                providerHint: provider
-            )
-            pendingOAuthState = state
-            pendingOAuthCodeVerifier = verifier
-
-            let session = SpoonjoyWebAuthenticationSession(callbackURL: start.redirectURI,
-                callbackHandler: { callbackURL in
-                    Task {
-                        await handleBrowserOAuthCallback(callbackURL)
-                    }
-                },
-                cancellationHandler: { error in
-                    Task {
-                        await handleBrowserOAuthCancellation(error)
-                    }
-                }
-            )
-            webAuthenticationSession = session
-            guard try session.start(authorizationURL: start.authorizationURL, oauthState: state) else {
-                throw BrowserOAuthSignInError.couldNotStart
-            }
-
+        }
+        switch start {
+        case .opened, .alreadyInProgress:
             authStatus = "Finish \(provider.displayName) sign-in in the browser."
-        } catch {
-            pendingOAuthState = nil
-            pendingOAuthCodeVerifier = nil
+        case .couldNotOpen:
             pendingOAuthProvider = nil
-            webAuthenticationSession = nil
             isSigningIn = false
             statusTone = .error
             authStatus = "Could not open \(provider.displayName) sign-in. Check your connection and try again."
@@ -470,54 +452,25 @@ struct SignedOutSetupView: View {
     }
 
     @MainActor
-    private func handleBrowserOAuthCallback(_ callbackURL: URL) async {
-        guard let state = pendingOAuthState,
-              let verifier = pendingOAuthCodeVerifier else {
-            pendingOAuthProvider = nil
-            webAuthenticationSession = nil
-            isSigningIn = false
-            statusTone = .error
-            authStatus = "Browser sign-in expired. Try again."
-            return
-        }
-
-        isSigningIn = true
-        statusTone = .progress
-        authStatus = "Finishing Spoonjoy sign-in."
-        defer {
-            isSigningIn = false
-            pendingOAuthState = nil
-            pendingOAuthCodeVerifier = nil
-            pendingOAuthProvider = nil
-            webAuthenticationSession = nil
-        }
-
-        do {
-            _ = try await authRepository.handleOAuthCallback(
-                callbackURL,
-                expectedState: state,
-                codeVerifier: verifier
-            )
+    private func handleBrowserOAuthFinish(_ finish: NativeBrowserOAuthFinish) async {
+        pendingOAuthProvider = nil
+        switch finish {
+        case .signedIn:
             canDisconnect = true
             statusTone = .success
             authStatus = "Signed in. Restoring Spoonjoy."
             await onSignedIn()
-        } catch {
+        case .failed:
             statusTone = .error
             authStatus = "Could not finish browser sign-in. Try again."
+        case .canceled:
+            statusTone = .neutral
+            authStatus = "Browser sign-in canceled."
+        case .superseded:
+            statusTone = .neutral
+            authStatus = "Browser sign-in continued in another window."
         }
-    }
-
-    @MainActor
-    private func handleBrowserOAuthCancellation(_ error: Error?) async {
-        pendingOAuthState = nil
-        pendingOAuthCodeVerifier = nil
-        pendingOAuthProvider = nil
-        webAuthenticationSession = nil
         isSigningIn = false
-        statusTone = .neutral
-        authStatus = "Browser sign-in canceled."
-        _ = error
     }
 
     private func focusField(_ field: SignInField) {
@@ -814,11 +767,6 @@ private enum AuthStatusTone {
     case success
     case warning
     case error
-}
-
-private enum BrowserOAuthSignInError: Error {
-    case invalidState
-    case couldNotStart
 }
 
 @MainActor private extension OAuthProviderHint {
