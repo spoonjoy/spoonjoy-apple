@@ -1,0 +1,17 @@
+THE INCIDENT AT STEP FOUR
+
+The butter was browning. The garlic was one breath from burning. Your hands were covered in flour, the recipe was two scrolls away, and the screen had just dimmed. You have lived this. Spoonjoy 1.2 is what we built so you never live it again.
+
+• Cook mode, rebuilt around one big step. Tap Cook and the recipe grows into cook mode; on iPhone, swipe to turn the page; close it and you land right back where you started.
+• Say "next". Floury hands? Say "next", "back" or "repeat" and cook mode keeps up. Speech is recognized on your device.
+• One timer ring that starts itself. Check off a timed step's last ingredient and its timer sweeps into motion.
+• Your whole cook in the Dynamic Island and on the Lock Screen, with the soonest timers first.
+• A warm dark mode for cooking at night, glowing amber instead of glaring white.
+• Real Liquid Glass, and the same typefaces, brass and paper as spoonjoy.app.
+• A rebuilt Kitchen: one "Add a recipe" button, and a Cooking now strip that takes you straight back to the cook in progress.
+• Redesigned recipe pages: covers zoom into the page, and long titles and chef names wrap instead of trailing off.
+• On iPad, cook in two windows at once.
+• On iPhone Duo, cook mode and recipes follow the hinge.
+• Sign in with Apple now comes first.
+
+The garlic made it. So will yours.
