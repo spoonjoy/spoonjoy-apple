@@ -2083,6 +2083,21 @@ struct WebAuthenticationSessionAdapterContract {
         #expect(paused.cancellations.isEmpty)
     }
 
+    @Test("on macOS a window beginning a sheet or resigning key means the system showed something: no retry")
+    func macSheetSignalsBlockRetry() async throws {
+        for name in [NSWindow.willBeginSheetNotification, NSWindow.didResignKeyNotification] {
+            let probe = Probe()
+            try probe.start()
+            NotificationCenter.default.post(name: name, object: nil)
+            await Task.yield()
+            probe.now += 0.3
+            probe.factory.complete(with: nil, error: Self.systemCancel)
+            #expect(probe.cancellations.count == 1, Comment(rawValue: name.rawValue))
+            #expect(probe.factory.sessions.count == 1, Comment(rawValue: name.rawValue))
+            #expect(probe.adapter.retryTask == nil, Comment(rawValue: name.rawValue))
+        }
+    }
+
     @Test("a retry the system will not start is reported as a cancel")
     func retryThatDoesNotStartIsReported() async throws {
         let probe = Probe()
