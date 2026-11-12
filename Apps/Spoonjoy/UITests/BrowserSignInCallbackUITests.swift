@@ -105,7 +105,7 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         accountButton.tap()
         let email = element("settings.profile.email")
         XCTAssertTrue(email.waitForExistence(timeout: Self.networkTimeout), "Settings shows no account email.")
-        XCTAssertTrue(email.label.contains(account.email), "The app is signed in as someone other than the throwaway account: \(email.label)")
+        XCTAssertTrue(email.label == account.email || email.label.hasSuffix(" \(account.email)"), "The app is signed in as someone other than the throwaway account: \(email.label)")
         screenshot("05-settings-signed-in-as-throwaway")
         app.terminate()
     }
