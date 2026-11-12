@@ -418,6 +418,72 @@ jobs:
     needs: [contracts, swift-tests, reins-journeys, native-scenario-verifier, app-bundle]
     uses: ./.github/workflows/beta-sdk.yml
 
+  # Continue with Google or GitHub on an iOS simulator: SpoonjoyBrowserSignInTests (fresh state per tap, one sheet
+  # open app-wide, the callback checked against its own attempt, the server's exact code and error returns) with a
+  # fake sheet in place of ASWebAuthenticationSession, then the live production chain from the URL the app builds
+  # through /auth/google to accounts.google.com. The live test needs the network and signs nobody in. Swift tests runs
+  # the same suite on macOS, without the live test.
+  browser-sign-in-simulator:
+    name: Browser sign-in on the iOS simulator
+    if: github.event_name == 'pull_request'
+    needs: [contracts, swift-tests, reins-journeys, native-scenario-verifier, app-bundle]
+    runs-on: xcode-27
+    # Lane c of 3: see the note on macOS lanes at the top of native.yml.
+    concurrency:
+      group: >-
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        && format('native-browser-sign-in-simulator-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || 'spoonjoy-macos-lane-c' }}
+      queue: max
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/select-xcode
+      - name: Resolve iPhone simulator
+        id: sim
+        run: |
+          set -euo pipefail
+          destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
+          [[ "$destination" == "platform=iOS Simulator,arch="*",id="* ]] || { echo "::error::Unexpected simulator destination: $destination"; exit 1; }
+          echo "destination=$destination" >> "$GITHUB_OUTPUT"
+      - name: Boot the simulator
+        timeout-minutes: 4
+        run: xcrun simctl bootstatus "$(sed 's/.*,id=//' <<<'${{ steps.sim.outputs.destination }}')" -b
+      - name: Run the browser sign-in tests on the simulator
+        timeout-minutes: 30
+        env:
+          # Package.swift leaves out the test targets that only build for macOS.
+          SPOONJOY_IOS_SIMULATOR_TESTS: "1"
+          # Passed into the test runner as SPOONJOY_LIVE_OAUTH_CHAIN.
+          TEST_RUNNER_SPOONJOY_LIVE_OAUTH_CHAIN: "1"
+        run: |
+          set -euo pipefail
+          # The repository root holds Spoonjoy.xcodeproj, which xcodebuild would pick over the package, so the package
+          # is tested from a copy of its manifest, sources and tests.
+          package="$RUNNER_TEMP/package"
+          mkdir -p "$package"
+          cp -R Package.swift Sources Tests "$package/"
+          log="$RUNNER_TEMP/browser-sign-in.log"
+          (cd "$package" && xcodebuild test -scheme SpoonjoyApple-Package -destination "${{ steps.sim.outputs.destination }}" \
+            -only-testing:SpoonjoyBrowserSignInTests -derivedDataPath "$RUNNER_TEMP/browser-sign-in-dd" \
+            -resultBundlePath "$RUNNER_TEMP/browser-sign-in.xcresult" CODE_SIGNING_ALLOWED=NO) 2>&1 | tee "$log"
+          # Every test, the live chain included, must have run and passed on the simulator; a skip is a failure here.
+          summary="$(xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/browser-sign-in.xcresult")"
+          echo "$summary"
+          ruby -rjson -e 's = JSON.parse(ARGV[0]); ok = s["result"] == "Passed" && s["skippedTests"].to_i.zero? && s["passedTests"].to_i >= 13; puts "#{s["passedTests"]} passed, #{s["skippedTests"]} skipped, #{s["failedTests"]} failed on #{s.dig("devicesAndConfigurations", 0, "device", "deviceName")} (#{s.dig("devicesAndConfigurations", 0, "device", "osVersion")})"; exit(ok ? 0 : 1)' "$summary" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload the result bundle
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: browser-sign-in-xcresult-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/browser-sign-in.xcresult
+            ${{ runner.temp }}/browser-sign-in.log
+          if-no-files-found: warn
+          retention-days: 30
+
   testflight-release-note:
     name: TestFlight release note
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

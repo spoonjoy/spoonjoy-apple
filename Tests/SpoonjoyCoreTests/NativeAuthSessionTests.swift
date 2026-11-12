@@ -429,14 +429,12 @@ struct NativeAuthSessionTests {
                 "NativePasswordSignInCredential",
                 "handleAppleSignInCredential",
                 "handlePasswordSignInCredential",
-                "SpoonjoyWebAuthenticationSession(callbackURL:",
+                "NativeBrowserOAuthSignIn(",
+                "SpoonjoyBrowserOAuthWebSession.make",
                 "handleBrowserOAuthSignIn",
                 "handleBrowserOAuthSignIn(provider:",
-                "handleBrowserOAuthCallback",
-                "handleBrowserOAuthCancellation",
-                "authRepository.startSignIn",
-                "authRepository.handleOAuthCallback",
-                "providerHint:",
+                "signIn.begin(provider: provider)",
+                "handleBrowserOAuthFinish",
                 "pendingOAuthProvider",
                 "Continue with Google",
                 "Continue with GitHub",
@@ -558,7 +556,7 @@ struct NativeAuthSessionTests {
                 "loopback(host: String, port: UInt16, path: String)",
                 "handleOAuthCallback",
                 "cancel()",
-                "OAuthState",
+                "SpoonjoyBrowserOAuthWebSession: NativeBrowserOAuthWebSession",
                 "SpoonjoyAuthenticationPresentationContextProvider.make()",
                 "SpoonjoyUnavailableWebAuthenticationSession",
                 "activeSession = didStart ? session : nil",
@@ -1835,9 +1833,7 @@ struct WebAuthenticationSessionAdapterContract {
             }
         )
         let authorizationURL = URL(string: "https://spoonjoy.app/oauth/authorize?client_id=cm_native_spoonjoy&state=state_123")!
-        let state = try #require(OAuthState(rawValue: "state_123"))
-
-        #expect(try adapter.start(authorizationURL: authorizationURL, oauthState: state))
+        #expect(try adapter.start(authorizationURL: authorizationURL))
         #expect(factory.requests == [
             FakeSessionRequest(
                 authorizationURL: authorizationURL,
@@ -1868,9 +1864,7 @@ struct WebAuthenticationSessionAdapterContract {
             }
         )
         let authorizationURL = URL(string: "https://spoonjoy.app/oauth/authorize?client_id=cm_native_spoonjoy&state=state_123")!
-        let state = try #require(OAuthState(rawValue: "state_123"))
-
-        #expect(try !adapter.start(authorizationURL: authorizationURL, oauthState: state))
+        #expect(try !adapter.start(authorizationURL: authorizationURL))
         let session = try #require(factory.sessions.first)
         #expect(session.startCount == 1)
 
@@ -1895,9 +1889,7 @@ struct WebAuthenticationSessionAdapterContract {
             }
         )
         let authorizationURL = URL(string: "https://spoonjoy.app/oauth/authorize?client_id=cm_native_spoonjoy&state=state_123")!
-        let state = try #require(OAuthState(rawValue: "state_123"))
-
-        #expect(try adapter.start(authorizationURL: authorizationURL, oauthState: state))
+        #expect(try adapter.start(authorizationURL: authorizationURL))
         factory.complete(with: nil, error: TestAuthenticationError.canceled)
 
         #expect(forwardedCallbacks.isEmpty)
