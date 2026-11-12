@@ -85,7 +85,7 @@ struct CaptureDraftEntityTests {
                     "NativeAppStateStore",
                     "NativeDurableCacheStore",
                     "trustedIntentScope",
-                    "KeychainTokenVault()",
+                    "SpoonjoyAppTokenVault.current()",
                     "scope.accountID",
                     "scope.environment"
                 ],
