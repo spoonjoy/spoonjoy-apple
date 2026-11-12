@@ -7,13 +7,13 @@
       "size": [1320, 2868],
       "device": "iphone",
       "shots": [
-        { "id": "01-cook", "scene": "cook-mode", "palette": "tomato", "kicker": "Cook mode", "headline": "One big step\nat a time", "subline": "Say “next” when your hands are messy. Tick off each ingredient as it goes in." },
-        { "id": "02-recipe", "scene": "recipe-detail", "palette": "brass", "kicker": "Fork it, with credit", "headline": "Recipes, passed\nhand to hand", "subline": "Make it yours. The cook who started it keeps the credit." },
-        { "id": "03-kitchen", "scene": "kitchen", "palette": "charcoal", "kicker": "Your kitchen", "headline": "Everything you\ncook, together", "subline": "Your recipes, cookbooks and cooks in one place." },
-        { "id": "04-night", "scene": "cook-mode-dark", "palette": "charcoal", "kicker": "After dark", "headline": "A warm kitchen\nfor late dinners", "subline": "Cook mode goes dark and gentle, and the button you need glows amber." },
-        { "id": "06-shopping", "scene": "shopping-list", "palette": "bone", "kicker": "Shopping", "headline": "A list like\na receipt", "subline": "Sorted by aisle. Works offline. Sends to Reminders." },
-        { "id": "07-cookbooks", "scene": "cookbook-detail", "palette": "herb", "kicker": "Cookbooks", "headline": "Gather recipes\ninto cookbooks", "subline": "Share a whole cookbook with one link." },
-        { "id": "08-recipes", "scene": "recipes", "palette": "brass", "kicker": "Recipes", "headline": "Your whole\nrecipe box", "subline": "Yours, saved and everyone’s, a tap apart." }
+        { "id": "01-cook", "scene": "cook-mode", "palette": "tomato", "kicker": "Cook mode", "headline": "Flour on your hands?\nSay “next”", "subline": "One step fills the screen, with only the ingredients it needs." },
+        { "id": "02-recipe", "scene": "recipe-detail", "palette": "brass", "kicker": "Fork it", "headline": "Change the recipe,\nnot the credit", "subline": "Your copy keeps a “forked from” line naming the cook who wrote it." },
+        { "id": "03-kitchen", "scene": "kitchen", "palette": "charcoal", "kicker": "Your kitchen", "headline": "Pasted from a link\nor typed from a card", "subline": "Your recipes and the ones you forked, on one shelf." },
+        { "id": "04-night", "scene": "cook-mode-dark", "palette": "charcoal", "kicker": "After dark", "headline": "Easy on the eyes\nat 10 p.m.", "subline": "Cook mode turns warm and dim. The button you need glows amber." },
+        { "id": "06-shopping", "scene": "shopping-list", "palette": "bone", "kicker": "Shopping", "headline": "Every ingredient\non your list in one tap", "subline": "Sorted by aisle, and it still works in the store’s dead zone." },
+        { "id": "07-cookbooks", "scene": "cookbook-detail", "palette": "herb", "kicker": "Cookbooks", "headline": "Bind your own\ncookbooks", "subline": "Gather recipes into a book and send the whole thing with one link." },
+        { "id": "08-recipes", "scene": "recipes", "palette": "brass", "kicker": "Recipes", "headline": "Your whole\nrecipe box", "subline": "The ones you wrote sit next to the ones you saved." }
       ],
       "keep": ["05-duo.png"]
     },
@@ -31,11 +31,11 @@
       "size": [2064, 2752],
       "device": "ipad",
       "shots": [
-        { "id": "01-cook", "scene": "cook-mode", "palette": "tomato", "kicker": "Cook mode", "headline": "One big step at a time", "subline": "Say “next” when your hands are messy. Tick off each ingredient as it goes in." },
-        { "id": "02-recipe", "scene": "recipe-detail", "palette": "brass", "kicker": "Fork it, with credit", "headline": "Recipes, passed hand to hand", "subline": "Make it yours. The cook who started it keeps the credit." },
-        { "id": "03-kitchen", "scene": "kitchen", "palette": "charcoal", "kicker": "Your kitchen", "headline": "Everything you cook, together", "subline": "Your recipes, cookbooks and cooks in one place." },
-        { "id": "04-night", "scene": "cook-mode-dark", "palette": "charcoal", "kicker": "After dark", "headline": "A warm kitchen for late dinners", "subline": "Cook mode goes dark and gentle, and the button you need glows amber." },
-        { "id": "05-shopping", "scene": "shopping-list", "palette": "bone", "kicker": "Shopping", "headline": "A list like a receipt", "subline": "Sorted by aisle. Works offline. Sends to Reminders." }
+        { "id": "01-cook", "scene": "cook-mode", "palette": "tomato", "kicker": "Cook mode", "headline": "Flour on your hands? Say “next”", "subline": "One step fills the screen, with only the ingredients it needs." },
+        { "id": "02-recipe", "scene": "recipe-detail", "palette": "brass", "kicker": "Fork it", "headline": "Change the recipe, not the credit", "subline": "Your copy keeps a “forked from” line naming the cook who wrote it." },
+        { "id": "03-kitchen", "scene": "kitchen", "palette": "charcoal", "kicker": "Your kitchen", "headline": "Pasted from a link or typed from a card", "subline": "Your recipes and the ones you forked, on one shelf." },
+        { "id": "04-night", "scene": "cook-mode-dark", "palette": "charcoal", "kicker": "After dark", "headline": "Easy on the eyes at 10 p.m.", "subline": "Cook mode turns warm and dim. The button you need glows amber." },
+        { "id": "05-shopping", "scene": "shopping-list", "palette": "bone", "kicker": "Shopping", "headline": "Every ingredient on your list in one tap", "subline": "Sorted by aisle, and it still works in the store’s dead zone." }
       ]
     }
   },
@@ -44,7 +44,7 @@
     "source_set": "iphone-69",
     "posters": [
       { "id": "header", "size": [3840, 1646], "palette": "tomato", "scenes": ["recipe-detail", "cook-mode", "kitchen"] },
-      { "id": "search", "size": [3840, 2560], "palette": "brass", "kicker": "Spoonjoy", "headline": "Recipes, passed\nhand to hand", "subline": "Cook one big step at a time. Say “next” when your hands are messy.", "scenes": ["cook-mode", "recipe-detail", "shopping-list"] }
+      { "id": "search", "size": [3840, 2560], "palette": "brass", "kicker": "Spoonjoy", "headline": "Cook one big\nstep at a time", "subline": "Fork any recipe and the cook who wrote it keeps the credit.", "scenes": ["cook-mode", "recipe-detail", "shopping-list"] }
     ]
   },
   "palettes": {
