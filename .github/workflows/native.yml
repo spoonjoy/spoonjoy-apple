@@ -24,8 +24,10 @@ concurrency:
 
 # macOS lanes. The spoonjoy org (GitHub Free) runs at most 5 macOS jobs at once, xcode-27 included. On 2026-11-11 pull
 # request jobs held all 5 for over 90 minutes while a merge-queue entry's jobs, queued earlier, got none. So the macOS
-# jobs of pull request, after-TestFlight and dispatch runs join one of three shared lanes and run one at a time within
-# it, waiting (queue: max) instead of queueing for a runner:
+# jobs of pull request, after-TestFlight and dispatch runs join one of three lanes and run one at a time within it,
+# waiting (queue: max) instead of queueing for a runner. Lanes a and b are per pull request
+# (spoonjoy-macos-lane-a-pr-<number>): one shared lane held about 10 PRs pending for hours on 2026-11-12 while Macs sat
+# free, so different PRs' required checks now run side by side. Lane c stays one shared lane for all optional work:
 #   lane a: App bundle (required)
 #   lane b: Swift tests, Native scenario verifier, Reins journeys (required, short)
 #   lane c: every optional job: App Intents X-ray, Journeys, Launch smoke, Feel, Beta SDK, Duo tour
@@ -81,6 +83,8 @@ jobs:
           bundler-cache: true
       - name: The simulator helper picks and lists simulators right (offline, no simulator)
         run: python3 -I .github/scripts/test_create_newest_simulator.py
+      - name: Store scenes come out of their result bundle by name (offline)
+        run: python3 -I .github/scripts/test_export_store_scenes.py
       - name: Check native design-language contract
         run: ruby scripts/check-native-design-language.rb --web-design-doc docs/source/spoonjoy-v2-design-language.md
       - name: Check web palette contract
@@ -133,6 +137,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('native-swift-tests-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || github.event_name == 'pull_request' && format('spoonjoy-macos-lane-b-pr-{0}', github.event.pull_request.number)
         || 'spoonjoy-macos-lane-b' }}
       queue: max
     timeout-minutes: 30
@@ -166,6 +171,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('native-reins-journeys-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || github.event_name == 'pull_request' && format('spoonjoy-macos-lane-b-pr-{0}', github.event.pull_request.number)
         || 'spoonjoy-macos-lane-b' }}
       queue: max
     timeout-minutes: 20
@@ -211,6 +217,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('native-native-scenario-verifier-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || github.event_name == 'pull_request' && format('spoonjoy-macos-lane-b-pr-{0}', github.event.pull_request.number)
         || 'spoonjoy-macos-lane-b' }}
       queue: max
     timeout-minutes: 30
@@ -255,6 +262,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('native-app-bundle-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || github.event_name == 'pull_request' && format('spoonjoy-macos-lane-a-pr-{0}', github.event.pull_request.number)
         || 'spoonjoy-macos-lane-a' }}
       queue: max
     timeout-minutes: 30

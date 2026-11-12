@@ -577,7 +577,7 @@ struct CookModeView: View {
             Group {
                 if accessibilityReduceMotion || recipe.steps.count < 2 {
                     if let currentStep {
-                        cookPage(currentStep, isCurrent: true, height: height)
+                        cookPage(currentStep, isCurrent: true, height: height, width: max(width - Self.pageInset * 2, 1))
                             .frame(width: max(width - Self.pageInset * 2, 1), height: height)
                             .id(currentStep.id)
                             .kitchenTransition(.opacity)
@@ -588,7 +588,7 @@ struct CookModeView: View {
                         ForEach(Array(recipe.steps.enumerated()), id: \.element.id) { index, step in
                             Group {
                                 if abs(index - currentIndex) <= 1 {
-                                    cookPage(step, isCurrent: index == currentIndex, height: height)
+                                    cookPage(step, isCurrent: index == currentIndex, height: height, width: pageWidth)
                                 } else {
                                     Color.clear
                                 }
@@ -741,38 +741,43 @@ struct CookModeView: View {
     }
 
     /// One step's page, top to bottom: where you are, the step title in brass, the step in large serif, its timer
-    /// ring, then the step's checks in the thumb zone. A neighbouring page is a dimmed, inert preview.
-    private func cookPage(_ step: RecipeStep, isCurrent: Bool, height: CGFloat) -> some View {
+    /// ring, then the step's checks in the thumb zone. A neighbouring page is a dimmed, inert preview. On a big page
+    /// (an iPad's, `CookCanvas`) the step is set larger, and on a wide one its checklist stands beside it.
+    private func cookPage(_ step: RecipeStep, isCurrent: Bool, height: CGFloat, width: CGFloat) -> some View {
         let model = pageViewModel(for: step)
+        let canvas = CookCanvas.page(
+            width: Double(width),
+            height: Double(height),
+            isPad: Self.isPad,
+            isAccessibilityTextSize: dynamicTypeSize.isAccessibilitySize
+        )
         // A neighbouring page is laid out exactly as it will be once current, only dimmed and inert, so nothing is
         // inserted, recoloured or moved on it while it turns into view, as a page in Books is whole before it turns.
         return ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 10) {
-                    taskHeader(model)
-                    shoppingStatus
-                    stepHeading(step)
-                    Text(step.description)
-                        .font(KitchenTableTheme.cookStep)
-                        .foregroundStyle(KitchenTableTheme.ink)
-                        .lineSpacing(4)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier(isCurrent ? "cook.step.text" : "")
-                }
+            Group {
+                if canvas.setsChecklistBesideStep {
+                    wideCookPageContent(step, model: model, isCurrent: isCurrent, canvas: canvas, width: width)
+                } else {
+                    VStack(alignment: .leading, spacing: 18) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            taskHeader(model)
+                            shoppingStatus
+                            stepInstruction(step, isCurrent: isCurrent, canvas: canvas)
+                        }
 
-                if let timer = model.systemTimer {
-                    stepTimer(timer, step: step, model: model, isCurrent: isCurrent)
-                }
+                        if let timer = model.systemTimer {
+                            stepTimer(timer, step: step, model: model, isCurrent: isCurrent)
+                                .dynamicTypeSize(dynamicTypeSize.stepped(up: canvas.typeSteps))
+                        }
 
-                Spacer(minLength: 8)
+                        Spacer(minLength: 8)
 
-                CookTimerStack(timers: runningTimers(besides: step))
-                stepCard(model, isCurrent: isCurrent)
-                if step.id == recipe.steps.last?.id {
-                    finishControl
+                        stepChecks(step, model: model, isCurrent: isCurrent)
+                            .dynamicTypeSize(dynamicTypeSize.stepped(up: canvas.typeSteps))
+                    }
                 }
             }
-            .padding(20)
+            .padding(canvas.interpolate(20, 40))
             .frame(maxWidth: .infinity, minHeight: height, alignment: .topLeading)
         }
         .scrollBounceBehavior(.basedOnSize)
@@ -792,9 +797,77 @@ struct CookModeView: View {
         .accessibilityIdentifier(isCurrent ? "cook.page" : "cook.page.preview")
     }
 
-    private func stepHeading(_ step: RecipeStep) -> some View {
+    /// A wide page: where you are along the top, then the step and its timer on the left and what it needs on the
+    /// right, the pair centred down the page so it holds the whole canvas, not just its top.
+    private func wideCookPageContent(
+        _ step: RecipeStep,
+        model: CookModeViewModel,
+        isCurrent: Bool,
+        canvas: CookCanvas,
+        width: CGFloat
+    ) -> some View {
+        let steppedType = dynamicTypeSize.stepped(up: canvas.typeSteps)
+        return VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                taskHeader(model)
+                shoppingStatus
+            }
+            Spacer(minLength: 32)
+            HStack(alignment: .top, spacing: 48) {
+                VStack(alignment: .leading, spacing: 32) {
+                    stepInstruction(step, isCurrent: isCurrent, canvas: canvas)
+                    if let timer = model.systemTimer {
+                        stepTimer(timer, step: step, model: model, isCurrent: isCurrent)
+                            .dynamicTypeSize(steppedType)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                VStack(alignment: .leading, spacing: 18) {
+                    stepChecks(step, model: model, isCurrent: isCurrent)
+                }
+                .dynamicTypeSize(steppedType)
+                .frame(width: CGFloat(CookCanvas.checklistWidth(pageWidth: Double(width))))
+            }
+            Spacer(minLength: 32)
+        }
+    }
+
+    /// Only an iPad's cook page grows with its canvas; every iPhone, the Duo included, and the native Mac app keep their
+    /// layout. The iPad app running on a Mac reports the iPad idiom, so its windows grow as an iPad's would.
+    private static var isPad: Bool {
+#if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .pad
+#else
+        false
+#endif
+    }
+
+    /// The step's title in brass and the step itself in large serif, both set `canvas.scale` times larger on a big page.
+    private func stepInstruction(_ step: RecipeStep, isCurrent: Bool, canvas: CookCanvas) -> some View {
+        VStack(alignment: .leading, spacing: canvas.interpolate(10, 16)) {
+            stepHeading(step, scale: canvas.scale)
+            Text(step.description)
+                .font(KitchenTypeRole.cookStep.font(scaledBy: canvas.scale))
+                .foregroundStyle(KitchenTableTheme.ink)
+                .lineSpacing(4 * canvas.scale)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier(isCurrent ? "cook.step.text" : "")
+        }
+    }
+
+    /// Other steps' running timers, the step's checks and, on the last step, Finish.
+    @ViewBuilder private func stepChecks(_ step: RecipeStep, model: CookModeViewModel, isCurrent: Bool) -> some View {
+        CookTimerStack(timers: runningTimers(besides: step))
+        stepCard(model, isCurrent: isCurrent)
+        if step.id == recipe.steps.last?.id {
+            finishControl
+        }
+    }
+
+    private func stepHeading(_ step: RecipeStep, scale: Double = 1) -> some View {
         Text(step.stepTitle ?? "Step \(step.stepNum)")
-            .font(KitchenTableTheme.stepTitle)
+            .font(KitchenTypeRole.stepTitle.font(scaledBy: scale))
             .foregroundStyle(KitchenTableTheme.brass)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)
@@ -1410,10 +1483,11 @@ extension CookModeView {
     /// of the left page and Next at the outer corner of the right page, like turning a page, so every control
     /// stays well away from the fold in the middle.
     fileprivate func cookModeSpread(_ layout: BookSpreadLayout) -> some View {
-        KitchenTableSpread(layout: layout) {
+        let canvas = spreadCanvas(layout)
+        return KitchenTableSpread(layout: layout) {
             VStack(alignment: .leading, spacing: 0) {
                 ScrollView {
-                    cookSpreadGatherPage
+                    cookSpreadGatherPage(canvas)
                         .spreadPagePadding(.leading, bottom: 24)
                 }
                 cookSpreadLeadingControls
@@ -1425,7 +1499,7 @@ extension CookModeView {
             VStack(alignment: .leading, spacing: 0) {
                 // Only the page turns. The glass controls stay flat below it, so they never swing with the leaf.
                 ScrollView {
-                    cookSpreadStepPage
+                    cookSpreadStepPage(canvas)
                         .spreadPagePadding(.trailing, bottom: 24)
                         .coordinateSpace(.named(Self.spreadStepSpace))
                 }
@@ -1458,23 +1532,36 @@ extension CookModeView {
         .onDisappear { isShowingSpread = false }
     }
 
+    /// A spread page's canvas: one page of the open Duo is the reference, and a page of the iPad's landscape spread
+    /// sets the step and what it needs larger. Measured from the step page, the one that scrolls.
+    private func spreadCanvas(_ layout: BookSpreadLayout) -> CookCanvas {
+        CookCanvas.page(
+            width: layout.trailingPage?.width ?? 0,
+            height: Double(spreadStepRoom),
+            isPad: Self.isPad,
+            isAccessibilityTextSize: dynamicTypeSize.isAccessibilitySize
+        )
+    }
+
     /// The ring's largest diameter on the spread's step page: what is left under the step, less the space between
     /// and the page's foot, and the start hint while the ring can keep it. A step that leaves less than the ring's usual
     /// smallest size (the Duo held as a book) gets the compact ring, without the hint, so the ring stays whole above the
     /// controls instead of running under them. Nil until the page has been measured.
-    private var spreadRingLimit: CGFloat? {
+    /// On an iPad's larger page the gap above the ring and the hint under it grow with the page (`canvas`).
+    private func spreadRingLimit(_ canvas: CookCanvas) -> CGFloat? {
         guard spreadStepRoom > 0, spreadStepTextBottom > 0 else {
             return nil
         }
-        let withHint = spreadStepRoom - spreadStepTextBottom - (18 + 56 + 24)
+        let gap = 18 * canvas.scale
+        let withHint = spreadStepRoom - spreadStepTextBottom - (gap + 56 * canvas.scale + 24)
         if withHint >= CookTimerRingFace<EmptyView>.minimumDiameter {
             return withHint
         }
-        return max(CookTimerRingFace<EmptyView>.compactDiameter, spreadStepRoom - spreadStepTextBottom - (18 + 24))
+        return max(CookTimerRingFace<EmptyView>.compactDiameter, spreadStepRoom - spreadStepTextBottom - (gap + 24))
     }
 
-    private var spreadRingShowsHint: Bool {
-        (spreadRingLimit ?? .infinity) >= CookTimerRingFace<EmptyView>.minimumDiameter
+    private func spreadRingShowsHint(_ canvas: CookCanvas) -> Bool {
+        (spreadRingLimit(canvas) ?? .infinity) >= CookTimerRingFace<EmptyView>.minimumDiameter
     }
 
     /// While a finger drags the right page it lifts, short of edge-on; a turned step then plays the turn.
@@ -1513,7 +1600,7 @@ extension CookModeView {
         }
     }
 
-    private var cookSpreadGatherPage: some View {
+    private func cookSpreadGatherPage(_ canvas: CookCanvas) -> some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
                 // A running head is one line, except at accessibility sizes, where the whole title matters more.
@@ -1522,7 +1609,7 @@ extension CookModeView {
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text("Gather")
-                        .font(KitchenTableTheme.displayTitle)
+                        .font(KitchenTypeRole.displayTitle.font(scaledBy: canvas.scale))
                         .foregroundStyle(KitchenTableTheme.ink)
                         .accessibilityAddTraits(.isHeader)
                 }
@@ -1535,33 +1622,36 @@ extension CookModeView {
                     .font(KitchenTableTheme.instructionBody)
                     .foregroundStyle(KitchenTableTheme.ink2)
             }
-            CookTimerStack(timers: otherRunningTimers)
-            stepCard(viewModel, isCurrent: true)
+            Group {
+                CookTimerStack(timers: otherRunningTimers)
+                stepCard(viewModel, isCurrent: true)
+            }
+            .dynamicTypeSize(dynamicTypeSize.stepped(up: canvas.typeSteps))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    @ViewBuilder private var cookSpreadStepPage: some View {
+    @ViewBuilder private func cookSpreadStepPage(_ canvas: CookCanvas) -> some View {
         if let currentStep {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 18 * canvas.scale) {
                 Text(viewModel.stepProgressLabel)
                     .spreadRunningHead()
                     .accessibilityIdentifier("cook.step.meta")
                 HStack(alignment: .firstTextBaseline, spacing: 14) {
                     Text("\(currentStep.stepNum)")
-                        .font(KitchenTableTheme.displayTitle)
+                        .font(KitchenTypeRole.displayTitle.font(scaledBy: canvas.scale))
                         .foregroundStyle(KitchenTableTheme.brass)
                         .accessibilityHidden(true)
                     Text(currentStep.stepTitle ?? "Step \(currentStep.stepNum)")
-                        .font(KitchenTableTheme.sectionTitle)
+                        .font(KitchenTypeRole.sectionTitle.font(scaledBy: canvas.scale))
                         .foregroundStyle(KitchenTableTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityLabel("Current cooking step \(currentStep.stepNum), \(currentStep.stepTitle ?? "Step")")
                 }
                 Text(currentStep.description)
-                    .font(KitchenTableTheme.cookInstruction)
+                    .font(KitchenTypeRole.cookInstruction.font(scaledBy: canvas.scale))
                     .foregroundStyle(KitchenTableTheme.ink)
-                    .lineSpacing(6)
+                    .lineSpacing(6 * canvas.scale)
                     .fixedSize(horizontal: false, vertical: true)
                     .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(Self.spreadStepSpace)).maxY } action: {
                         spreadStepTextBottom = $0
@@ -1583,8 +1673,9 @@ extension CookModeView {
                         try cancelSystemTimer(step: currentStep)
                     }
                     .id(timer.stepID)
-                    .environment(\.cookTimerRingLimit, spreadRingLimit)
-                    .environment(\.cookTimerShowsHint, spreadRingShowsHint)
+                    .environment(\.cookTimerRingLimit, spreadRingLimit(canvas))
+                    .environment(\.cookTimerShowsHint, spreadRingShowsHint(canvas))
+                    .dynamicTypeSize(dynamicTypeSize.stepped(up: canvas.typeSteps))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

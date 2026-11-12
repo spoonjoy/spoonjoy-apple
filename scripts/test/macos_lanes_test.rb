@@ -3,7 +3,7 @@
 # Run: ruby scripts/test/macos_lanes_test.rb
 #
 # spoonjoy runs at most 5 macOS jobs at once (GitHub Free), xcode-27 included. Pull request, after-TestFlight and
-# dispatch work waits in three shared lanes (see the note at the top of native.yml), so the merge queue and main
+# dispatch work waits in three lanes (see the note at the top of native.yml), so the merge queue and main
 # always keep runners. A macOS job with no lane escapes that cap and takes a slot the merge queue is waiting for,
 # as a new Siri journey job did on 2026-11-11. These tests fail any such job, including in every reusable workflow
 # that a workflow_run workflow calls.
@@ -107,6 +107,24 @@ class MacosLanesTest < Minitest::Test
   def test_required_checks_take_lanes_a_and_b_and_optional_work_takes_lane_c
     macos_jobs("native.yml").each do |id, job|
       assert_equal REQUIRED_LANES.fetch(id, "c"), lane_of(job), "native.yml job #{id}"
+    end
+  end
+
+  # One shared lane a and b held about 10 PRs pending for hours on 2026-11-12 while Macs sat free. Each PR gets its
+  # own lane a and b, so PRs run in parallel while a PR's own required jobs still run one at a time per lane.
+  # Optional work stays in the one shared lane c, so it never takes more than one slot.
+  def test_pull_request_required_jobs_take_a_per_pr_lane
+    macos_jobs("native.yml").each do |id, job|
+      group = job.fetch("concurrency").fetch("group").to_s
+      lane = REQUIRED_LANES[id]
+      if lane
+        assert_includes group,
+                        "github.event_name == 'pull_request' && " \
+                        "format('spoonjoy-macos-lane-#{lane}-pr-{0}', github.event.pull_request.number)",
+                        "native.yml job #{id}: a pull request's required job waits in its own PR's lane #{lane}"
+      else
+        refute_includes group, "pull_request.number", "native.yml job #{id}: optional work shares lane c"
+      end
     end
   end
 
