@@ -10,7 +10,7 @@ require "yaml"
 
 class ReleaseBranchWorkflowTest < Minitest::Test
   ROOT = File.expand_path("../..", __dir__)
-  MAIN_VERSION = "1.2"
+  MAIN_VERSION = "1.3"
   BRANCH_PATTERN = "^release/[0-9][0-9A-Za-z.-]*$"
 
   def workflow(name)

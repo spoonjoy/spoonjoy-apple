@@ -89,4 +89,5 @@ jobs:
           if [ "$DRY_RUN" = "false" ]; then mode=--apply; fi
           ruby scripts/stage-app-store-listing.rb "$mode" --platform "$PLATFORM" --build-number "$BUILD_NUMBER" \
             --listing release-source/distribution/app-store/listing.json \
-            --screenshots release-source/distribution/app-store/screenshots
+            --screenshots release-source/distribution/app-store/screenshots \
+            --changes release-source/changes
