@@ -49,6 +49,8 @@ unless errors.empty?
 end
 screenshots = AppStoreListing.local_screenshots(listing, options[:screenshots])
 screenshots.each { |folder, files| puts "#{folder}: #{files.length} screenshot(s)" }
+creative_assets = AppStoreListing.local_creative_assets(listing, options[:screenshots])
+creative_assets.each { |type, file| puts "#{type}: #{File.basename(file['path'])}" }
 if options[:mode] == :validate
   puts "The listing is valid."
   exit 0
@@ -72,7 +74,8 @@ secrets = {
 warn "No demo account secrets: review details will not include the demo account." unless secrets["demoAccountName"]
 
 snapshot = reader.snapshot(build_number: options[:build_number])
-steps = AppStoreListing.plan(listing: listing, snapshot: snapshot, screenshots: screenshots, secrets: secrets)
+steps = AppStoreListing.plan(listing: listing, snapshot: snapshot, screenshots: screenshots, secrets: secrets,
+                             creative_assets: creative_assets)
 puts "App Store Connect app #{reader.app_id}: #{steps.length} change(s)"
 puts AppStoreListing.describe(steps)
 if options[:mode] == :dry_run

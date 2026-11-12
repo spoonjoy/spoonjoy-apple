@@ -293,6 +293,13 @@ The certificate secrets `APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64` and `APPLE_D
 
 `scripts/revoke-ci-signing-certificates.rb` is the earlier version of the safety net. CI no longer calls it.
 
+### Store art without the website
+
+"Stage App Store listing" places all of the store art with the API key, so none of it needs the App Store Connect website:
+
+- **iPhone Duo screenshots.** Add a folder under `screenshots` with `"displayType": "APP_IPHONE_DUO"` and sizes `[2007, 2853]` (inner screen) and `[1398, 2034]` (outer screen). Apple's published 4.6 spec leaves Duo out, but the live API accepts `APP_IPHONE_DUO`, `IMESSAGE_APP_IPHONE_DUO` and preview type `IPHONE_DUO` (checked 2026-11-11). The stager skips an empty folder, so the Duo set uploaded through the website stays until a folder has files.
+- **Product page header and search results art** (iOS 27 creative assets). Name them in `listing.json` as `"creativeAssets": {"PRODUCT_PAGE_HEADER_ASSET": "creative/header.png", "APP_STORE_SEARCH_RESULTS_ASSET": "creative/search.png"}`, with paths relative to `distribution/app-store/screenshots`. The header is 5244x2950 or 3840x1646, and the search results art is 5244x2950 or 3:2 from 1920x1280 to 3840x2560, all without transparency. The stager uploads each one to the app's Asset Library and places it on the version. It records the file's MD5 in the image's reference name, so an unchanged file is not uploaded again. The `mac` section takes its own `creativeAssets` and does not inherit the iOS ones.
+
 ## Mac App Store Build
 
 The Mac app ships as the macOS platform of the same App Store record as the iPhone app (universal purchase), so both targets use the bundle ID `app.spoonjoy`. The Mac target signs with its own entitlements, `Apps/Spoonjoy/macOS/SpoonjoyMac.entitlements`, which turn on App Sandbox (the Mac App Store rejects apps without it), and it builds with the hardened runtime.
