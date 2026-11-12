@@ -109,9 +109,8 @@ public final class NativeBrowserOAuthSignIn {
     private var retriedAttemptID: UUID?
 
     /// A cancel this soon after `start()`, with nothing shown, came from the system, not the person.
-    public static let earlyCancelWindow: TimeInterval = 1.5
-    /// How long to wait before the one retry, so a system fetch the cancel came from can finish.
-    public static let earlyCancelRetryDelay: Duration = .milliseconds(750)
+    public static let earlyCancelWindow = NativeBrowserOAuthEarlyCancel.window
+    public static let earlyCancelRetryDelay = NativeBrowserOAuthEarlyCancel.retryDelay
 
     public init(
         repository: NativeAuthSessionRepository,
@@ -198,7 +197,7 @@ public final class NativeBrowserOAuthSignIn {
             return .couldNotOpen
         }
         sessionStartedAt = uptime()
-        log("Browser sign-in sheet started")
+        log(NativeBrowserOAuthEarlyCancel.startedMessage)
         return .opened(authorizationURL: start.authorizationURL)
     }
 
@@ -210,14 +209,9 @@ public final class NativeBrowserOAuthSignIn {
         environment[loginPageEnvironmentVariable] == "1"
     }
 
-    /// A start failure or a sheet's cancel error for the log: the transport kind, status and request id, or the error's
-    /// domain and code. Never the description, which can carry a URL or a server response.
+    /// A start failure or a sheet's cancel error for the log; see `NativeBrowserOAuthEarlyCancel.diagnosticReason`.
     public static func diagnosticReason(_ error: any Error) -> String {
-        if let transport = error as? APITransportError {
-            return "\(transport.kind) status \(transport.statusCode.map { String($0) } ?? "none") request \(transport.requestID ?? "none")"
-        }
-        let nsError = error as NSError
-        return "\(nsError.domain) \(nsError.code)"
+        NativeBrowserOAuthEarlyCancel.diagnosticReason(error)
     }
 
     /// Closes the open sheet, if any, and ends its attempt as canceled.
@@ -239,25 +233,25 @@ public final class NativeBrowserOAuthSignIn {
         }
         guard let callbackURL else {
             let elapsed = sessionStartedAt.map { uptime() - $0 }
-            let reason = error.map(Self.diagnosticReason) ?? "no error"
-            let milliseconds = elapsed.map { String(Int(($0 * 1000).rounded())) } ?? "unknown"
-            if Self.isSystemCancel(error),
-               let elapsed, elapsed < Self.earlyCancelWindow,
-               session?.systemUIAppeared == false,
-               retriedAttemptID != attemptID {
+            if NativeBrowserOAuthEarlyCancel.shouldRetry(
+                error: error,
+                secondsSinceStart: elapsed,
+                systemUIAppeared: session?.systemUIAppeared ?? true,
+                alreadyRetried: retriedAttemptID == attemptID
+            ) {
                 retriedAttemptID = attemptID
-                log("Browser sign-in early cancel: \(reason) after \(milliseconds) ms with nothing shown; retrying once")
+                log(NativeBrowserOAuthEarlyCancel.earlyCancelMessage(error: error, secondsSinceStart: elapsed))
                 await retry(attempt: attempt, error: error)
                 return
             }
-            log("Browser sign-in ended without a callback: \(reason) after \(milliseconds) ms")
+            log(NativeBrowserOAuthEarlyCancel.endedMessage(error: error, secondsSinceStart: elapsed))
             clear(attemptID: attemptID)
             finish(.canceled(error))
             return
         }
         let returned = onReturn
         clear(attemptID: attemptID)
-        log("Browser sign-in callback received")
+        log(NativeBrowserOAuthEarlyCancel.callbackMessage)
 
         isFinishing = true
         defer { isFinishing = false }
@@ -274,14 +268,6 @@ public final class NativeBrowserOAuthSignIn {
         }
     }
 
-    /// ASWebAuthenticationSessionError.canceledLogin: what the system reports both for the person's Cancel and for
-    /// a session it ends by itself.
-    static func isSystemCancel(_ error: (any Error)?) -> Bool {
-        guard let error else { return false }
-        let nsError = error as NSError
-        return nsError.domain == "com.apple.AuthenticationServices.WebAuthenticationSession" && nsError.code == 1
-    }
-
     /// Starts one fresh sheet for the same attempt after a short pause. A cancel, a newer start or a callback during
     /// the pause wins: the retry only runs while this attempt is still the open one.
     private func retry(attempt: Attempt, error: (any Error)?) async {
@@ -294,13 +280,13 @@ public final class NativeBrowserOAuthSignIn {
         let sheet = makeSheet(attemptID: attempt.id, authorizationURL: attempt.authorizationURL, redirectURI: redirectURI)
         session = sheet
         guard sheet.start() else {
-            log("Browser sign-in retry did not start")
+            log(NativeBrowserOAuthEarlyCancel.retryDidNotStartMessage)
             clear(attemptID: attempt.id)
             finish(.canceled(error))
             return
         }
         sessionStartedAt = uptime()
-        log("Browser sign-in retried: sheet started again")
+        log(NativeBrowserOAuthEarlyCancel.retriedMessage)
     }
 
     private func makeSheet(attemptID: UUID, authorizationURL: URL, redirectURI: URL) -> any NativeBrowserOAuthWebSession {
