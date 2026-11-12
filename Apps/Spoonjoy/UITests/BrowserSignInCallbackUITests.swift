@@ -153,7 +153,11 @@ final class BrowserSignInCallbackUITests: XCTestCase {
     /// The sign-in sheet's web content is in the app's tree on some iOS versions and in SafariViewService's on others.
     /// Waits for the element in either tree; nil when neither shows it in time.
     private func webElement(_ type: XCUIElement.ElementType, label: String, timeout: TimeInterval = BrowserSignInCallbackUITests.interactionTimeout) -> XCUIElement? {
-        let predicate = NSPredicate(format: "label == %@ OR placeholderValue == %@", label, label)
+        // The app's own sign-in form uses the same placeholders, under identifiers that start with "native"; in run
+        // 43232570879 the password went to the app's field instead of the page's.
+        let predicate = NSPredicate(
+            format: "(label == %@ OR placeholderValue == %@) AND NOT (identifier BEGINSWITH %@)", label, label, "native"
+        )
         let candidates = [app, webSheet].map { $0.descendants(matching: type).matching(predicate).firstMatch }
         let deadline = Date().addingTimeInterval(timeout)
         repeat {

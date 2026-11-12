@@ -171,7 +171,8 @@ jobs:
           xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Debug \
             -destination "platform=iOS Simulator,id=$UDID" -only-testing:SpoonjoyShoppingUITests/BrowserSignInCallbackUITests \
             -derivedDataPath "$RUNNER_TEMP/callback/DerivedData" -parallel-testing-enabled NO -collect-test-diagnostics never \
-            -resultBundlePath "$RUNNER_TEMP/callback/BrowserSignInCallback.xcresult" 2>&1 | tee "$RUNNER_TEMP/callback/test.log"
+            -resultBundlePath "$RUNNER_TEMP/callback/BrowserSignInCallback.xcresult" 2>&1 \
+            | sed -E "s/(Type ')[^']*(')/\1<redacted>\2/g" | tee "$RUNNER_TEMP/callback/test.log"
           date -u +%Y-%m-%dT%H:%M:%SZ > "$RUNNER_TEMP/callback/evidence/test-ended-at.txt"
           # Pass means one test passed and none skipped or failed, read from the result bundle, not the log's wording.
           xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/callback/BrowserSignInCallback.xcresult" \
@@ -213,6 +214,8 @@ jobs:
           if not raw:
               sys.exit(0)
           needle = json.loads(raw)["password"].encode()
+          # xcodebuild shortens long typed text to its first characters, so a prefix is checked too.
+          prefix = needle[:12]
           # The test types the password, so xcodebuild's log of the Type step holds it. Redact it everywhere, then
           # check nothing still holds it.
           for root, _, files in os.walk(sys.argv[1]):
@@ -227,7 +230,7 @@ jobs:
                           handle.write(data.replace(needle, b"<password>"))
                       print(f"Redacted the password from {name}")
                   with open(path, "rb") as handle:
-                      if needle in handle.read():
+                      if prefix in handle.read():
                           raise SystemExit(f"::error::The password appears in {name}; not uploading")
           PY
       - name: Remove credentials
