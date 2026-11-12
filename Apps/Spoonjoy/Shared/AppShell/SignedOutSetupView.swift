@@ -30,6 +30,8 @@ struct SignedOutSetupView: View {
     @State private var pendingOAuthState: OAuthState?
     @State private var pendingOAuthCodeVerifier: String?
     @State private var pendingOAuthProvider: OAuthProviderHint?
+    /// The browser sign-in whose start is in flight; a retry wait stops when another one replaces it.
+    @State private var browserSignInStartID: UUID?
     @State private var webAuthenticationSession: SpoonjoyWebAuthenticationSession?
     @State private var appleSignInCapability = Self.currentAppleSignInCapability()
     @FocusState private var focusedField: SignInField?
@@ -425,6 +427,13 @@ struct SignedOutSetupView: View {
 
         isSigningIn = true
         pendingOAuthProvider = provider
+        let startID = UUID()
+        browserSignInStartID = startID
+        defer {
+            if browserSignInStartID == startID {
+                browserSignInStartID = nil
+            }
+        }
         statusTone = .progress
         authStatus = "Opening \(provider.displayName) sign-in."
 
@@ -434,10 +443,18 @@ struct SignedOutSetupView: View {
             guard let state = OAuthState(rawValue: OAuthPKCE.randomVerifier()) else {
                 throw BrowserOAuthSignInError.invalidState
             }
-            let start = try await authRepository.startSignIn(
-                state: state,
-                codeChallenge: challenge,
-                providerHint: provider
+            // A transient failure of the request before the sheet is retried (spoonjoy-apple#314, #330). The buttons
+            // stay disabled through the waits, and the start stops if this attempt is no longer the current one.
+            let start = try await NativeBrowserOAuthStartRetry.run(
+                isCurrent: { isSigningIn && browserSignInStartID == startID },
+                log: { Self.browserSignInLogger.notice("\($0, privacy: .public)") },
+                operation: {
+                    try await authRepository.startSignIn(
+                        state: state,
+                        codeChallenge: challenge,
+                        providerHint: provider
+                    )
+                }
             )
             pendingOAuthState = state
             pendingOAuthCodeVerifier = verifier
@@ -460,6 +477,15 @@ struct SignedOutSetupView: View {
             }
 
             authStatus = "Finish \(provider.displayName) sign-in in the browser."
+        } catch is CancellationError {
+            // The start stopped during a retry wait. If something replaced it, that owns the buttons and the status;
+            // if only the task was cancelled, free the buttons without an error.
+            if isSigningIn && browserSignInStartID == startID {
+                pendingOAuthProvider = nil
+                isSigningIn = false
+                statusTone = .neutral
+                authStatus = "Browser sign-in canceled."
+            }
         } catch {
             // The status line is the same for every cause; the log says which step failed, without the description.
             let reason = NativeBrowserOAuthEarlyCancel.diagnosticReason(error)

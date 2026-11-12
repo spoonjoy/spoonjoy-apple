@@ -38,6 +38,8 @@ public struct APITransportError: Error, Equatable, Sendable {
     public let statusCode: Int?
     public let apiError: APIError?
     public let retryDecision: APIRetryDecision
+    /// The URLError code behind an `.offline` or `.networkFailure` error, for the log. Nil for other kinds.
+    public let urlErrorCode: Int?
 
     public var isNonJSONResponse: Bool {
         kind == .nonJSONResponse
@@ -60,13 +62,15 @@ public struct APITransportError: Error, Equatable, Sendable {
         requestID: String?,
         statusCode: Int?,
         apiError: APIError?,
-        retryDecision: APIRetryDecision
+        retryDecision: APIRetryDecision,
+        urlErrorCode: Int? = nil
     ) {
         self.kind = kind
         self.requestID = requestID
         self.statusCode = statusCode
         self.apiError = apiError
         self.retryDecision = retryDecision
+        self.urlErrorCode = urlErrorCode
     }
 
     static func invalidRequestURL() -> APITransportError {
@@ -401,7 +405,8 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport, Sendable {
                     requestID: nil,
                     statusCode: nil,
                     apiError: nil,
-                    retryDecision: .retrySameRequest(afterSeconds: nil)
+                    retryDecision: .retrySameRequest(afterSeconds: nil),
+                    urlErrorCode: urlError.code.rawValue
                 )
             }
         }
@@ -411,7 +416,8 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport, Sendable {
             requestID: nil,
             statusCode: nil,
             apiError: nil,
-            retryDecision: .retrySameRequest(afterSeconds: nil)
+            retryDecision: .retrySameRequest(afterSeconds: nil),
+            urlErrorCode: (error as? URLError)?.code.rawValue
         )
     }
 

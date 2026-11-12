@@ -73,7 +73,8 @@ public enum NativeBrowserOAuthEarlyCancel {
     /// error's domain and code. Never the description, which can carry a URL or a server response.
     public static func diagnosticReason(_ error: any Error) -> String {
         if let transport = error as? APITransportError {
-            return "\(transport.kind) status \(transport.statusCode.map { String($0) } ?? "none") request \(transport.requestID ?? "none")"
+            let code = transport.urlErrorCode.map { " NSURLError \($0)" } ?? ""
+            return "\(transport.kind)\(code) status \(transport.statusCode.map { String($0) } ?? "none") request \(transport.requestID ?? "none")"
         }
         let nsError = error as NSError
         return "\(nsError.domain) \(nsError.code)"
