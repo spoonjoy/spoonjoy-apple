@@ -23,11 +23,20 @@ public enum NativeBrowserOAuthStart: Equatable, Sendable {
     case couldNotOpen
 }
 
+/// Why a start returned `.couldNotOpen`, for the app's log.
+public enum NativeBrowserOAuthStartFailure: Error, Equatable, Sendable {
+    /// The random state or verifier was not usable.
+    case invalidSecret
+    /// The system would not show the sheet.
+    case sheetRefused
+}
+
 public enum NativeBrowserOAuthFinish: Sendable {
     case signedIn(AuthSession)
     case failed(any Error)
-    /// The sheet closed without a callback.
-    case canceled
+    /// The sheet closed without a callback: the sheet's error (ASWebAuthenticationSessionError and its code), or nil
+    /// when the app closed it.
+    case canceled((any Error)?)
     /// A newer browser sign-in started (in another window), so this one's sheet was closed.
     case superseded
 }
@@ -80,6 +89,9 @@ public final class NativeBrowserOAuthSignIn {
     private let randomSecret: @MainActor () -> String
 
     public private(set) var attempt: Attempt?
+    /// Why the last `begin` returned `.couldNotOpen`: a `NativeBrowserOAuthStartFailure`, or the registration's own
+    /// error. Nil after a start that opened or was refused as already in progress.
+    public private(set) var startFailure: (any Error)?
     private var session: (any NativeBrowserOAuthWebSession)?
     private var onFinish: (@MainActor (NativeBrowserOAuthFinish) -> Void)?
     private var onReturn: (@MainActor () -> Void)?
@@ -115,6 +127,7 @@ public final class NativeBrowserOAuthSignIn {
         onReturn: @escaping @MainActor () -> Void = {},
         onFinish: @escaping @MainActor (NativeBrowserOAuthFinish) -> Void
     ) async -> NativeBrowserOAuthStart {
+        startFailure = nil
         guard !isInProgress else {
             return .alreadyInProgress
         }
@@ -123,18 +136,25 @@ public final class NativeBrowserOAuthSignIn {
 
         let codeVerifier = randomSecret()
         guard let state = OAuthState(rawValue: randomSecret()),
-              let codeChallenge = try? OAuthPKCE.codeChallenge(for: codeVerifier),
-              let start = try? await repository.startSignIn(
-                  state: state,
-                  codeChallenge: codeChallenge,
-                  providerHint: sendsProviderHint ? provider : nil
-              ) else {
+              let codeChallenge = try? OAuthPKCE.codeChallenge(for: codeVerifier) else {
+            startFailure = NativeBrowserOAuthStartFailure.invalidSecret
+            return .couldNotOpen
+        }
+        let start: NativeAuthSignInStart
+        do {
+            start = try await repository.startSignIn(
+                state: state,
+                codeChallenge: codeChallenge,
+                providerHint: sendsProviderHint ? provider : nil
+            )
+        } catch {
+            startFailure = error
             return .couldNotOpen
         }
 
         let id = UUID()
-        let session = makeSession(start.authorizationURL, start.redirectURI) { [weak self] callbackURL, _ in
-            await self?.complete(attemptID: id, callbackURL: callbackURL)
+        let session = makeSession(start.authorizationURL, start.redirectURI) { [weak self] callbackURL, error in
+            await self?.complete(attemptID: id, callbackURL: callbackURL, error: error)
         }
         attempt = Attempt(
             id: id,
@@ -154,9 +174,28 @@ public final class NativeBrowserOAuthSignIn {
         }
         guard session.start() else {
             clear(attemptID: id)
+            startFailure = NativeBrowserOAuthStartFailure.sheetRefused
             return .couldNotOpen
         }
         return .opened(authorizationURL: start.authorizationURL)
+    }
+
+    /// The launch environment variable that asks a Debug build to start browser sign-in without the provider hint, so
+    /// the sheet shows spoonjoy.app/login (BrowserSignInCallbackUITests). The app checks it in Debug builds only.
+    public static let loginPageEnvironmentVariable = "SPOONJOY_UI_TEST_BROWSER_SIGN_IN_LOGIN_PAGE"
+
+    public static func loginPageRequested(environment: [String: String]) -> Bool {
+        environment[loginPageEnvironmentVariable] == "1"
+    }
+
+    /// A start failure or a sheet's cancel error for the log: the transport kind, status and request id, or the error's
+    /// domain and code. Never the description, which can carry a URL or a server response.
+    public static func diagnosticReason(_ error: any Error) -> String {
+        if let transport = error as? APITransportError {
+            return "\(transport.kind) status \(transport.statusCode.map { String($0) } ?? "none") request \(transport.requestID ?? "none")"
+        }
+        let nsError = error as NSError
+        return "\(nsError.domain) \(nsError.code)"
     }
 
     /// Closes the open sheet, if any, and ends its attempt as canceled.
@@ -167,19 +206,19 @@ public final class NativeBrowserOAuthSignIn {
         let finish = onFinish
         session?.cancel()
         clear(attemptID: attempt.id)
-        finish?(.canceled)
+        finish?(.canceled(nil))
     }
 
     /// A callback (or a close without one) for `attemptID`. Anything but the open attempt is ignored, so a late
     /// callback from a closed or superseded sheet never reaches the token exchange.
-    func complete(attemptID: UUID, callbackURL: URL?) async {
+    func complete(attemptID: UUID, callbackURL: URL?, error: (any Error)? = nil) async {
         guard let attempt, attempt.id == attemptID, let finish = onFinish else {
             return
         }
         let returned = onReturn
         clear(attemptID: attemptID)
         guard let callbackURL else {
-            finish(.canceled)
+            finish(.canceled(error))
             return
         }
 
