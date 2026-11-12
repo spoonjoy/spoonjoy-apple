@@ -14,6 +14,9 @@ name: Browser sign-in callback
 # tokens, delete its rows and the secret. The secret's account is the only one the run touches.
 on:
   workflow_dispatch:
+  # Proof-run branch only (main plus this pull request); not part of the pull request.
+  push:
+    branches: [worker/sim-callback-proof-run-main]
 
 permissions:
   contents: read
