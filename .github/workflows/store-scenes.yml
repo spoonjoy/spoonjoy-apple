@@ -79,6 +79,10 @@ jobs:
     needs: key
     if: needs.key.outputs.have == '0' || inputs.force
     runs-on: xcode-27
+    # Lane c of 3: see the note on macOS lanes at the top of native.yml.
+    concurrency:
+      group: spoonjoy-macos-lane-c
+      queue: max
     timeout-minutes: 75
     environment: internal-testflight
     strategy:
