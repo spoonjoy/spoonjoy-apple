@@ -504,9 +504,12 @@ final class JourneyApp {
         }
     }
 
-    /// Keeps a screenshot of the current screen in the result bundle.
-    func attachScreenshot(named name: String, to testCase: XCTestCase) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+    /// Keeps a screenshot of the current screen in the result bundle. `wholeScreen` shoots the screen rather than the
+    /// app: on a turned iPad the app's own screenshot crops a landscape frame out of the portrait framebuffer, leaving
+    /// a square of the app beside a black band (parity run 43191799782), while the screen's carries its orientation.
+    func attachScreenshot(named name: String, to testCase: XCTestCase, wholeScreen: Bool = false) {
+        let screenshot = wholeScreen ? XCUIScreen.main.screenshot() : app.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
         attachment.lifetime = .keepAlways
         testCase.add(attachment)

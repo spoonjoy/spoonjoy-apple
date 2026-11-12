@@ -12,7 +12,7 @@ final class ParityJourneys: JourneyTestCase {
         ParityCapture.turn(.portrait)
         let journey = JourneyApp.launchFresh()
         let capture = ParityCapture(journey: journey, device: ParityCapture.deviceName) { [self] name in
-            journey.attachScreenshot(named: name, to: self)
+            journey.attachScreenshot(named: name, to: self, wholeScreen: name.contains("-ipad-landscape-"))
         }
 
         try capture.signInScreen()
