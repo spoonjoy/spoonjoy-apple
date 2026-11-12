@@ -99,21 +99,18 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         // A fresh simulator shows the keyboard's slide-to-type tip over the keys on first use (run 43214650507).
         dismissKeyboardTip()
 
-        // Pasted from the field's edit menu, not typed, so the password never appears in activity titles, the log or
-        // the result bundle. Command-V did nothing in run 43214650507: the simulator has no hardware keyboard.
-        // While the pasteboard holds the password the keyboard offers it as a suggestion, so the workflow uploads no
-        // screen recording, and the pasteboard is cleared before the next screenshot.
-        UIPasteboard.general.string = account.password
-        defer { UIPasteboard.general.items = [] }
-        password.press(forDuration: 1.2)
-        let owners: [XCUIApplication] = [app!, webSheet]
-        let paste = owners.map { $0.menuItems["Paste"] } + owners.map { $0.buttons["Paste"] }
-        let pasteItem = paste.first { $0.waitForExistence(timeout: 2) } ?? paste.first { $0.waitForExistence(timeout: Self.interactionTimeout) }
-        try XCTUnwrap(pasteItem, "The Password field's edit menu has no Paste item.").tap()
-        UIPasteboard.general.items = []
-        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
-        let pastedValue = (password.value as? String) ?? ""
-        XCTAssertFalse(pastedValue.isEmpty || pastedValue == "Password", "The password did not reach the Password field.")
+        // Typed. Pasting failed twice: Command-V does nothing without a hardware keyboard (run 43214650507), and a
+        // secure web field offers no Paste menu (run 43226406912), while the keyboard shows pasteboard text on screen.
+        // The workflow masks the password in the job log and redacts it from every file before the upload.
+        let existing = (password.value as? String).map { $0 == "Password" ? 0 : $0.count } ?? 0
+        if existing > 0 {
+            password.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing))
+        }
+        password.typeText(account.password)
+        // A secure field shows its last character for a moment; wait it out before the screenshot.
+        RunLoop.current.run(until: Date().addingTimeInterval(2))
+        let typedValue = (password.value as? String) ?? ""
+        XCTAssertEqual(typedValue.count, account.password.count, "The Password field does not hold exactly the password's length.")
         screenshot("03-sheet-filled")
 
         let logIn = try XCTUnwrap(webElement(.button, label: "Log in"), "The login page has no Log in button.")
