@@ -435,7 +435,7 @@ struct SignedOutSetupView: View {
             let start = try await authRepository.startSignIn(
                 state: state,
                 codeChallenge: challenge,
-                providerHint: provider
+                providerHint: Self.authorizeProviderHint(for: provider)
             )
             pendingOAuthState = state
             pendingOAuthCodeVerifier = verifier
@@ -467,6 +467,22 @@ struct SignedOutSetupView: View {
             statusTone = .error
             authStatus = "Could not open \(provider.displayName) sign-in. Check your connection and try again."
         }
+    }
+
+    /// The provider hint sent to /oauth/authorize. Release builds always send it, so the sheet goes straight to Google or
+    /// GitHub. Debug builds launched with `SPOONJOY_UI_TEST_BROWSER_SIGN_IN_LOGIN_PAGE=1` leave it out, so the server
+    /// shows spoonjoy.app/login in the same ASWebAuthenticationSession: BrowserSignInCallbackUITests signs a throwaway
+    /// account in there with a password and proves the https callback comes back to the app.
+    static func authorizeProviderHint(
+        for provider: OAuthProviderHint,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> OAuthProviderHint? {
+#if DEBUG
+        if environment["SPOONJOY_UI_TEST_BROWSER_SIGN_IN_LOGIN_PAGE"] == "1" {
+            return nil
+        }
+#endif
+        return provider
     }
 
     @MainActor
