@@ -1946,6 +1946,112 @@ struct WebAuthenticationSessionAdapterContract {
         #expect(forwardedCallbacks.isEmpty)
         #expect(cancellations == 1)
     }
+
+    private static let systemCancel = NSError(domain: "com.apple.AuthenticationServices.WebAuthenticationSession", code: 1)
+
+    @MainActor
+    private final class Probe {
+        var now: TimeInterval = 1000
+        var pauses: [Duration] = []
+        var cancellations: [Error?] = []
+        var callbacks: [URL] = []
+        let factory = FakeSessionFactory()
+        var adapter: SpoonjoyWebAuthenticationSession!
+
+        init() {
+            adapter = SpoonjoyWebAuthenticationSession(
+                callbackURL: URL(string: "https://spoonjoy.app/oauth/callback")!,
+                sessionFactory: factory.makeSession,
+                callbackHandler: { [unowned self] in self.callbacks.append($0) },
+                cancellationHandler: { [unowned self] in self.cancellations.append($0) },
+                uptime: { [unowned self] in self.now },
+                pause: { [unowned self] in self.pauses.append($0) }
+            )
+        }
+
+        @MainActor
+        func start() throws {
+            let state = try #require(OAuthState(rawValue: "state_123"))
+            #expect(try adapter.start(
+                authorizationURL: URL(string: "https://spoonjoy.app/oauth/authorize?client_id=cm_native_spoonjoy&state=state_123")!,
+                oauthState: state
+            ))
+        }
+    }
+
+    @Test("an early system cancel with nothing shown starts one fresh session, which can still sign in")
+    func earlyCancelRetriesOnce() async throws {
+        let probe = Probe()
+        try probe.start()
+        probe.now += 0.2
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(probe.cancellations.isEmpty)
+        await probe.adapter.retryTask?.value
+        #expect(probe.pauses == [NativeBrowserOAuthEarlyCancel.retryDelay])
+        #expect(probe.factory.sessions.map(\.startCount) == [1, 1])
+        #expect(probe.factory.requests.count == 2)
+        #expect(probe.factory.requests[0] == probe.factory.requests[1])
+
+        let callbackURL = URL(string: "https://spoonjoy.app/oauth/callback?code=oac_code&state=state_123")!
+        probe.factory.complete(with: callbackURL)
+        #expect(probe.callbacks == [callbackURL])
+        #expect(probe.cancellations.isEmpty)
+    }
+
+    @Test("a second early cancel is reported as a cancel")
+    func secondEarlyCancelIsReported() async throws {
+        let probe = Probe()
+        try probe.start()
+        probe.now += 0.2
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        await probe.adapter.retryTask?.value
+        probe.now += 0.2
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(probe.cancellations.count == 1)
+        #expect(probe.factory.sessions.count == 2)
+    }
+
+    @Test("the person's cancel is never retried: after the window, or once the system prompt made the app resign active")
+    func personCancelIsNotRetried() async throws {
+        let late = Probe()
+        try late.start()
+        late.now += NativeBrowserOAuthEarlyCancel.window + 0.1
+        late.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(late.cancellations.count == 1)
+        #expect(late.factory.sessions.count == 1)
+        #expect(late.adapter.retryTask == nil)
+
+        let shown = Probe()
+        try shown.start()
+        NotificationCenter.default.post(name: NSApplication.willResignActiveNotification, object: nil)
+        await Task.yield()
+        shown.now += 0.3
+        shown.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(shown.cancellations.count == 1)
+        #expect(shown.factory.sessions.count == 1)
+        #expect(shown.adapter.retryTask == nil)
+    }
+
+    @Test("a session the app canceled, or an app cancel during the retry pause, never starts another session")
+    func appCancelIsNotRetried() async throws {
+        let canceled = Probe()
+        try canceled.start()
+        canceled.adapter.cancel()
+        canceled.now += 0.2
+        canceled.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(canceled.cancellations.count == 1)
+        #expect(canceled.factory.sessions.count == 1)
+        #expect(canceled.adapter.retryTask == nil)
+
+        let paused = Probe()
+        try paused.start()
+        paused.now += 0.2
+        paused.factory.complete(with: nil, error: Self.systemCancel)
+        paused.adapter.cancel()
+        await paused.adapter.retryTask?.value
+        #expect(paused.factory.sessions.count == 1)
+        #expect(paused.cancellations.isEmpty)
+    }
 }
 
 private enum TestAuthenticationError: Error {

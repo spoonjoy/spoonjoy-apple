@@ -1,5 +1,6 @@
 import AuthenticationServices
 import Foundation
+import OSLog
 import SpoonjoyCore
 
 #if os(macOS)
@@ -38,17 +39,32 @@ final class SpoonjoyWebAuthenticationSession {
     private let cancellationHandler: @MainActor (Error?) -> Void
     private var activeSession: (any SpoonjoyWebAuthenticationSessionProtocol)?
     private let oauthCallback: URL
+    private static let logger = Logger(subsystem: "app.spoonjoy", category: "auth.browser")
+    // One early-cancel retry per sign-in (NativeBrowserOAuthEarlyCancel, spoonjoy-apple#320).
+    private var authorizationURL: URL?
+    private var sessionStartedAt: TimeInterval?
+    private var retried = false
+    private var systemUIAppeared = false
+    private var generation = 0
+    private let uptime: @MainActor () -> TimeInterval
+    private let pause: @MainActor (Duration) async -> Void
+    // Written once on the main actor in start(); read only in deinit. NotificationCenter removal is thread-safe.
+    nonisolated(unsafe) private var resignObserver: (any NSObjectProtocol)?
 
     init(
         callbackURL: URL,
         sessionFactory: @escaping SpoonjoyWebAuthenticationSessionFactory,
         callbackHandler: @escaping @MainActor (URL) -> Void,
-        cancellationHandler: @escaping @MainActor (Error?) -> Void = { _ in }
+        cancellationHandler: @escaping @MainActor (Error?) -> Void = { _ in },
+        uptime: @escaping @MainActor () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+        pause: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) }
     ) {
         self.oauthCallback = callbackURL
         self.sessionFactory = sessionFactory
         self.callbackHandler = callbackHandler
         self.cancellationHandler = cancellationHandler
+        self.uptime = uptime
+        self.pause = pause
     }
 
     convenience init(
@@ -93,20 +109,100 @@ final class SpoonjoyWebAuthenticationSession {
     @discardableResult
     func start(authorizationURL: URL, oauthState _: OAuthState) throws -> Bool {
         _ = try OAuthRedirectValidator.validate(oauthCallback)
+        self.authorizationURL = authorizationURL
+        // The system prompt ("Spoonjoy wants to use spoonjoy.app to sign in") always comes before the sheet and makes
+        // the app resign active, so a cancel after that is the person's and is never retried.
+        if resignObserver == nil {
+            resignObserver = NotificationCenter.default.addObserver(
+                forName: Self.resignActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.systemUIAppeared = true
+                }
+            }
+        }
+        return startSession(authorizationURL)
+    }
+
+    private func startSession(_ authorizationURL: URL) -> Bool {
+        let sessionGeneration = generation
         let session = sessionFactory(
             authorizationURL,
             callbackDescriptor(for: oauthCallback)
         ) { [weak self] callbackURL, error in
+            guard let self else { return }
             guard let callbackURL else {
-                self?.handleAuthenticationCancellation(error)
+                // A session the app canceled ends as before, without a retry.
+                guard sessionGeneration == self.generation else {
+                    self.handleAuthenticationCancellation(error)
+                    return
+                }
+                self.sessionEnded(error)
                 return
             }
-            self?.handleOAuthCallback(callbackURL)
+            Self.logger.notice("\(NativeBrowserOAuthEarlyCancel.callbackMessage, privacy: .public)")
+            self.handleOAuthCallback(callbackURL)
         }
         session.prefersEphemeralWebBrowserSession = false
         let didStart = session.start()
         activeSession = didStart ? session : nil
+        if didStart {
+            sessionStartedAt = uptime()
+            Self.logger.notice("\(NativeBrowserOAuthEarlyCancel.startedMessage, privacy: .public)")
+        }
         return didStart
+    }
+
+    /// iOS can end a session by itself right after an install or update (spoonjoy-apple#320); that one cancel gets
+    /// one fresh session after a short pause. Every other end goes to the cancellation handler at once, as before.
+    private func sessionEnded(_ error: Error?) {
+        let elapsed = sessionStartedAt.map { uptime() - $0 }
+        guard let authorizationURL,
+              NativeBrowserOAuthEarlyCancel.shouldRetry(
+                  error: error,
+                  secondsSinceStart: elapsed,
+                  systemUIAppeared: systemUIAppeared,
+                  alreadyRetried: retried
+              ) else {
+            Self.logger.notice("\(NativeBrowserOAuthEarlyCancel.endedMessage(error: error, secondsSinceStart: elapsed), privacy: .public)")
+            handleAuthenticationCancellation(error)
+            return
+        }
+        retried = true
+        Self.logger.notice("\(NativeBrowserOAuthEarlyCancel.earlyCancelMessage(error: error, secondsSinceStart: elapsed), privacy: .public)")
+        activeSession = nil
+        sessionStartedAt = nil
+        let pausedGeneration = generation
+        retryTask = Task { [weak self, pause] in
+            await pause(NativeBrowserOAuthEarlyCancel.retryDelay)
+            // The app canceled or dropped the sign-in during the pause: nothing more to do.
+            guard let self, pausedGeneration == self.generation else { return }
+            if self.startSession(authorizationURL) {
+                Self.logger.notice("\(NativeBrowserOAuthEarlyCancel.retriedMessage, privacy: .public)")
+            } else {
+                Self.logger.notice("\(NativeBrowserOAuthEarlyCancel.retryDidNotStartMessage, privacy: .public)")
+                self.handleAuthenticationCancellation(error)
+            }
+        }
+    }
+
+    /// The pending retry after an early cancel, if any; tests await it.
+    private(set) var retryTask: Task<Void, Never>?
+
+    deinit {
+        if let resignObserver {
+            NotificationCenter.default.removeObserver(resignObserver)
+        }
+    }
+
+    private static var resignActiveNotification: Notification.Name {
+        #if os(macOS)
+        NSApplication.willResignActiveNotification
+        #else
+        UIApplication.willResignActiveNotification
+        #endif
     }
 
     private func callbackDescriptor(for callbackURL: URL) -> SpoonjoyWebAuthenticationCallback {
@@ -128,6 +224,7 @@ final class SpoonjoyWebAuthenticationSession {
     }
 
     func cancel() {
+        generation += 1
         activeSession?.cancel()
         activeSession = nil
     }
