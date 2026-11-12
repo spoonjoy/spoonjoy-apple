@@ -46,7 +46,11 @@ final class SpoonjoyWebAuthenticationSession {
     private var retried = false
     private var systemUIAppeared = false
     private var generation = 0
+    private var presentedAtStart: ObjectIdentifier?
     private let uptime: @MainActor () -> TimeInterval
+    private let earlyCancelWindow: TimeInterval?
+    /// The view controller (on macOS, the sheet) presented on the anchor window, if any.
+    private let presentedUI: @MainActor () -> ObjectIdentifier?
     private let pause: @MainActor (Duration) async -> Void
     // Written once on the main actor in start(); read only in deinit. NotificationCenter removal is thread-safe.
     nonisolated(unsafe) private var resignObserver: (any NSObjectProtocol)?
@@ -60,6 +64,8 @@ final class SpoonjoyWebAuthenticationSession {
         callbackHandler: @escaping @MainActor (URL) -> Void,
         cancellationHandler: @escaping @MainActor (Error?) -> Void = { _ in },
         uptime: @escaping @MainActor () -> TimeInterval = { NativeBrowserOAuthEarlyCancel.monotonicSeconds() },
+        earlyCancelWindow: TimeInterval? = NativeBrowserOAuthEarlyCancel.platformWindow,
+        presentedUI: @escaping @MainActor () -> ObjectIdentifier? = { SpoonjoyAuthenticationPresentationContextProvider.presentedUI() },
         pause: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) }
     ) {
         self.oauthCallback = callbackURL
@@ -67,6 +73,8 @@ final class SpoonjoyWebAuthenticationSession {
         self.callbackHandler = callbackHandler
         self.cancellationHandler = cancellationHandler
         self.uptime = uptime
+        self.earlyCancelWindow = earlyCancelWindow
+        self.presentedUI = presentedUI
         self.pause = pause
     }
 
@@ -161,31 +169,39 @@ final class SpoonjoyWebAuthenticationSession {
             Self.logger.notice("\(NativeBrowserOAuthEarlyCancel.callbackMessage, privacy: .public)")
             self.handleOAuthCallback(callbackURL)
         }
+        // Never ephemeral: the iOS early-cancel retry relies on the "wants to use spoonjoy.app to sign in" prompt, which
+        // only a non-ephemeral session shows, to tell the person's Cancel from the system's (NativeBrowserOAuthEarlyCancel).
         session.prefersEphemeralWebBrowserSession = false
         let didStart = session.start()
         activeSession = didStart ? session : nil
         if didStart {
             sessionStartedAt = uptime()
+            presentedAtStart = presentedUI()
             Self.logger.notice("\(NativeBrowserOAuthEarlyCancel.startedMessage, privacy: .public)")
         }
         return didStart
     }
 
     /// iOS can end a session by itself right after an install or update (spoonjoy-apple#320); that one cancel gets
-    /// one fresh session after a short pause. Every other end goes to the cancellation handler at once, as before.
+    /// one fresh session after a short pause, when nothing was shown (NativeBrowserOAuthEarlyCancel has the rule).
+    /// Every other end goes to the cancellation handler at once, as before.
     private func sessionEnded(_ error: Error?) {
         let elapsed = sessionStartedAt.map { uptime() - $0 }
+        let presentedViewController = presentedUI() != presentedAtStart
         guard let authorizationURL,
               NativeBrowserOAuthEarlyCancel.shouldRetry(
                   error: error,
                   secondsSinceStart: elapsed,
                   systemUIAppeared: systemUIAppeared,
-                  alreadyRetried: retried
+                  presentedViewController: presentedViewController,
+                  alreadyRetried: retried,
+                  window: earlyCancelWindow
               ) else {
             let ended = NativeBrowserOAuthEarlyCancel.endedMessage(
                 error: error,
                 secondsSinceStart: elapsed,
-                systemUIAppeared: systemUIAppeared
+                systemUIAppeared: systemUIAppeared,
+                presentedViewController: presentedViewController
             )
             Self.logger.notice("\(ended, privacy: .public)")
             handleAuthenticationCancellation(error)
@@ -462,6 +478,22 @@ private final class SpoonjoyAuthenticationPresentationContextProvider: NSObject,
 
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         anchor
+    }
+
+    /// The topmost view controller presented on the anchor window (on macOS, its attached sheet), or nil.
+    @MainActor
+    static func presentedUI() -> ObjectIdentifier? {
+        #if os(iOS) || os(tvOS) || os(visionOS)
+        var presented = (preferredPresentationAnchor as UIWindow?)?.rootViewController?.presentedViewController
+        while let next = presented?.presentedViewController {
+            presented = next
+        }
+        return presented.map(ObjectIdentifier.init)
+        #elseif os(macOS)
+        return preferredPresentationAnchor?.attachedSheet.map(ObjectIdentifier.init)
+        #else
+        return nil
+        #endif
     }
 
     @MainActor

@@ -615,12 +615,44 @@ struct NativeAuthSessionTests {
                 "NSWindow.willBeginSheetNotification",
                 "NSWindow.didResignKeyNotification",
                 "NativeBrowserOAuthEarlyCancel.shouldRetry(",
-                "systemUIAppeared: systemUIAppeared"
+                "systemUIAppeared: systemUIAppeared",
+                "presentedViewController: presentedViewController",
+                "earlyCancelWindow: TimeInterval? = NativeBrowserOAuthEarlyCancel.platformWindow",
+                "rootViewController?.presentedViewController"
             ],
             forbids: [
                 "authorizationURL, privacy: .public",
                 "callbackURL, privacy: .public"
             ]
+        )
+    }
+
+    @Test("no sign-in session is ever ephemeral: the iOS early-cancel retry gate relies on the prompt a non-ephemeral session shows")
+    func browserSignInSessionsAreNeverEphemeral() throws {
+        // NativeBrowserOAuthEarlyCancel retries a canceledLogin on iOS only when the app never resigned active. That
+        // proves nothing was shown only because a non-ephemeral session always shows the "wants to use spoonjoy.app to
+        // sign in" prompt first. An ephemeral session skips the prompt, so a person's Cancel would look like the system's.
+        let fileManager = FileManager.default
+        var offenders: [String] = []
+        for root in ["Apps", "Sources"] {
+            let base = repoRoot().appendingPathComponent(root)
+            let files = fileManager.enumerator(at: base, includingPropertiesForKeys: nil)?
+                .compactMap { $0 as? URL }
+                .filter { $0.pathExtension == "swift" } ?? []
+            for file in files {
+                let text = try String(contentsOf: file, encoding: .utf8)
+                if text.range(of: #"prefersEphemeralWebBrowserSession\s*=\s*true"#, options: .regularExpression) != nil {
+                    offenders.append(file.path)
+                }
+            }
+        }
+        #expect(offenders.isEmpty, "Ephemeral sign-in sessions break the iOS early-cancel retry gate: \(offenders)")
+        let path = "Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift"
+        expectContent(
+            try readRepoFile(path),
+            in: path,
+            contains: ["prefersEphemeralWebBrowserSession = false"],
+            forbids: []
         )
     }
 
@@ -1982,14 +2014,19 @@ struct WebAuthenticationSessionAdapterContract {
         var adapter: SpoonjoyWebAuthenticationSession!
         var holdsPause = false
         var heldPause: CheckedContinuation<Void, Never>?
+        /// What the anchor window has presented; a new value during the session means a view controller appeared.
+        var presented: ObjectIdentifier?
 
-        init() {
+        /// `window` nil is the iOS rule (no time limit); the default is the macOS window.
+        init(window: TimeInterval? = NativeBrowserOAuthEarlyCancel.window) {
             adapter = SpoonjoyWebAuthenticationSession(
                 callbackURL: URL(string: "https://spoonjoy.app/oauth/callback")!,
                 sessionFactory: factory.makeSession,
                 callbackHandler: { [unowned self] in self.callbacks.append($0) },
                 cancellationHandler: { [unowned self] in self.cancellations.append($0) },
                 uptime: { [unowned self] in self.now },
+                earlyCancelWindow: window,
+                presentedUI: { [unowned self] in self.presented },
                 pause: { [unowned self] in
                     self.pauses.append($0)
                     if self.holdsPause {
@@ -2098,6 +2135,91 @@ struct WebAuthenticationSessionAdapterContract {
         }
     }
 
+    @Test("iOS: a system cancel 5 s after start, with nothing shown, still gets one fresh session")
+    func iOSLateEarlyCancelRetries() async throws {
+        // CI run 43312729950: the cancel came 5242 ms after start, 13 ms after swcd's "app PI changed".
+        let probe = Probe(window: nil)
+        try probe.start()
+        probe.now += 5.242
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(probe.cancellations.isEmpty)
+        await probe.adapter.retryTask?.value
+        #expect(probe.factory.sessions.map(\.startCount) == [1, 1])
+
+        // A second cancel with nothing shown finishes as canceled.
+        probe.now += 5
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(probe.cancellations.count == 1)
+        #expect(probe.factory.sessions.count == 2)
+    }
+
+    @Test("macOS: the same 5 s cancel is outside the window and is not retried")
+    func macLateCancelIsNotRetried() async throws {
+        let probe = Probe(window: NativeBrowserOAuthEarlyCancel.window)
+        try probe.start()
+        probe.now += 5.242
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(probe.cancellations.count == 1)
+        #expect(probe.factory.sessions.count == 1)
+        #expect(probe.adapter.retryTask == nil)
+    }
+
+    private enum Shown: CaseIterable {
+        case resignedActive, presentedViewController, both
+    }
+
+    @Test("the person's Cancel after the sheet was shown never relaunches it, early or late, on either platform")
+    func personCancelAfterSheetShown() async throws {
+        for window in [nil, NativeBrowserOAuthEarlyCancel.window] {
+            for seconds in [0.3, 5.242] {
+                for shown in Shown.allCases {
+                    let probe = Probe(window: window)
+                    try probe.start()
+                    if shown != .presentedViewController {
+                        NotificationCenter.default.post(name: NSApplication.willResignActiveNotification, object: nil)
+                        await Task.yield()
+                    }
+                    let sheet = NSObject()
+                    if shown != .resignedActive {
+                        probe.presented = ObjectIdentifier(sheet)
+                    }
+                    probe.now += seconds
+                    probe.factory.complete(with: nil, error: Self.systemCancel)
+                    let label = Comment(rawValue: "window \(String(describing: window)) after \(seconds) s, \(shown)")
+                    #expect(probe.cancellations.count == 1, label)
+                    #expect(probe.factory.sessions.count == 1, label)
+                    #expect(probe.adapter.retryTask == nil, label)
+                    withExtendedLifetime(sheet) {}
+                }
+            }
+        }
+    }
+
+    @Test("a view controller already presented when the sign-in started does not block the retry")
+    func presentedBeforeStartDoesNotBlockRetry() async throws {
+        let host = NSObject()
+        let probe = Probe(window: nil)
+        probe.presented = ObjectIdentifier(host)
+        try probe.start()
+        probe.now += 0.3
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        await probe.adapter.retryTask?.value
+        #expect(probe.factory.sessions.count == 2)
+        #expect(probe.cancellations.isEmpty)
+        withExtendedLifetime(host) {}
+    }
+
+    @Test("every sign-in session, the retry included, is non-ephemeral: the iOS retry gate relies on the prompt it shows")
+    func sessionsAreNeverEphemeral() async throws {
+        let probe = Probe(window: nil)
+        try probe.start()
+        probe.now += 0.2
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        await probe.adapter.retryTask?.value
+        #expect(probe.factory.sessions.count == 2)
+        #expect(probe.factory.sessions.allSatisfy { !$0.prefersEphemeralWebBrowserSession })
+    }
+
     @Test("a retry the system will not start is reported as a cancel")
     func retryThatDoesNotStartIsReported() async throws {
         let probe = Probe()
@@ -2174,7 +2296,8 @@ private final class FakeSessionFactory {
 
 @MainActor
 private final class FakeWebAuthenticationSession: SpoonjoyWebAuthenticationSessionProtocol {
-    var prefersEphemeralWebBrowserSession = false
+    /// Starts true, so a test sees whether the adapter set it.
+    var prefersEphemeralWebBrowserSession = true
     private(set) var startCount = 0
     private(set) var cancelCount = 0
     private let startResult: Bool
