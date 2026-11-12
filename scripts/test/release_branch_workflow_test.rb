@@ -10,7 +10,7 @@ require "yaml"
 
 class ReleaseBranchWorkflowTest < Minitest::Test
   ROOT = File.expand_path("../..", __dir__)
-  MAIN_VERSION = "1.2"
+  MAIN_VERSION = "1.2.1"
   BRANCH_PATTERN = "^release/[0-9][0-9A-Za-z.-]*$"
 
   def workflow(name)
@@ -81,7 +81,7 @@ class ReleaseBranchWorkflowTest < Minitest::Test
     assert_match(/opts\.on\("--listing PATH"\)/, script)
   end
 
-  def test_main_is_1_2
+  def test_main_is_1_2_1
     listing = JSON.parse(File.read(File.join(ROOT, "distribution/app-store/listing.json")))
     assert_equal MAIN_VERSION, listing.fetch("version").fetch("versionString")
     refute listing.fetch("mac").key?("version"), "the Mac listing inherits the iOS version string"

@@ -208,7 +208,7 @@ class AppStoreListingTest < Minitest::Test
                  actions
     assert_empty actions & APP_LEVEL_ACTIONS
     create = steps.first
-    assert_equal ["Create macOS version 1.2", "MAC_OS"], [create["summary"], create["platform"]]
+    assert_equal ["Create macOS version 1.2.1", "MAC_OS"], [create["summary"], create["platform"]]
     assert_equal "macbuild2", steps[2]["buildId"]
     localization = steps[3]["attributes"]
     assert_equal mac_listing["localizations"]["en-US"]["description"], localization["description"]
@@ -229,7 +229,7 @@ class AppStoreListingTest < Minitest::Test
                                  secrets: { "demoAccountPassword" => "s3cret" })
     assert_equal %w[patch_version create_phased_release attach_build patch_version_localization create_review_detail sync_screenshots],
                  steps.map { |s| s["action"] }
-    assert_equal({ "versionString" => "1.2", "copyright" => "2026 Ari Mendelow", "releaseType" => "AFTER_APPROVAL" }, steps.first["attributes"])
+    assert_equal({ "versionString" => "1.2.1", "copyright" => "2026 Ari Mendelow", "releaseType" => "AFTER_APPROVAL" }, steps.first["attributes"])
 
     staged = version.merge(
       "attributes" => mac["version"], "buildId" => "macbuild2", "phasedRelease" => { "id" => "macpr" },
@@ -365,10 +365,10 @@ class AppStoreListingTest < Minitest::Test
     source = File.read(File.join(ROOT, "scripts/lib/app_store_listing.rb")) + File.read(File.join(ROOT, "scripts/stage-app-store-listing.rb"))
     refute_match(/reviewSubmission/, source)
   end
-  def test_listing_ships_1_2_with_whats_new_and_a_phased_automatic_release
+  def test_listing_ships_1_2_1_with_whats_new_and_a_phased_automatic_release
     [listing, mac_listing].each do |platform_listing|
       version = platform_listing["version"]
-      assert_equal ["1.2", "AFTER_APPROVAL", true], version.values_at("versionString", "releaseType", "phasedRelease")
+      assert_equal ["1.2.1", "AFTER_APPROVAL", true], version.values_at("versionString", "releaseType", "phasedRelease")
       whats_new = platform_listing["localizations"]["en-US"]["whatsNew"].to_s
       refute_empty whats_new
       assert_operator whats_new.length, :<=, AppStoreListing::LIMITS.fetch("whatsNew")
