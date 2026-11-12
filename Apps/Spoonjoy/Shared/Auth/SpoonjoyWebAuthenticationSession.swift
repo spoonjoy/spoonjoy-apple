@@ -59,7 +59,7 @@ final class SpoonjoyWebAuthenticationSession {
         sessionFactory: @escaping SpoonjoyWebAuthenticationSessionFactory,
         callbackHandler: @escaping @MainActor (URL) -> Void,
         cancellationHandler: @escaping @MainActor (Error?) -> Void = { _ in },
-        uptime: @escaping @MainActor () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+        uptime: @escaping @MainActor () -> TimeInterval = { NativeBrowserOAuthEarlyCancel.monotonicSeconds() },
         pause: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) }
     ) {
         self.oauthCallback = callbackURL
