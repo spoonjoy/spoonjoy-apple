@@ -136,7 +136,7 @@ struct SpoonjoyShoppingListEntityQuery: EntityQuery {
 
     private func scope(syncStore: any NativeSyncStore) async throws -> (accountID: String, environment: NativeCacheEnvironment) {
         let syncSnapshot = try await syncStore.loadSnapshot()
-        return try await SpoonjoyIntentScopeProvider(authVault: KeychainTokenVault()).trustedIntentScope(from: syncSnapshot)
+        return try await SpoonjoyIntentScopeProvider(authVault: SpoonjoyAppTokenVault.current()).trustedIntentScope(from: syncSnapshot)
     }
 }
 
@@ -179,7 +179,7 @@ struct SpoonjoyShoppingItemEntityQuery: EntityQuery, EntityStringQuery {
 
     private func scope(syncStore: any NativeSyncStore) async throws -> (accountID: String, environment: NativeCacheEnvironment) {
         let syncSnapshot = try await syncStore.loadSnapshot()
-        return try await SpoonjoyIntentScopeProvider(authVault: KeychainTokenVault()).trustedIntentScope(from: syncSnapshot)
+        return try await SpoonjoyIntentScopeProvider(authVault: SpoonjoyAppTokenVault.current()).trustedIntentScope(from: syncSnapshot)
     }
 }
 #endif

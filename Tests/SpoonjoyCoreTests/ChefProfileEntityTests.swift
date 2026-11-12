@@ -85,7 +85,7 @@ struct ChefProfileEntityTests {
                     "NativeProcessSyncStore.shared(appDirectory:",
                     "NativeDurableCacheStore",
                     "trustedIntentScope",
-                    "KeychainTokenVault()",
+                    "SpoonjoyAppTokenVault.current()",
                     "scope.accountID",
                     "scope.environment"
                 ],
