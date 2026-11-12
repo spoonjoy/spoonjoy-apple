@@ -4,9 +4,7 @@
 # AppIntentsTesting loads only on a simulator runtime of its Xcode's own version, and when it fails, dyld fails the
 # whole test bundle (Journeys run 43054178295). Only SpoonjoySiriJourneys, built from Journeys/Siri in a job that
 # picks a matching Xcode, may import it.
-require "json"
 require "minitest/autorun"
-require "open3"
 
 class SiriJourneyIsolationTest < Minitest::Test
   ROOT = File.expand_path("../..", __dir__)
@@ -37,27 +35,7 @@ class SiriJourneyIsolationTest < Minitest::Test
     refute_empty importers, "the Siri journey should import AppIntentsTesting"
   end
 
-  # The generator is the source, but the project is what xcodebuild reads: its files under Journeys/Siri must sit in
-  # SpoonjoySiriJourneys alone, or another target would link AppIntentsTesting and fail on a mismatched runtime.
-  def test_only_the_siri_journeys_target_compiles_the_siri_files
-    # xcodeproj lives in the bundle, and this file runs under plain ruby (minitest is not in the Gemfile).
-    list = <<~LIST
-      project = Xcodeproj::Project.open("Spoonjoy.xcodeproj")
-      puts JSON.generate(project.targets.to_h { |target|
-        files = target.respond_to?(:source_build_phase) ? target.source_build_phase.files_references.compact : []
-        [target.name, files.map { |ref| ref.real_path.relative_path_from(Pathname.pwd).to_s }]
-      })
-    LIST
-    stdout, stderr, status = Open3.capture3("scripts/bundle-exec.sh", "ruby", "-rjson", "-rxcodeproj", "-e", list, chdir: ROOT)
-    assert status.success?, "could not read Spoonjoy.xcodeproj: #{stderr}#{stdout}"
-    compiled = JSON.parse(stdout.lines.last)
-    siri = compiled.fetch("SpoonjoySiriJourneys") { flunk "Spoonjoy.xcodeproj has no SpoonjoySiriJourneys target" }
-    assert_includes siri, "#{SIRI_DIR}SiriJourney.swift"
-    assert_includes siri, "#{SIRI_DIR}Support/JourneyIntents.swift"
-    compiled.except("SpoonjoySiriJourneys").each do |name, files|
-      assert_empty files.select { |path| path.start_with?(SIRI_DIR) }, "#{name} compiles Siri journey files"
-    end
-  end
+  # That only SpoonjoySiriJourneys compiles Journeys/Siri is scripts/check-xcode-project-contract.rb's to check.
 
   # Every step can run to its own timeout before the job's does: a cancelled job skips the artifact upload.
   def test_the_siri_journey_job_outlasts_its_steps
