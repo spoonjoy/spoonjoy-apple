@@ -21,6 +21,9 @@ IOS_BUNDLE_ID = "app.spoonjoy"
 # The Mac app shares the iOS bundle ID so one App Store record sells both (universal purchase).
 MAC_BUNDLE_ID = "app.spoonjoy"
 UI_TEST_BUNDLE_ID = "app.spoonjoy.shopping-uitests"
+# The Mac browser sign-in callback proof (proof branch only; see .github/workflows/browser-signin-callback-mac.yml).
+MAC_UI_TEST_TARGET_NAME = "SpoonjoyMacBrowserSignInUITests"
+MAC_UI_TEST_BUNDLE_ID = "app.spoonjoy.mac-browser-sign-in-uitests"
 JOURNEYS_BUNDLE_ID = "app.spoonjoy.journeys"
 WIDE_JOURNEYS_BUNDLE_ID = "app.spoonjoy.wide-journeys"
 DUO_JOURNEYS_BUNDLE_ID = "app.spoonjoy.duo-journeys"
@@ -63,6 +66,7 @@ SHARED_SWIFT = swift_sources_under("Apps/Spoonjoy/Shared").freeze
 IOS_SWIFT = swift_sources_under("Apps/Spoonjoy/iOS").freeze
 MAC_SWIFT = swift_sources_under("Apps/Spoonjoy/macOS").freeze
 UI_TEST_SWIFT = swift_sources_under("Apps/Spoonjoy/UITests").freeze
+MAC_UI_TEST_SWIFT = swift_sources_under("Apps/Spoonjoy/MacUITests").freeze
 # Journeys that need a screen wide enough for the two-page spread. The Journeys job's iPhone is too narrow, and it runs
 # whole targets only, so these are their own target, which the Duo tour runs. They share Journeys/Support.
 WIDE_JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Wide").freeze
@@ -233,6 +237,7 @@ wide_journeys_target = project.new_target(:ui_test_bundle, WIDE_JOURNEYS_TARGET_
 duo_journeys_target = project.new_target(:ui_test_bundle, DUO_JOURNEYS_TARGET_NAME, :ios, "26.5")
 parity_journeys_target = project.new_target(:ui_test_bundle, PARITY_JOURNEYS_TARGET_NAME, :ios, "26.5")
 widget_target = project.new_target(:app_extension, WIDGET_TARGET_NAME, :ios, "26.5")
+mac_ui_test_target = project.new_target(:ui_test_bundle, MAC_UI_TEST_TARGET_NAME, :osx, "26.2")
 ios_target.frameworks_build_phase.files.clear
 widget_target.frameworks_build_phase.files.clear
 mac_target.frameworks_build_phase.files.clear
@@ -378,6 +383,22 @@ add_package_product(project, parity_journeys_target, "SpoonjoyCore")
 parity_journeys_target.add_dependency(ios_target)
 parity_journeys_dependency = parity_journeys_target.dependencies[0]
 parity_journeys_dependency_proxy = parity_journeys_dependency.target_proxy
+CONFIGURATIONS.each do |configuration|
+  settings = mac_ui_test_target.build_configuration_list[configuration].build_settings
+  settings["PRODUCT_BUNDLE_IDENTIFIER"] = MAC_UI_TEST_BUNDLE_ID
+  settings["PRODUCT_NAME"] = "$(TARGET_NAME)"
+  settings["SWIFT_VERSION"] = "6.0"
+  settings["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES"
+  settings["GCC_TREAT_WARNINGS_AS_ERRORS"] = "YES"
+  settings["GENERATE_INFOPLIST_FILE"] = "YES"
+  settings["MACOSX_DEPLOYMENT_TARGET"] = "26.2"
+  settings["TEST_TARGET_NAME"] = "#{PROJECT_NAME} macOS"
+  settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
+end
+add_sources(project, mac_ui_test_target, MAC_UI_TEST_SWIFT)
+mac_ui_test_target.add_dependency(mac_target)
+mac_ui_test_dependency = mac_ui_test_target.dependencies[0]
+mac_ui_test_dependency_proxy = mac_ui_test_dependency.target_proxy
 
 project.sort
 project.predictabilize_uuids
@@ -445,6 +466,9 @@ duo_journeys_dependency.target_proxy = duo_journeys_dependency_proxy
 assign_stable_uuid(project, parity_journeys_dependency_proxy, "SpoonjoyParityJourneys/app-proxy")
 assign_stable_uuid(project, parity_journeys_dependency, "SpoonjoyParityJourneys/app-dependency")
 parity_journeys_dependency.target_proxy = parity_journeys_dependency_proxy
+assign_stable_uuid(project, mac_ui_test_dependency_proxy, "#{MAC_UI_TEST_TARGET_NAME}/app-proxy")
+assign_stable_uuid(project, mac_ui_test_dependency, "#{MAC_UI_TEST_TARGET_NAME}/app-dependency")
+mac_ui_test_dependency.target_proxy = mac_ui_test_dependency_proxy
 
 def save_app_scheme(project_path, scheme_name, target, test_targets: [])
   scheme = Xcodeproj::XCScheme.new
@@ -456,7 +480,7 @@ def save_app_scheme(project_path, scheme_name, target, test_targets: [])
 end
 
 save_app_scheme(project_path, IOS_SCHEME_NAME, ios_target, test_targets: [ui_test_target, journeys_target, wide_journeys_target, duo_journeys_target, parity_journeys_target])
-save_app_scheme(project_path, MAC_SCHEME_NAME, mac_target)
+save_app_scheme(project_path, MAC_SCHEME_NAME, mac_target, test_targets: [mac_ui_test_target])
 
 project.save
 

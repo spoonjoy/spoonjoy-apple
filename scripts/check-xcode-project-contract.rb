@@ -359,7 +359,8 @@ widget_sources = target_source_paths(widget_target)
 app_swift_files = APP_ROOT.find.select do |path|
   path.file? && path.extname == ".swift" &&
     !path.to_s.start_with?("#{APP_ROOT.join("UITests")}/") &&
-    !path.to_s.start_with?("#{APP_ROOT.join("Journeys")}/")
+    !path.to_s.start_with?("#{APP_ROOT.join("Journeys")}/") &&
+    !path.to_s.start_with?("#{APP_ROOT.join("MacUITests")}/")
 end.map(&:to_s)
 
 # The widget draws with the app's theme and its bundled fonts, so it compiles these two shared design files too.

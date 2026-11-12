@@ -1,0 +1,229 @@
+name: Browser sign-in callback (Mac)
+
+# Proves on a hosted Mac that ASWebAuthenticationSession hands https://spoonjoy.app/oauth/callback back to the Mac app
+# after one click and the app lands signed in (MacBrowserSignInCallbackUITests), on production, with 1.2.1's
+# early-cancel gate. Proof branch only (worker/sim-callback-proof-run-mac); not part of any pull request.
+#
+# macOS enforces com.apple.developer.associated-domains, which the https callback needs, so unlike the iOS simulator
+# proof the app must carry a real provisioning profile: a Developer ID (MAC_APP_DIRECT) profile for app.spoonjoy,
+# made by apple-distribution-kit with the Developer ID certificate. It runs only by hand, and only once the
+# `mac-signin-proof` environment holds these secrets (exact names):
+#   APPLE_DEVELOPER_ID_CERTIFICATE_BASE64    Developer ID Application p12, base64
+#   APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD  its password
+#   APP_STORE_CONNECT_API_KEY_ID             App Store Connect API key (finds or creates the profile)
+#   APP_STORE_CONNECT_API_ISSUER_ID
+#   APP_STORE_CONNECT_API_KEY_BASE64         the .p8, base64
+#   SPOONJOY_BROWSER_CALLBACK_ACCOUNT_MAC    {"email","username","password"} of a seeded throwaway @example.com account
+# Seed and delete the throwaway with spoonjoy-v2's Sim Callback Throwaway workflow, as for the iOS proof.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spoonjoy-macos-lane-c
+  cancel-in-progress: false
+
+jobs:
+  callback:
+    name: Browser sign-in callback (Mac)
+    runs-on: xcode-27
+    environment: mac-signin-proof
+    timeout-minutes: 60
+    steps:
+      - name: Check the proof's secrets are present
+        env:
+          CERT: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          ACCOUNT: ${{ secrets.SPOONJOY_BROWSER_CALLBACK_ACCOUNT_MAC }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in CERT CERT_PASSWORD ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_BASE64 ACCOUNT; do
+            [[ -n "${!name}" ]] || missing+=("$name")
+          done
+          if (( ${#missing[@]} > 0 )); then
+            echo "::error::mac-signin-proof is missing: ${missing[*]} (see the header of this workflow for the secret names)"
+            exit 1
+          fi
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/select-xcode
+      - name: Check out pinned apple-distribution-kit
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: ourostack/apple-distribution-kit
+          ref: c296021af0e7eacb424dc9c7f924c9cda8df9d64
+          path: .ci/apple-distribution-kit
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.17.1
+          cache: npm
+          cache-dependency-path: .ci/apple-distribution-kit/package-lock.json
+      - name: Build pinned apple-distribution-kit
+        working-directory: .ci/apple-distribution-kit
+        env:
+          EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: 09e0dded99208496bd96cecc6edc067188ec49bae4486b83f90b85e57db954b9
+        run: |
+          set -euo pipefail
+          npm ci --loglevel=error
+          npm run build
+          actual="$(find dist -type f -print0 | sort -z | xargs -0 shasum -a 256 | shasum -a 256 | awk '{print $1}')"
+          [[ "$actual" == "$EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256" ]] || { echo "apple-distribution-kit dist checksum mismatch: $actual" >&2; exit 1; }
+          echo "APPLE_DISTRIBUTION_KIT_BIN=$PWD/dist/cli.js" >> "$GITHUB_ENV"
+      - name: Prepare App Store Connect credentials
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/asc"
+          mkdir -p "$dir"
+          python3 - "$dir/AuthKey.p8" "$dir/config.json" <<'PY'
+          import base64, json, os, pathlib, sys
+          key_path, config_path = sys.argv[1:3]
+          pathlib.Path(key_path).write_bytes(base64.b64decode(os.environ["ASC_KEY_BASE64"], validate=True))
+          os.chmod(key_path, 0o600)
+          pathlib.Path(config_path).write_text(json.dumps({"keyId": os.environ["ASC_KEY_ID"], "issuerId": os.environ["ASC_ISSUER_ID"], "privateKeyPath": key_path}))
+          os.chmod(config_path, 0o600)
+          PY
+          echo "APPLE_DISTRIBUTION_KIT_CONFIG=$dir/config.json" >> "$GITHUB_ENV"
+      - name: Import the Developer ID identity and its profile
+        env:
+          APPLE_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/adk-signing"
+          node "$APPLE_DISTRIBUTION_KIT_BIN" signing import \
+            --keychain "$dir/spoonjoy-mac-proof.keychain-db" --state "$dir/state.json" \
+            --p12-base64-env APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 --password-env APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD
+          # Finds or creates one profile, "Spoonjoy Mac sign-in proof app.spoonjoy <certificate id>", and reuses it.
+          node "$APPLE_DISTRIBUTION_KIT_BIN" signing profiles \
+            --state "$dir/state.json" --team-id 743GT2AJ24 --bundle-id app.spoonjoy \
+            --profile-type MAC_APP_DIRECT --name-prefix "Spoonjoy Mac sign-in proof" \
+            --xcconfig "$dir/signing.xcconfig" --export-options "$dir/ExportOptions.plist" --json \
+            | python3 -c 'import json,sys; r=json.load(sys.stdin); print(json.dumps({k: r.get(k) for k in ("certificate", "deletedProfileIds")}, default=str)); [print({k: p.get(k) for k in ("name", "id", "uuid", "profileType", "expirationDate", "created")}) for p in r.get("profiles", [])]'
+          # macOS Xcode looks for .provisionprofile files; the kit writes .mobileprovision.
+          profiles_dir="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$profiles_dir"
+          for profile in "$profiles_dir"/*.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles"/*.mobileprovision; do
+            if [[ -f "$profile" ]]; then cp -f "$profile" "$profiles_dir/$(basename "${profile%.mobileprovision}").provisionprofile"; fi
+          done
+          echo "SIGNING_XCCONFIG=$dir/signing.xcconfig" >> "$GITHUB_ENV"
+          echo "SIGNING_KEYCHAIN=$dir/spoonjoy-mac-proof.keychain-db" >> "$GITHUB_ENV"
+      - name: Build for testing (Debug, Developer ID with the app's entitlements)
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/callback/evidence"
+          { sw_vers; xcodebuild -version; } | tee "$RUNNER_TEMP/callback/evidence/runner.txt"
+          # Developer ID profiles carry production push, so Debug's development aps-environment is overridden.
+          xcodebuild build-for-testing -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration Debug \
+            -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/callback/DerivedData" \
+            -xcconfig "$SIGNING_XCCONFIG" SPOONJOY_APS_ENVIRONMENT=production 2>&1 | tee "$RUNNER_TEMP/callback/build.log"
+          app="$(find "$RUNNER_TEMP/callback/DerivedData/Build/Products/Debug" -maxdepth 1 -name 'Spoonjoy.app' | head -1)"
+          codesign -d --entitlements - --xml "$app" > "$RUNNER_TEMP/callback/evidence/entitlements.plist" 2>/dev/null
+          codesign -dvv "$app" 2>&1 | grep -E '^(Authority|TeamIdentifier|Identifier)=' | tee "$RUNNER_TEMP/callback/evidence/signature.txt"
+          plutil -p "$RUNNER_TEMP/callback/evidence/entitlements.plist" | tee "$RUNNER_TEMP/callback/evidence/entitlements.txt"
+          grep -q 'webcredentials:spoonjoy.app' "$RUNNER_TEMP/callback/evidence/entitlements.txt" || { echo "::error::The app is not signed with webcredentials:spoonjoy.app"; exit 1; }
+      - name: Write the throwaway account file
+        env:
+          ACCOUNT: ${{ secrets.SPOONJOY_BROWSER_CALLBACK_ACCOUNT_MAC }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/callback-secrets"
+          python3 - "$RUNNER_TEMP/callback-secrets/account.json" <<'PY'
+          import json, os, sys
+          account = json.loads(os.environ["ACCOUNT"])
+          if not all(account.get(k) for k in ("email", "username", "password")):
+              raise SystemExit("The account secret needs email, username and password.")
+          print(f"::add-mask::{account['password']}")
+          if "'" in account["password"]:
+              raise SystemExit("The throwaway password must not contain a quote; the log redaction stops at one.")
+          if not account["email"].endswith("@example.com"):
+              raise SystemExit("The callback proof only signs in throwaway @example.com accounts.")
+          json.dump(account, open(sys.argv[1], "w"))
+          print(f"Throwaway account: {account['username']} <{account['email']}>")
+          PY
+      - name: Run the callback test
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          export TEST_RUNNER_SPOONJOY_BROWSER_CALLBACK_ACCOUNT_FILE="$RUNNER_TEMP/callback-secrets/account.json"
+          date -u +%Y-%m-%dT%H:%M:%SZ > "$RUNNER_TEMP/callback/evidence/test-started-at.txt"
+          xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration Debug \
+            -destination 'platform=macOS' -only-testing:SpoonjoyMacBrowserSignInUITests/MacBrowserSignInCallbackUITests \
+            -derivedDataPath "$RUNNER_TEMP/callback/DerivedData" -collect-test-diagnostics never \
+            -resultBundlePath "$RUNNER_TEMP/callback/MacBrowserSignInCallback.xcresult" 2>&1 \
+            | sed -E "s/(Type ')[^']*(')/\1<redacted>\2/g" | tee "$RUNNER_TEMP/callback/test.log"
+          xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/callback/MacBrowserSignInCallback.xcresult" \
+            | python3 -c 'import json,sys; s=json.load(sys.stdin); print(s); ok=(s.get("passedTests"),s.get("skippedTests"),s.get("failedTests"))==(1,0,0); sys.exit(0 if ok else "::error::The Mac callback test did not pass exactly once (skipped or failed)")'
+      - name: Collect the sign-in log, summary and screenshots
+        if: always()
+        run: |
+          set -uo pipefail
+          out="$RUNNER_TEMP/callback/evidence"
+          mkdir -p "$out/attachments"
+          log show --style compact --last 30m \
+            --predicate '(subsystem CONTAINS "swc" OR process == "swcd" OR subsystem CONTAINS "AuthenticationServices" OR (subsystem == "app.spoonjoy" AND category BEGINSWITH "auth"))' > "$out/swc.log" 2>&1 || true
+          grep -E 'Browser sign-in' "$out/swc.log" || true
+          bundle="$RUNNER_TEMP/callback/MacBrowserSignInCallback.xcresult"
+          if [ -d "$bundle" ]; then
+            xcrun xcresulttool get test-results summary --path "$bundle" > "$out/xcresult-summary.json" 2>&1 || true
+            xcrun xcresulttool get test-results tests --path "$bundle" > "$out/xcresult-tests.json" 2>&1 || true
+            xcrun xcresulttool export attachments --path "$bundle" --output-path "$out/attachments" > /dev/null 2>&1 || true
+            find "$out/attachments" -type f \( -name '*.mp4' -o -name '*.mov' \) -exec mv {} "$RUNNER_TEMP/" \;
+          fi
+      - name: Redact and scan artifacts for the password
+        id: scan
+        if: always()
+        env:
+          ACCOUNT: ${{ secrets.SPOONJOY_BROWSER_CALLBACK_ACCOUNT_MAC }}
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/callback" <<'PY'
+          import json, os, sys
+          raw = os.environ.get("ACCOUNT", "")
+          if not raw:
+              sys.exit(0)
+          needle = json.loads(raw)["password"].encode()
+          prefix = needle[:12]
+          for root, dirs, files in os.walk(sys.argv[1]):
+              dirs[:] = [d for d in dirs if d != "DerivedData" and not d.endswith(".xcresult")]
+              for name in files:
+                  path = os.path.join(root, name)
+                  with open(path, "rb") as handle:
+                      data = handle.read()
+                  if needle in data:
+                      data = data.replace(needle, b"<password>")
+                      with open(path, "wb") as handle:
+                          handle.write(data)
+                      print(f"Redacted the password from {name}")
+                  if prefix in data:
+                      raise SystemExit(f"::error::The password appears in {name}; not uploading")
+          PY
+      - name: Remove credentials and the signing keychain
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/callback-secrets/account.json" "$RUNNER_TEMP/asc/AuthKey.p8" "$RUNNER_TEMP/asc/config.json"
+          if [ -n "${SIGNING_KEYCHAIN:-}" ]; then node "$APPLE_DISTRIBUTION_KIT_BIN" signing delete-keychain --keychain "$SIGNING_KEYCHAIN" || true; fi
+      - name: Upload the evidence
+        if: ${{ !cancelled() && steps.scan.outcome == 'success' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: browser-signin-callback-mac-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/callback/evidence
+            ${{ runner.temp }}/callback/test.log
+            ${{ runner.temp }}/callback/build.log
+          if-no-files-found: warn
+          retention-days: 30
