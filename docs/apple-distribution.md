@@ -271,6 +271,10 @@ The branch name must match `^release/[0-9][0-9A-Za-z.-]*$`; every workflow rejec
 
 Publish only from green: before "Stage App Store listing" or "Submit for App Review" sees an App Store Connect secret, `scripts/require-green-commit.rb` requires the source commit (main's head, or the release branch head) to have a green Native push run with every required check passed, and the job then checks out exactly that commit. A red, unfinished or never-built commit stops the run, dry runs included: wait for Native to finish on that commit, then dispatch.
 
+Stage and submit both platforms together with `platform: BOTH`. `scripts/release-train-builds.rb` finds the TestFlight run named `TestFlight <source sha>` and reads its two publish summaries (`testflight-publish-summary.json` and `mac-app-store-publish-summary.json`), which TestFlight writes only once App Store Connect marks each build VALID. The run stops unless both builds come from the source commit.
+- **Stage** leaves `build_number` empty. It plans iOS and then the Mac with those builds, and with `dry_run: false` it writes only after both plans succeed.
+- **Submit** checks that each version has that commit's build attached, then submits iOS and then the Mac. Confirm reads `submit BOTH <version>`.
+
 ### CI signing
 
 CI signs with one long-lived Apple Distribution certificate, so a TestFlight run creates no certificate and `xcodebuild` makes no Apple network calls. Before this, each runner started with an empty keychain and `xcodebuild -allowProvisioningUpdates` with the App Store Connect API key minted a new "Created via API" Apple Development certificate on every run, which Apple emailed about on each create and revoke, and Xcode's own profile fetch failed on transient network loss.

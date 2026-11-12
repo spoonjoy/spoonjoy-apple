@@ -112,4 +112,20 @@ class AppStoreReviewSubmissionTest < Minitest::Test
                  client.writes.map { |w| w.first(2) }
     assert_equal true, client.writes.last[2].dig("data", "attributes", "submitted")
   end
+
+  def test_release_train_refuses_a_version_without_the_commits_build
+    result = AppStoreReviewSubmission.plan(version: ready, submission: nil, platform: "MAC_OS", version_string: "1.0", build_id: "b61")
+    assert_equal "MAC_OS 1.0 has build b92 attached, not b61, the build TestFlight published from the source commit. " \
+                 "Stage it again with that build first.", result["error"]
+    ok = AppStoreReviewSubmission.plan(version: ready, submission: nil, platform: "MAC_OS", version_string: "1.0", build_id: "b92")
+    assert_nil ok["error"]
+  end
+
+  def test_check_reads_and_writes_nothing
+    client = runner_client
+    runner = AppStoreReviewSubmission::Runner.new(client, bundle_id: "app.spoonjoy", platform: "IOS", version_string: "1.0",
+                                                          build_id: "other", log: StringIO.new)
+    assert_raises(AppStoreListing::Error) { runner.check }
+    assert_empty client.writes
+  end
 end
