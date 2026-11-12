@@ -11,8 +11,15 @@ class AppStoreListingTest < Minitest::Test
   ROOT = File.expand_path("../..", __dir__)
   LISTING_PATH = File.join(ROOT, "distribution/app-store/listing.json")
 
+  CHANGES_DIR = File.join(ROOT, "changes")
+
+  # The iOS listing as staging sees it, with What's New assembled from changes/.
   def listing
-    @listing ||= JSON.parse(File.read(LISTING_PATH))
+    @listing ||= AppStoreListing.with_whats_new(raw_listing, CHANGES_DIR)
+  end
+
+  def raw_listing
+    @raw_listing ||= JSON.parse(File.read(LISTING_PATH))
   end
 
   def png(path, width, height, color_type: 2, trns: false)
@@ -148,7 +155,7 @@ class AppStoreListingTest < Minitest::Test
   end
 
   def mac_listing
-    AppStoreListing.for_platform(listing, "MAC_OS")
+    AppStoreListing.with_whats_new(AppStoreListing.for_platform(raw_listing, "MAC_OS"), CHANGES_DIR)
   end
 
   APP_LEVEL_ACTIONS = %w[patch_app patch_categories patch_age_rating create_app_info_localization patch_app_info_localization
@@ -208,12 +215,13 @@ class AppStoreListingTest < Minitest::Test
                  actions
     assert_empty actions & APP_LEVEL_ACTIONS
     create = steps.first
-    assert_equal ["Create macOS version 1.2", "MAC_OS"], [create["summary"], create["platform"]]
+    assert_equal ["Create macOS version 1.3", "MAC_OS"], [create["summary"], create["platform"]]
     assert_equal "macbuild2", steps[2]["buildId"]
     localization = steps[3]["attributes"]
     assert_equal mac_listing["localizations"]["en-US"]["description"], localization["description"]
     assert_equal "https://spoonjoy.app/support", localization["supportUrl"]
-    assert_equal listing["mac"]["localizations"]["en-US"]["whatsNew"], localization["whatsNew"]
+    assembled = Changelog.whats_new(Changelog.load!(CHANGES_DIR), "mac")
+    assembled.empty? ? refute(localization.key?("whatsNew")) : assert_equal(assembled, localization["whatsNew"])
     assert_equal listing["mac"]["review"]["notes"], steps[4]["attributes"]["notes"]
     assert_equal "APP_DESKTOP", steps.last["displayType"]
   end
@@ -229,7 +237,7 @@ class AppStoreListingTest < Minitest::Test
                                  secrets: { "demoAccountPassword" => "s3cret" })
     assert_equal %w[patch_version create_phased_release attach_build patch_version_localization create_review_detail sync_screenshots],
                  steps.map { |s| s["action"] }
-    assert_equal({ "versionString" => "1.2", "copyright" => "2026 Ari Mendelow", "releaseType" => "AFTER_APPROVAL" }, steps.first["attributes"])
+    assert_equal({ "versionString" => "1.3", "copyright" => "2026 Ari Mendelow", "releaseType" => "AFTER_APPROVAL" }, steps.first["attributes"])
 
     staged = version.merge(
       "attributes" => mac["version"], "buildId" => "macbuild2", "phasedRelease" => { "id" => "macpr" },
@@ -365,15 +373,66 @@ class AppStoreListingTest < Minitest::Test
     source = File.read(File.join(ROOT, "scripts/lib/app_store_listing.rb")) + File.read(File.join(ROOT, "scripts/stage-app-store-listing.rb"))
     refute_match(/reviewSubmission/, source)
   end
-  def test_listing_ships_1_2_with_whats_new_and_a_phased_automatic_release
+  def test_whats_new_comes_from_the_changelog_fragments_unless_listing_json_writes_it
+    # A whatsNew written in listing.json is the tale a version was submitted with (iOS 1.2); `changelog.rb archive`
+    # records and removes it when main moves on. Otherwise What's New comes from changes/.
+    fragments = Changelog.load!(CHANGES_DIR)
+    { listing => ["ios", raw_listing["localizations"]["en-US"]],
+      mac_listing => ["mac", raw_listing["mac"]["localizations"]["en-US"]] }.each do |platform_listing, (platform, raw)|
+      assembled = Changelog.whats_new(fragments, platform)
+      expected = raw.key?("whatsNew") ? raw["whatsNew"] : (assembled.empty? ? nil : assembled)
+      assert_equal expected, platform_listing["localizations"]["en-US"]["whatsNew"], platform
+    end
+    mac_own = JSON.parse(JSON.generate(raw_listing))
+    mac_own["mac"]["localizations"]["en-US"]["whatsNew"] = "Mac's own."
+    assert_equal "Mac's own.", AppStoreListing.for_platform(mac_own, "MAC_OS").dig("localizations", "en-US", "whatsNew")
+    mac_own["mac"]["localizations"]["en-US"]["whatsNew"] = nil
+    assert_nil AppStoreListing.with_whats_new(AppStoreListing.for_platform(mac_own, "MAC_OS"), CHANGES_DIR)
+                             .dig("localizations", "en-US", "whatsNew"), "a Mac null survives"
+    other_locale = JSON.parse(JSON.generate(raw_listing))
+    other_locale["localizations"]["fr-FR"] = { "whatsNew" => "Seulement iOS." }
+    refute AppStoreListing.for_platform(other_locale, "MAC_OS")["localizations"]["fr-FR"].key?("whatsNew"),
+           "no locale passes the iOS tale to the Mac"
+    ios_only = JSON.parse(JSON.generate(raw_listing))
+    ios_only["localizations"]["en-US"]["whatsNew"] = "iOS only."
+    refute_equal "iOS only.", AppStoreListing.with_whats_new(AppStoreListing.for_platform(ios_only, "MAC_OS"), CHANGES_DIR)
+                                            .dig("localizations", "en-US", "whatsNew"), "the Mac never inherits the iOS tale"
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "amber.md"), "---\ntestflight: Amber.\n---\nThe button glows amber.\n")
+      written = JSON.parse(JSON.generate(raw_listing))
+      written["localizations"]["en-US"]["whatsNew"] = "Written by hand."
+      assert_equal "Written by hand.", AppStoreListing.with_whats_new(written, dir)["localizations"]["en-US"]["whatsNew"]
+      written["localizations"]["en-US"]["whatsNew"] = nil
+      first_version = AppStoreListing.with_whats_new(written, dir)
+      assert_nil first_version["localizations"]["en-US"]["whatsNew"]
+      step = AppStoreListing.plan(listing: first_version, snapshot: empty_snapshot, screenshots: shots, secrets: {})
+                            .find { |s| s["action"] == "create_version_localization" }
+      refute step["attributes"].key?("whatsNew"), "null leaves What's New out of a first version"
+      unwritten = JSON.parse(JSON.generate(raw_listing))
+      unwritten["localizations"]["en-US"].delete("whatsNew")
+      assert_equal "The button glows amber.", AppStoreListing.with_whats_new(unwritten, dir)["localizations"]["en-US"]["whatsNew"]
+      File.write(File.join(dir, "broken.md"), "no front matter")
+      error = assert_raises(AppStoreListing::Error) { AppStoreListing.with_whats_new(raw_listing, dir) }
+      assert_match(/broken.md/, error.message)
+    end
+    Dir.mktmpdir do |empty|
+      kept = AppStoreListing.with_whats_new(raw_listing, empty)["localizations"]["en-US"]
+      assert_equal raw_listing["localizations"]["en-US"].key?("whatsNew"), kept.key?("whatsNew"),
+                   "a release branch without changes/ keeps whatever its listing.json says"
+      assert_equal raw_listing["localizations"]["en-US"]["whatsNew"], kept["whatsNew"]
+    end
+  end
+
+  def test_listing_ships_its_version_with_whats_new_and_a_phased_automatic_release
     [listing, mac_listing].each do |platform_listing|
       version = platform_listing["version"]
-      assert_equal ["1.2", "AFTER_APPROVAL", true], version.values_at("versionString", "releaseType", "phasedRelease")
+      assert_equal ["1.3", "AFTER_APPROVAL", true], version.values_at("versionString", "releaseType", "phasedRelease")
+      # Empty until the version's first fragment lands; the stager then assembles it from changes/.
       whats_new = platform_listing["localizations"]["en-US"]["whatsNew"].to_s
-      refute_empty whats_new
       assert_operator whats_new.length, :<=, AppStoreListing::LIMITS.fetch("whatsNew")
     end
-    refute_equal listing["localizations"]["en-US"]["whatsNew"], mac_listing["localizations"]["en-US"]["whatsNew"]
+    ios_whats_new = listing["localizations"]["en-US"]["whatsNew"]
+    refute_equal ios_whats_new, mac_listing["localizations"]["en-US"]["whatsNew"] unless ios_whats_new.nil?
   end
 
   # The build App Store Connect attaches must carry the listing's version, or the upload lands on the wrong version.
