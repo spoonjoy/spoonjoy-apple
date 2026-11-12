@@ -106,7 +106,8 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         UIPasteboard.general.string = account.password
         defer { UIPasteboard.general.items = [] }
         password.press(forDuration: 1.2)
-        let paste = [app, webSheet].map { $0.menuItems["Paste"] } + [app, webSheet].map { $0.buttons["Paste"] }
+        let owners: [XCUIApplication] = [app!, webSheet]
+        let paste = owners.map { $0.menuItems["Paste"] } + owners.map { $0.buttons["Paste"] }
         let pasteItem = paste.first { $0.waitForExistence(timeout: 2) } ?? paste.first { $0.waitForExistence(timeout: Self.interactionTimeout) }
         try XCTUnwrap(pasteItem, "The Password field's edit menu has no Paste item.").tap()
         UIPasteboard.general.items = []
@@ -138,7 +139,7 @@ final class BrowserSignInCallbackUITests: XCTestCase {
     }
 
     private func dismissKeyboardTip() {
-        for owner in [webSheet, app] {
+        for owner: XCUIApplication in [webSheet, app!] {
             let tip = owner.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Speed up your typing")).firstMatch
             guard tip.exists else { continue }
             let continueButton = owner.buttons.matching(NSPredicate(format: "label == %@", "Continue")).allElementsBoundByIndex.last
