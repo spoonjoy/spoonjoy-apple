@@ -102,6 +102,42 @@ jobs:
       - name: Wait for the simulator to settle
         timeout-minutes: 8
         run: python3 .github/scripts/wait-for-simulator-settle.py "${{ steps.sim.outputs.udid }}" --booted-at "${{ steps.sim.outputs.booted-at }}"
+      - name: Install the app and wait until iOS has associated spoonjoy.app
+        # A phone fetches the AASA when the app installs, long before anyone taps. The simulator's swcd only notices
+        # the install some seconds later and fetches a minute after that, and ASWebAuthenticationSession will not take
+        # an https callback for a domain it has not verified (run 43170973110: tap 07:11:14, swcd sync 07:11:21, AASA
+        # fetch 07:12:26). So install and launch first, and wait for swcd to approve spoonjoy.app.
+        timeout-minutes: 10
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          set -uo pipefail
+          out="$RUNNER_TEMP/callback/evidence"
+          app="$RUNNER_TEMP/callback/DerivedData/Build/Products/Debug-iphonesimulator/Spoonjoy.app"
+          xcrun simctl install "$UDID" "$app"
+          xcrun simctl launch "$UDID" app.spoonjoy
+          sleep 5
+          xcrun simctl terminate "$UDID" app.spoonjoy || true
+          started=$SECONDS
+          seen_fetch=""
+          while (( SECONDS - started < 420 )); do
+            xcrun simctl spawn "$UDID" swcutil show > "$out/swcutil-show.txt" 2>&1 || true
+            if grep -A15 -F "spoonjoy.app" "$out/swcutil-show.txt" | grep -qiE "(approved|approval[a-z ]*)[: =]+(yes|true|approved|1)"; then
+              echo "swcutil: spoonjoy.app approved after $(( SECONDS - started )) s"; grep -B3 -A15 -F "spoonjoy.app" "$out/swcutil-show.txt"
+              echo "associated=swcutil" > "$out/association.txt"; exit 0
+            fi
+            if [ -z "$seen_fetch" ] && xcrun simctl spawn "$UDID" log show --style compact --last 15m \
+                 --predicate 'process == "swcd" AND eventMessage CONTAINS "domain: spoonjoy.app"' 2>/dev/null | grep -q "Beginning data task"; then
+              seen_fetch=$SECONDS; echo "swcd began fetching spoonjoy.app after $(( SECONDS - started )) s"
+            fi
+            # Without swcutil, a fetch begun 45 s ago has finished (it takes about a second from the CDN).
+            if [ -n "$seen_fetch" ] && (( SECONDS - seen_fetch >= 45 )); then
+              echo "associated=log ($(( SECONDS - started )) s)" > "$out/association.txt"; cat "$out/association.txt"; exit 0
+            fi
+            sleep 10
+          done
+          echo "::warning::swcd did not approve or fetch spoonjoy.app within 7 minutes; running the test anyway"
+          echo "associated=unknown" > "$out/association.txt"
       - name: Write the throwaway account file
         env:
           ACCOUNT: ${{ secrets.SPOONJOY_BROWSER_CALLBACK_ACCOUNT }}
@@ -149,7 +185,7 @@ jobs:
           out="$RUNNER_TEMP/callback/evidence"
           mkdir -p "$out/attachments"
           xcrun simctl spawn "$UDID" log show --style compact --last 30m \
-            --predicate 'subsystem CONTAINS "swc" OR process == "swcd" OR subsystem CONTAINS "AuthenticationServices"' > "$out/swc.log" 2>&1 || true
+            --predicate '(subsystem CONTAINS "swc" OR process == "swcd" OR subsystem CONTAINS "AuthenticationServices" OR (subsystem == "app.spoonjoy" AND category BEGINSWITH "auth")) AND NOT eventMessage CONTAINS "compose failure"' > "$out/swc.log" 2>&1 || true
           tail -60 "$out/swc.log"
           bundle="$RUNNER_TEMP/callback/BrowserSignInCallback.xcresult"
           if [ -d "$bundle" ]; then

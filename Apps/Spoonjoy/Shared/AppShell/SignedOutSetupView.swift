@@ -1,4 +1,5 @@
 import AuthenticationServices
+import OSLog
 import Security
 import SpoonjoyCore
 import SwiftUI
@@ -8,6 +9,7 @@ struct SignedOutSetupView: View {
     private static let livePasswordSignInIdentifier = "native password sign-in"
     fileprivate static let liveGoogleOAuthSignInIdentifier = "native Google OAuth sign-in"
     fileprivate static let liveGitHubOAuthSignInIdentifier = "native GitHub OAuth sign-in"
+    private static let browserSignInLogger = Logger(subsystem: "app.spoonjoy", category: "auth.browser")
     private static let appleSignInEntitlement = "com.apple.developer.applesignin"
 
     let authRepository: NativeAuthSessionRepository
@@ -459,6 +461,8 @@ struct SignedOutSetupView: View {
 
             authStatus = "Finish \(provider.displayName) sign-in in the browser."
         } catch {
+            // The status line is the same for every cause; the log says which step failed (no secrets in these errors).
+            Self.browserSignInLogger.error("Browser sign-in did not start: \(String(describing: error), privacy: .public)")
             pendingOAuthState = nil
             pendingOAuthCodeVerifier = nil
             pendingOAuthProvider = nil

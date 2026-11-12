@@ -64,7 +64,7 @@ final class BrowserSignInCallbackUITests: XCTestCase {
 
         let identifier = try XCTUnwrap(
             webElement(.textField, label: "Username or email", timeout: Self.networkTimeout),
-            "The sheet did not show spoonjoy.app/login. Sheet: \(webSheet.debugDescription)"
+            "The sheet did not show spoonjoy.app/login. App status: \(element("native sign-in status").label). Sheet: \(webSheet.debugDescription)"
         )
         screenshot("02-sheet-on-login")
         identifier.tap()
