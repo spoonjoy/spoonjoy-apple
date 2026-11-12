@@ -230,6 +230,8 @@ struct JourneyQAClient: Sendable {
     struct CookSessionReading: Sendable {
         let revision: Int
         let checkedIngredientIDs: [String]
+        /// The step the session is on, counting from 0.
+        let activeStepIndex: Int
         /// The response body as QA sent it, with this client's bearer token replaced by `[redacted]`.
         let redactedBody: String
     }
@@ -243,6 +245,7 @@ struct JourneyQAClient: Sendable {
         return CookSessionReading(
             revision: envelope.state.revision,
             checkedIngredientIDs: envelope.state.progress.checkedIngredientIds,
+            activeStepIndex: envelope.state.progress.activeStepIndex ?? 0,
             redactedBody: redacted
         )
     }
@@ -265,6 +268,26 @@ struct JourneyQAClient: Sendable {
         }
         try await Task.sleep(for: .seconds(1))
         return try await cookSession(recipeID: recipeID, waitingForChecked: ingredientID, attempts: attempts - 1)
+    }
+
+    /// Waits for the app's debounced cook sync to put the session on `stepIndex` (counting from 0), reading once a
+    /// second up to `attempts` times.
+    func cookSession(
+        recipeID: String,
+        waitingForStep stepIndex: Int,
+        attempts: Int = 30
+    ) async throws -> CookSessionReading {
+        let reading = try? await cookSession(recipeID: recipeID)
+        if let reading, reading.revision > 0, reading.activeStepIndex == stepIndex {
+            return reading
+        }
+        guard attempts > 1 else {
+            throw JourneyQAClientError.cookSessionNotSynced(
+                "Waited for step index \(stepIndex). Last reading: \(reading?.redactedBody ?? "no readable session (404 or an error status)")"
+            )
+        }
+        try await Task.sleep(for: .seconds(1))
+        return try await cookSession(recipeID: recipeID, waitingForStep: stepIndex, attempts: attempts - 1)
     }
 
     func shoppingList() async throws -> ShoppingListState {
@@ -371,6 +394,7 @@ private struct JourneyCookSessionEnvelope: Decodable {
     struct State: Decodable {
         struct Progress: Decodable {
             let checkedIngredientIds: [String]
+            let activeStepIndex: Int?
         }
 
         let revision: Int

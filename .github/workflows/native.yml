@@ -83,6 +83,8 @@ jobs:
         run: python3 -I .github/scripts/test_create_newest_simulator.py
       - name: Store scenes come out of their result bundle by name (offline)
         run: python3 -I .github/scripts/test_export_store_scenes.py
+      - name: The Siri journey picker pairs an Xcode with a runtime of its own version (offline)
+        run: python3 -I .github/scripts/test_pick_matching_xcode.py
       - name: Check native design-language contract
         run: ruby scripts/check-native-design-language.rb --web-design-doc docs/source/spoonjoy-v2-design-language.md
       - name: Check web palette contract
@@ -118,6 +120,7 @@ jobs:
           ruby scripts/test/optional_checks_wait_test.rb
           ruby scripts/test/draft_runs_lane_b_test.rb
           ruby scripts/test/no_design_hex_test.rb
+          ruby scripts/test/siri_journey_isolation_test.rb
           ruby scripts/test/app_shortcuts_test.rb
           ruby scripts/test/app_token_vault_test.rb
           ruby scripts/test/macos_lanes_test.rb

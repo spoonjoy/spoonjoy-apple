@@ -8,6 +8,14 @@ struct JourneyHouseRulesTests {
     func fileKinds() {
         #expect(JourneyHouseRules.kind(forRelativePath: "SignInJourney.swift") == .journey)
         #expect(JourneyHouseRules.kind(forRelativePath: "Support/JourneyApp.swift") == .support)
+        // A journey folder with a target of its own keeps its helpers in its own Support folder (Siri/Support), so
+        // that only its target links what they import.
+        #expect(JourneyHouseRules.kind(forRelativePath: "Siri/Support/JourneyIntents.swift") == .support)
+        #expect(JourneyHouseRules.kind(forRelativePath: "Siri/SiriJourney.swift") == .journey)
+        #expect(JourneyHouseRules.kind(forRelativePath: "SupportJourney.swift") == .journey)
+        // Only the Siri target's own Support folder counts; any other nested Support folder stays under the journey rules.
+        #expect(JourneyHouseRules.kind(forRelativePath: "Duo/Support/FooJourney.swift") == .journey)
+        #expect(JourneyHouseRules.kind(forRelativePath: "Wide/Support/Helpers.swift") == .journey)
         #expect(JourneyHouseRules.kind(forRelativePath: "journeys.yml") == .workflow)
         #expect(JourneyHouseRules.kind(forRelativePath: "native.yaml") == .workflow)
         #expect(JourneyHouseRules.kind(forRelativePath: "journey-qa-accounts.sh") == .workflow)
@@ -320,7 +328,7 @@ struct JourneyHouseRulesTests {
         ])
         #expect(found.first?.message == "`&&` after a test command stops its failure from failing the step")
         #expect(found.dropFirst(1).first?.message == "a shell loop re-runs `xcodebuild`; flaky is failing")
-        #expect(found.dropFirst(5).first?.message == "`-only-testing:SpoonjoyJourneys/SignInJourney` runs part of a target; select SpoonjoyJourneys, SpoonjoyShoppingUITests, SpoonjoyDuoJourneys or SpoonjoyParityJourneys whole")
+        #expect(found.dropFirst(5).first?.message == "`-only-testing:SpoonjoyJourneys/SignInJourney` runs part of a target; select SpoonjoyJourneys, SpoonjoyShoppingUITests, SpoonjoyDuoJourneys, SpoonjoyParityJourneys or SpoonjoySiriJourneys whole")
         #expect(found.dropFirst(9).first?.message == "a shell loop re-runs `scripts/run-journeys.sh`; flaky is failing")
     }
 
@@ -417,6 +425,7 @@ struct JourneyHouseRulesTests {
                   xcodebuild build-for-testing -destination "$d" -only-testing:SpoonjoyJourneys \
                     -only-testing:"SpoonjoyShoppingUITests" CODE_SIGNING_ALLOWED=NO
                   xcodebuild test-without-building -only-testing:SpoonjoyParityJourneys
+                  xcodebuild test-without-building -only-testing:SpoonjoySiriJourneys
                   [[ -n "$a" ]] || [[ -n "$b" ]] || fail "missing"
                   n="${#items[@]}" # a comment mentioning xcodebuild || xcodebuild
                   for account in 1 2; do
