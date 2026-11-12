@@ -432,7 +432,10 @@ struct SignedOutSetupView: View {
             makeSession: SpoonjoyBrowserOAuthWebSession.make
         )
         browserSignIn = signIn
-        let start = await signIn.begin(provider: provider) { finish in
+        let start = await signIn.begin(provider: provider, onReturn: {
+            statusTone = .progress
+            authStatus = "Finishing Spoonjoy sign-in."
+        }) { finish in
             Task {
                 await handleBrowserOAuthFinish(finish)
             }

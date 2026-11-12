@@ -28,7 +28,8 @@ concurrency:
 # it, waiting (queue: max) instead of queueing for a runner:
 #   lane a: App bundle (required)
 #   lane b: Swift tests, Native scenario verifier, Reins journeys (required, short)
-#   lane c: every optional job: App Intents X-ray, Journeys, Launch smoke, Feel, Beta SDK, Duo tour
+#   lane c: every optional job: App Intents X-ray, Journeys, Launch smoke, Feel, Beta SDK, Browser sign-in on the
+#           iOS simulator, Duo tour
 # Required checks never wait behind optional work. Merge-queue and main or release push jobs take a group of their own,
 # so at least 2 slots stay outside the lanes; TestFlight, the signing dry run and the review demo launch share those 2
 # and are not laned. A lane holds at most 100 waiting jobs; past that GitHub cancels the newest, which only lane c can reach.

@@ -82,6 +82,7 @@ public final class NativeBrowserOAuthSignIn {
     public private(set) var attempt: Attempt?
     private var session: (any NativeBrowserOAuthWebSession)?
     private var onFinish: (@MainActor (NativeBrowserOAuthFinish) -> Void)?
+    private var onReturn: (@MainActor () -> Void)?
     private var isStarting = false
     private var isFinishing = false
 
@@ -103,10 +104,13 @@ public final class NativeBrowserOAuthSignIn {
         isStarting || attempt != nil || isFinishing
     }
 
-    /// Starts a new attempt with its own state and verifier, unless one is already in progress. `onFinish` is
-    /// called once, when the attempt ends after it opened.
+    /// Starts a new attempt with its own state and verifier, unless one is already in progress. `onReturn` is called
+    /// when the sheet comes back with a callback, before the code exchange; `onFinish` is called once, when the
+    /// attempt ends after it opened. A `cancel()` while the client registration is still in flight is not recorded:
+    /// the app never cancels then.
     public func begin(
         provider: OAuthProviderHint,
+        onReturn: @escaping @MainActor () -> Void = {},
         onFinish: @escaping @MainActor (NativeBrowserOAuthFinish) -> Void
     ) async -> NativeBrowserOAuthStart {
         guard !isInProgress else {
@@ -139,6 +143,10 @@ public final class NativeBrowserOAuthSignIn {
         )
         self.session = session
         self.onFinish = onFinish
+        self.onReturn = onReturn
+        // The gate is claimed after registration and before the sheet starts: the older sheet must close before this
+        // one's server start replaces its state, even though this start may still fail. So the newest start to
+        // finish registering wins, which is nearly always the newest tap.
         gate.claim(id) { [weak self] in
             self?.supersede(attemptID: id)
         }
@@ -166,6 +174,7 @@ public final class NativeBrowserOAuthSignIn {
         guard let attempt, attempt.id == attemptID, let finish = onFinish else {
             return
         }
+        let returned = onReturn
         clear(attemptID: attemptID)
         guard let callbackURL else {
             finish(.canceled)
@@ -174,6 +183,7 @@ public final class NativeBrowserOAuthSignIn {
 
         isFinishing = true
         defer { isFinishing = false }
+        returned?()
         do {
             let session = try await repository.handleOAuthCallback(
                 callbackURL,
@@ -199,6 +209,7 @@ public final class NativeBrowserOAuthSignIn {
         attempt = nil
         session = nil
         onFinish = nil
+        onReturn = nil
         gate.release(attemptID)
     }
 }

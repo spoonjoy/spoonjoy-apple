@@ -433,7 +433,7 @@ struct NativeAuthSessionTests {
                 "SpoonjoyBrowserOAuthWebSession.make",
                 "handleBrowserOAuthSignIn",
                 "handleBrowserOAuthSignIn(provider:",
-                "signIn.begin(provider: provider)",
+                "signIn.begin(provider: provider",
                 "handleBrowserOAuthFinish",
                 "pendingOAuthProvider",
                 "Continue with Google",

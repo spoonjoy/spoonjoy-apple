@@ -70,7 +70,10 @@ struct BrowserSignInTests {
         let finishes = FinishLog()
 
         // Second tap while the client registration is still in flight.
-        let firstTap = Task { await harness.flow.begin(provider: .google) { finishes.record($0) } }
+        var returns = 0
+        let firstTap = Task {
+            await harness.flow.begin(provider: .google, onReturn: { returns += 1 }) { finishes.record($0) }
+        }
         await registration.waitUntilReached()
         #expect(harness.flow.isInProgress)
         #expect(await harness.flow.begin(provider: .google) { _ in Issue.record("A refused tap must not finish") } == .alreadyInProgress)
@@ -86,6 +89,7 @@ struct BrowserSignInTests {
         // And while the code exchange runs after the callback.
         let callback = Task { await harness.sheets.complete(0, with: serverCallback(code: "oac_code", state: attempt.state)) }
         await exchange.waitUntilReached()
+        #expect(returns == 1)
         #expect(harness.flow.isInProgress)
         #expect(await harness.flow.begin(provider: .google) { _ in Issue.record("A refused tap must not finish") } == .alreadyInProgress)
         await exchange.open()
@@ -292,7 +296,7 @@ struct BrowserSignInTests {
 
     /// Optional and network-dependent: the live production chain from the URL the app builds, up to Google. Runs only
     /// with SPOONJOY_LIVE_OAUTH_CHAIN=1 (the simulator job sets it); it registers a public client the way the app's
-    /// first sign-in does, and signs nobody in.
+    /// first sign-in does (one row in production per run, the cost of walking the real chain), and signs nobody in.
     @Test(
         "live: /oauth/authorize?provider=google redirects through /auth/google to accounts.google.com",
         .enabled(if: ProcessInfo.processInfo.environment["SPOONJOY_LIVE_OAUTH_CHAIN"] == "1")
