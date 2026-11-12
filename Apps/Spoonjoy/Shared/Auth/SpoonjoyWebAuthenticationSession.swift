@@ -80,8 +80,10 @@ final class SpoonjoyWebAuthenticationSession {
                         completionHandler(url, error)
                     }
                 }
-                session.presentationContextProvider = presentationContextProvider
-                return session
+                return SpoonjoySystemWebAuthenticationSession(
+                    session: session,
+                    presentationContextProvider: presentationContextProvider
+                )
             },
             callbackHandler: callbackHandler,
             cancellationHandler: cancellationHandler
@@ -288,6 +290,33 @@ private final class SpoonjoyLoopbackWebAuthenticationSession: SpoonjoyWebAuthent
     }
 }
 #endif
+
+/// ASWebAuthenticationSession holds its presentation context provider weakly, and `start()` returns false
+/// once the provider is gone. This wrapper owns the provider for as long as the session is in use.
+@MainActor
+private final class SpoonjoySystemWebAuthenticationSession: SpoonjoyWebAuthenticationSessionProtocol {
+    private let session: ASWebAuthenticationSession
+    private let presentationContextProvider: SpoonjoyAuthenticationPresentationContextProvider
+
+    init(session: ASWebAuthenticationSession, presentationContextProvider: SpoonjoyAuthenticationPresentationContextProvider) {
+        self.session = session
+        self.presentationContextProvider = presentationContextProvider
+        session.presentationContextProvider = presentationContextProvider
+    }
+
+    var prefersEphemeralWebBrowserSession: Bool {
+        get { session.prefersEphemeralWebBrowserSession }
+        set { session.prefersEphemeralWebBrowserSession = newValue }
+    }
+
+    func start() -> Bool {
+        session.start()
+    }
+
+    func cancel() {
+        session.cancel()
+    }
+}
 
 private final class SpoonjoyAuthenticationPresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
     private let anchor: ASPresentationAnchor
