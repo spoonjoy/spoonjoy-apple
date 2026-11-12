@@ -103,7 +103,7 @@ struct CookbooksView: View {
     }
 
     /// A regular-width iPad sets the shelf across the Kitchen's 1,120 pt page with covers up to 300 pt wide, so a 13"
-    /// screen holds four real books a row instead of a row of small ones down its left side.
+    /// screen holds three or four real books a row instead of a row of small ones down its left side.
     private var usesWideShelf: Bool {
 #if os(iOS)
         UIDevice.current.userInterfaceIdiom == .pad && horizontalSizeClass == .regular
