@@ -24,6 +24,8 @@ IOS_BUNDLE_ID = "app.spoonjoy"
 # One bundle ID for both apps, so a single App Store record sells iPhone, iPad and Mac (universal purchase).
 MAC_BUNDLE_ID = IOS_BUNDLE_ID
 ASSOCIATED_DOMAIN = "applinks:spoonjoy.app"
+# ASWebAuthenticationSession https callbacks match through webcredentials, not applinks.
+WEB_CREDENTIALS_DOMAIN = "webcredentials:spoonjoy.app"
 URL_SCHEME = "spoonjoy"
 PACKAGE_PRODUCT = "SpoonjoyCore"
 UI_TEST_TARGET = "SpoonjoyShoppingUITests"
@@ -180,11 +182,13 @@ fail_check("#{relative(WIDGET_INFO_PLIST)} must declare the com.apple.widgetkit-
 entitlements = plist_json(ENTITLEMENTS)
 associated_domains = Array(entitlements["com.apple.developer.associated-domains"])
 fail_check("#{relative(ENTITLEMENTS)} missing #{ASSOCIATED_DOMAIN}") unless associated_domains.include?(ASSOCIATED_DOMAIN)
+fail_check("#{relative(ENTITLEMENTS)} missing #{WEB_CREDENTIALS_DOMAIN}") unless associated_domains.include?(WEB_CREDENTIALS_DOMAIN)
 mac_entitlements = plist_json(MAC_ENTITLEMENTS)
 fail_check("#{relative(MAC_ENTITLEMENTS)} must enable App Sandbox for the Mac App Store") unless mac_entitlements["com.apple.security.app-sandbox"] == true
 fail_check("#{relative(MAC_ENTITLEMENTS)} must allow outgoing network connections") unless mac_entitlements["com.apple.security.network.client"] == true
 fail_check("#{relative(MAC_ENTITLEMENTS)} must allow the microphone for cook-mode voice") unless mac_entitlements["com.apple.security.device.audio-input"] == true
 fail_check("#{relative(MAC_ENTITLEMENTS)} missing #{ASSOCIATED_DOMAIN}") unless Array(mac_entitlements["com.apple.developer.associated-domains"]).include?(ASSOCIATED_DOMAIN)
+fail_check("#{relative(MAC_ENTITLEMENTS)} missing #{WEB_CREDENTIALS_DOMAIN}") unless Array(mac_entitlements["com.apple.developer.associated-domains"]).include?(WEB_CREDENTIALS_DOMAIN)
 fail_check("#{relative(MAC_ENTITLEMENTS)} must keep Sign in with Apple") unless Array(mac_entitlements["com.apple.developer.applesignin"]) == ["Default"]
 
 project = Xcodeproj::Project.open(PROJECT_PATH.to_s)
