@@ -50,6 +50,9 @@ final class SpoonjoyWebAuthenticationSession {
     private let pause: @MainActor (Duration) async -> Void
     // Written once on the main actor in start(); read only in deinit. NotificationCenter removal is thread-safe.
     nonisolated(unsafe) private var resignObserver: (any NSObjectProtocol)?
+    #if os(macOS)
+    nonisolated(unsafe) private var sheetObservers: [any NSObjectProtocol] = []
+    #endif
 
     init(
         callbackURL: URL,
@@ -123,6 +126,19 @@ final class SpoonjoyWebAuthenticationSession {
                 }
             }
         }
+        #if os(macOS)
+        // On macOS the prompt and sheet attach to the app's own window, so the app may stay active. A window beginning
+        // a sheet or resigning key counts too; one from another window only skips a retry.
+        if sheetObservers.isEmpty {
+            sheetObservers = [NSWindow.willBeginSheetNotification, NSWindow.didResignKeyNotification].map { name in
+                NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated {
+                        self?.systemUIAppeared = true
+                    }
+                }
+            }
+        }
+        #endif
         return startSession(authorizationURL)
     }
 
@@ -166,7 +182,12 @@ final class SpoonjoyWebAuthenticationSession {
                   systemUIAppeared: systemUIAppeared,
                   alreadyRetried: retried
               ) else {
-            Self.logger.notice("\(NativeBrowserOAuthEarlyCancel.endedMessage(error: error, secondsSinceStart: elapsed), privacy: .public)")
+            let ended = NativeBrowserOAuthEarlyCancel.endedMessage(
+                error: error,
+                secondsSinceStart: elapsed,
+                systemUIAppeared: systemUIAppeared
+            )
+            Self.logger.notice("\(ended, privacy: .public)")
             handleAuthenticationCancellation(error)
             return
         }
@@ -195,6 +216,9 @@ final class SpoonjoyWebAuthenticationSession {
         if let resignObserver {
             NotificationCenter.default.removeObserver(resignObserver)
         }
+        #if os(macOS)
+        sheetObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        #endif
     }
 
     private static var resignActiveNotification: Notification.Name {
