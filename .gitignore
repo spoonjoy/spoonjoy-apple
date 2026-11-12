@@ -38,3 +38,6 @@ vendor/bundle/
 !/codex-native/tasks/
 /codex-native/tasks/*
 !/codex-native/tasks/2026-07-07-2353-whole-native-ui-overhaul-visual-audit.md
+
+# Store frames renderer (scripts/store-frames): npm ci installs it
+node_modules/

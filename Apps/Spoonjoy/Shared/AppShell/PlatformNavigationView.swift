@@ -412,12 +412,15 @@ struct PlatformNavigationView: View {
 #if os(iOS)
     private static var spreadSidebarSettleInterval: TimeInterval { 1 }
 
+    /// The recipe opens a spread on an upright iPad too (`allowsTallSpread`), so there the sidebar steps aside as it
+    /// does in landscape: beside the page it would leave the recipe too narrow for two pages.
     private var hidesLibrarySidebarForSpread: Bool {
         let windowLayout = BookSpreadLayout.resolve(
             width: shellWindowSize.width,
             height: shellWindowSize.height,
             isRegularWidth: horizontalSizeClass == .regular,
-            division: shellHingeDivision
+            division: shellHingeDivision,
+            allowsTallSpread: true
         )
         return BookSpreadLayout.hidesLibrarySidebar(route: navigation.route, windowLayout: windowLayout)
     }

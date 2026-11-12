@@ -94,6 +94,10 @@ public enum BookSpreadLayout: Equatable, Sendable {
 
     /// The narrowest landscape screen that opens into a spread without a hardware division.
     public static let minimumSpreadWidth: Double = 900
+    /// The narrowest upright screen that opens into a spread, for a view that allows it (the recipe): the iPad held
+    /// upright, whose single page otherwise leaves a narrow column floating in the middle. The open iPhone Duo held
+    /// tall is narrower, so it keeps its single page.
+    public static let minimumTallSpreadWidth: Double = 760
     /// The narrowest a page may be. Below this a division cannot open a spread.
     public static let minimumPageWidth: Double = 360
     /// The margin on the side of a page away from the gutter.
@@ -111,11 +115,14 @@ public enum BookSpreadLayout: Equatable, Sendable {
     ///   - isRegularWidth: Whether the horizontal size class is regular. Compact width is always one page.
     ///   - division: The fold, if the system reported one, in the container's coordinates. Built from the
     ///     Reserved Region `.division` rect with `SpreadDivision(frameMinX:...)`.
+    ///   - allowsTallSpread: Whether an upright container at least `minimumTallSpreadWidth` wide opens too. Off by
+    ///     default: cook mode and the shell's sidebar keep the landscape rule.
     public static func resolve(
         width: Double,
         height: Double,
         isRegularWidth: Bool,
-        division: SpreadDivision? = nil
+        division: SpreadDivision? = nil,
+        allowsTallSpread: Bool = false
     ) -> BookSpreadLayout {
         guard isRegularWidth else {
             return .singlePage
@@ -133,7 +140,9 @@ public enum BookSpreadLayout: Equatable, Sendable {
                 source: .hardwareDivision
             )
         }
-        guard width >= minimumSpreadWidth, width > height else {
+        let opensWide = width >= minimumSpreadWidth && width > height
+        let opensTall = allowsTallSpread && width >= minimumTallSpreadWidth && height >= width
+        guard opensWide || opensTall else {
             return .singlePage
         }
         let middle = width / 2
@@ -153,6 +162,15 @@ public enum BookSpreadLayout: Equatable, Sendable {
         case .trailing:
             SpreadPageInsets(leading: innerMargin, trailing: outerMargin, outer: outerMargin, inner: innerMargin)
         }
+    }
+
+    /// The recipe cover's height on the spread's left page: 220 pt on a page of the open Duo, and on a page at least
+    /// 560 pt wide (the iPad's) about the photo's own landscape shape, up to 420 pt, so it reads as a picture rather
+    /// than a letterbox strip across a wide page.
+    public static func coverHeight(pageWidth: Double) -> Double {
+        guard pageWidth >= 560 else { return 220 }
+        let imageWidth = pageWidth - outerMargin - innerMargin
+        return min(max(220, imageWidth * 0.62), 420)
     }
 
     /// Whether the library sidebar should step aside so an open recipe can use the whole screen and put its
