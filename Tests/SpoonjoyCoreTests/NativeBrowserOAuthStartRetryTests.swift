@@ -39,6 +39,9 @@ struct NativeBrowserOAuthStartRetryTests {
         var lines: [String] = []
         var current = true
         var onPause: (Script) -> Void = { _ in }
+        /// Seconds each try takes before it fails or succeeds.
+        var tryDuration: TimeInterval = 0.4
+        var clock: TimeInterval = 0
 
         init(_ outcomes: [Result<String, any Error>]) {
             self.outcomes = outcomes
@@ -51,11 +54,13 @@ struct NativeBrowserOAuthStartRetryTests {
                     self.pauses.append(duration)
                     self.onPause(self)
                 },
+                now: { self.clock },
                 isCurrent: { self.current },
                 log: { self.lines.append($0) },
                 operation: {
                     let outcome = self.outcomes[self.calls]
                     self.calls += 1
+                    self.clock += self.tryDuration
                     return try outcome.get()
                 }
             )
@@ -107,6 +112,30 @@ struct NativeBrowserOAuthStartRetryTests {
         #expect(script.calls == 1)
         #expect(script.pauses.isEmpty)
         #expect(script.lines.isEmpty)
+    }
+
+    @Test("a slow failure is not retried; a fast offline one is")
+    func onlyFastFailuresRetry() async throws {
+        let slow = Script([.failure(Self.offline), .success("never")])
+        slow.tryDuration = 3.5
+        await #expect(throws: APITransportError.self) { try await slow.run() }
+        #expect(slow.calls == 1)
+        #expect(slow.pauses.isEmpty)
+
+        let fast = Script([.failure(Self.offline), .success("sheet")])
+        fast.tryDuration = 2.9
+        #expect(try await fast.run() == "sheet")
+        #expect(fast.calls == 2)
+    }
+
+    @Test("a timeout is never retried, however fast")
+    func timeoutNeverRetries() async {
+        let timedOut = OAuthErrorResponse.offlineError(for: URLError(.timedOut))!
+        #expect(timedOut.kind == .offline)
+        let script = Script([.failure(timedOut), .success("never")])
+        await #expect(throws: APITransportError.self) { try await script.run() }
+        #expect(script.calls == 1)
+        #expect(!NativeBrowserOAuthStartRetry.shouldRetry(URLError(.timedOut), secondsTaken: 0.1))
     }
 
     @Test("a raw network URLError counts as transient")
