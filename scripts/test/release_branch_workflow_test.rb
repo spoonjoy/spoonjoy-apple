@@ -78,6 +78,28 @@ class ReleaseBranchWorkflowTest < Minitest::Test
     assert_includes source("stage-app-store-listing.yml"), '--screenshots "${{ steps.frames.outputs.dir }}"'
   end
 
+  # The release train: BOTH stages or submits iOS, then the Mac, with the builds TestFlight published from the one
+  # commit proven green, found before any App Store Connect secret is in the job.
+  def test_listing_workflows_offer_both_platforms_from_one_commit
+    %w[stage-app-store-listing.yml submit-app-store-review.yml].each do |name|
+      assert_includes dispatch_inputs(name).fetch("platform").fetch("options"), "BOTH", name
+      steps = workflow(name).fetch("jobs").values.first.fetch("steps")
+      train = steps.index { |step| step["id"] == "train" }
+      refute_nil train, "#{name} must find both builds"
+      assert_equal "inputs.platform == 'BOTH'", steps[train]["if"]
+      assert_match(/scripts\/release-train-builds\.rb .*--sha "\$SOURCE_SHA"/, steps[train]["run"])
+      assert_equal "${{ steps.green.outputs.sha }}", steps[train].dig("env", "SOURCE_SHA")
+      first_secret = steps.index { |step| step.fetch("env", {}).values.any? { |value| value.to_s.include?("secrets.") } }
+      assert_operator train, :<, first_secret, "#{name} must find the builds before any secret is in the job"
+    end
+    stage = source("stage-app-store-listing.yml")
+    assert_match(/passes=\(--dry-run --apply\)/, stage, "BOTH must plan both platforms before it writes either")
+    assert_match(/--build-id "\$BUILD_ID"/, stage)
+    submit = source("submit-app-store-review.yml")
+    assert_match(/"\$CONFIRM" = "submit \$PLATFORM \$VERSION"/, submit, "BOTH confirms with \"submit BOTH <version>\"")
+    assert_match(/--build-id "IOS=\$IOS_BUILD_ID" --build-id "MAC_OS=\$MAC_BUILD_ID"/, submit)
+  end
+
   def test_submit_script_reads_a_given_listing
     script = File.read(File.join(ROOT, "scripts/submit-app-store-review.rb"))
     assert_match(/opts\.on\("--listing PATH"\)/, script)

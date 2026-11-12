@@ -285,6 +285,10 @@ Keywords and promotional text may differ only where the `mac` section gives its 
 
 "Release train drift" (`.github/workflows/release-train-drift.yml`) runs daily and on dispatch. It runs `scripts/check-release-train.rb --app-store-connect`, which only reads App Store Connect, and compares each platform's newest App Store version: version string, state, and the support and marketing URLs plus every copy field the `mac` section leaves alone. On drift it opens one issue labelled `release-train`, comments when the differences change and closes it when the platforms are back in line. Drift is expected while one platform's version waits in review; the issue tracks it until both match.
 
+Stage and submit both platforms together with `platform: BOTH`. `scripts/release-train-builds.rb` finds the TestFlight run that uploaded both publish summaries for the source commit (`testflight-publish-summary.json` and `mac-app-store-publish-summary.json`), which TestFlight writes only once App Store Connect marks each build VALID. The run stops unless both builds come from the source commit.
+- **Stage** leaves `build_number` empty. It plans iOS and then the Mac with those builds, and with `dry_run: false` it writes only after both plans succeed.
+- **Submit** checks that each version has that commit's build attached, then submits iOS and then the Mac. Confirm reads `submit BOTH <version>`. If iOS went in and the Mac then failed, BOTH refuses on the next run because iOS is no longer submittable; finish with `platform: MAC_OS`.
+
 ### CI signing
 
 CI signs with one long-lived Apple Distribution certificate, so a TestFlight run creates no certificate and `xcodebuild` makes no Apple network calls. Before this, each runner started with an empty keychain and `xcodebuild -allowProvisioningUpdates` with the App Store Connect API key minted a new "Created via API" Apple Development certificate on every run, which Apple emailed about on each create and revoke, and Xcode's own profile fetch failed on transient network loss.

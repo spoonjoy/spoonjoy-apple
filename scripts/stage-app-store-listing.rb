@@ -7,7 +7,10 @@
 #   ruby scripts/stage-app-store-listing.rb --validate-only
 #   ruby scripts/stage-app-store-listing.rb --dry-run [--build-number N]
 #   ruby scripts/stage-app-store-listing.rb --apply --build-number N
-#   ruby scripts/stage-app-store-listing.rb --dry-run --platform MAC_OS --build-number N
+#   ruby scripts/stage-app-store-listing.rb --dry-run --platform MAC_OS --build-number N --build-id ID
+#
+# --build-id makes it refuse unless build N is that App Store Connect build. The release train passes the build
+# TestFlight published from the source commit (scripts/release-train-builds.rb).
 #
 # --platform defaults to IOS. MAC_OS stages the Mac version from listing.json's "mac" section and leaves app-level
 # data (name, categories, age rating, price, availability) alone, because the iOS listing owns it.
@@ -20,13 +23,14 @@ require "optparse"
 require_relative "lib/app_store_listing"
 
 root = File.expand_path("..", __dir__)
-options = { mode: nil, build_number: nil, platform: "IOS", listing: File.join(root, "distribution/app-store/listing.json"),
+options = { mode: nil, build_number: nil, build_id: nil, platform: "IOS", listing: File.join(root, "distribution/app-store/listing.json"),
             screenshots: File.join(root, "distribution/app-store/screenshots"), changes: File.join(root, "changes") }
 OptionParser.new do |opts|
   opts.on("--validate-only") { options[:mode] = :validate }
   opts.on("--dry-run") { options[:mode] = :dry_run }
   opts.on("--apply") { options[:mode] = :apply }
   opts.on("--build-number N") { |value| options[:build_number] = value.strip.empty? ? nil : value.strip }
+  opts.on("--build-id ID") { |value| options[:build_id] = value.strip.empty? ? nil : value.strip }
   opts.on("--platform PLATFORM") { |value| options[:platform] = value.strip.empty? ? "IOS" : value.strip }
   opts.on("--listing PATH") { |value| options[:listing] = value }
   opts.on("--screenshots DIR") { |value| options[:screenshots] = value }
@@ -60,6 +64,7 @@ end
   abort "Missing #{name}" if ENV[name].to_s.empty?
 end
 abort "--apply needs --build-number" if options[:mode] == :apply && options[:build_number].nil?
+abort "--build-id needs --build-number" if options[:build_id] && options[:build_number].nil?
 
 client = AppStoreListing::Client.new(
   key_id: ENV.fetch("ASC_KEY_ID"), issuer_id: ENV.fetch("ASC_ISSUER_ID"),
@@ -73,7 +78,15 @@ secrets = {
 }.compact
 warn "No demo account secrets: review details will not include the demo account." unless secrets["demoAccountName"]
 
-snapshot = reader.snapshot(build_number: options[:build_number])
+begin
+  snapshot = reader.snapshot(build_number: options[:build_number])
+rescue AppStoreListing::Error => e
+  abort e.message
+end
+if options[:build_id] && snapshot.dig("build", "id") != options[:build_id]
+  abort "Build #{options[:build_number]} is #{snapshot.dig('build', 'id')} in App Store Connect, not #{options[:build_id]}, " \
+        "the build TestFlight published from the source commit"
+end
 steps = AppStoreListing.plan(listing: listing, snapshot: snapshot, screenshots: screenshots, secrets: secrets,
                              creative_assets: creative_assets)
 puts "App Store Connect app #{reader.app_id}: #{steps.length} change(s)"
