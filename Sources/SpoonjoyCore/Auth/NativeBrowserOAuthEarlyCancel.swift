@@ -5,9 +5,11 @@ import Foundation
 /// `start()`, before any prompt, while swcd re-fetches spoonjoy.app's association because the app's install identity
 /// changed (spoonjoy-apple#320). The person sees nothing happen. The app then starts one fresh session.
 ///
-/// A Cancel tapped by the person reports the same error, so a retry needs both: nothing the system shows for the
-/// session has appeared (on iOS the "wants to use spoonjoy.app to sign in" prompt always comes first and makes the
-/// app resign active), and the cancel came within `window` of `start()`.
+/// A Cancel by the person reports the same error, so a retry needs both: no sign that the system showed anything for
+/// the session, and a cancel within `window` of `start()`. The app supplies the sign. On iOS it is the app resigning
+/// active, which the "wants to use spoonjoy.app to sign in" prompt always causes before the sheet. On macOS the prompt
+/// and sheet attach to the app's own window, so the app may stay active; there a window beginning a sheet or
+/// resigning key also counts, and with no such sign the gate is only the window and the error code.
 public enum NativeBrowserOAuthEarlyCancel {
     public static let window: TimeInterval = 1.5
     /// How long to wait before the one retry, so the fetch the cancel came from can finish.
@@ -52,10 +54,10 @@ public enum NativeBrowserOAuthEarlyCancel {
     public static let callbackMessage = "Browser sign-in callback received"
 
     public static func earlyCancelMessage(error: (any Error)?, secondsSinceStart: TimeInterval?) -> String {
-        "Browser sign-in early cancel: \(error.map(diagnosticReason) ?? "no error") after \(milliseconds(secondsSinceStart)) ms with nothing shown; retrying once"
+        "Browser sign-in early cancel: \(error.map(diagnosticReason) ?? "no error") after \(milliseconds(secondsSinceStart)) ms, systemUIAppeared=false; retrying once"
     }
 
-    public static func endedMessage(error: (any Error)?, secondsSinceStart: TimeInterval?) -> String {
-        "Browser sign-in ended without a callback: \(error.map(diagnosticReason) ?? "no error") after \(milliseconds(secondsSinceStart)) ms"
+    public static func endedMessage(error: (any Error)?, secondsSinceStart: TimeInterval?, systemUIAppeared: Bool) -> String {
+        "Browser sign-in ended without a callback: \(error.map(diagnosticReason) ?? "no error") after \(milliseconds(secondsSinceStart)) ms, systemUIAppeared=\(systemUIAppeared)"
     }
 }

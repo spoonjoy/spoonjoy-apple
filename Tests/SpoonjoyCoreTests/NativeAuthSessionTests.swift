@@ -601,6 +601,29 @@ struct NativeAuthSessionTests {
         #expect(result.status == 0, Comment(rawValue: result.truncatedOutput))
     }
 
+    @Test("the early-cancel retry watches the platform's own sign that the system showed something")
+    func earlyCancelRetryWatchesPlatformSignals() throws {
+        let path = "Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift"
+        let content = try readRepoFile(path)
+        // The probe package runs on macOS only, so the iOS notification is checked in the source.
+        expectContent(
+            content,
+            in: path,
+            contains: [
+                "UIApplication.willResignActiveNotification",
+                "NSApplication.willResignActiveNotification",
+                "NSWindow.willBeginSheetNotification",
+                "NSWindow.didResignKeyNotification",
+                "NativeBrowserOAuthEarlyCancel.shouldRetry(",
+                "systemUIAppeared: systemUIAppeared"
+            ],
+            forbids: [
+                "authorizationURL, privacy: .public",
+                "callbackURL, privacy: .public"
+            ]
+        )
+    }
+
     @Test("Keychain token vault stores auth material outside general cache")
     func keychainTokenVaultStoresAuthMaterialOutsideGeneralCache() throws {
         let content = try readRepoFile("Sources/SpoonjoyCore/Auth/KeychainTokenVault.swift")
@@ -1957,6 +1980,8 @@ struct WebAuthenticationSessionAdapterContract {
         var callbacks: [URL] = []
         let factory = FakeSessionFactory()
         var adapter: SpoonjoyWebAuthenticationSession!
+        var holdsPause = false
+        var heldPause: CheckedContinuation<Void, Never>?
 
         init() {
             adapter = SpoonjoyWebAuthenticationSession(
@@ -1965,7 +1990,12 @@ struct WebAuthenticationSessionAdapterContract {
                 callbackHandler: { [unowned self] in self.callbacks.append($0) },
                 cancellationHandler: { [unowned self] in self.cancellations.append($0) },
                 uptime: { [unowned self] in self.now },
-                pause: { [unowned self] in self.pauses.append($0) }
+                pause: { [unowned self] in
+                    self.pauses.append($0)
+                    if self.holdsPause {
+                        await withCheckedContinuation { self.heldPause = $0 }
+                    }
+                }
             )
         }
 
@@ -2052,6 +2082,40 @@ struct WebAuthenticationSessionAdapterContract {
         #expect(paused.factory.sessions.count == 1)
         #expect(paused.cancellations.isEmpty)
     }
+
+    @Test("a retry the system will not start is reported as a cancel")
+    func retryThatDoesNotStartIsReported() async throws {
+        let probe = Probe()
+        probe.factory.startResults[1] = false
+        try probe.start()
+        probe.now += 0.2
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        await probe.adapter.retryTask?.value
+        #expect(probe.factory.sessions.map(\.startCount) == [1, 1])
+        #expect(probe.cancellations.count == 1)
+        #expect(probe.callbacks.isEmpty)
+    }
+
+    @Test("a sign-in whose owner lets go of it during the retry pause opens no sheet")
+    func ownerGoneDuringRetryPause() async throws {
+        let probe = Probe()
+        probe.holdsPause = true
+        try probe.start()
+        probe.now += 0.2
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        let retry = try #require(probe.adapter.retryTask)
+        while probe.heldPause == nil {
+            await Task.yield()
+        }
+
+        weak let gone = probe.adapter
+        probe.adapter = nil
+        #expect(gone == nil)
+        probe.heldPause?.resume()
+        await retry.value
+        #expect(probe.factory.sessions.count == 1)
+        #expect(probe.cancellations.isEmpty)
+    }
 }
 
 private enum TestAuthenticationError: Error {
@@ -2069,6 +2133,8 @@ private final class FakeSessionFactory {
     private(set) var sessions: [FakeWebAuthenticationSession] = []
     private var completionHandler: (@MainActor (URL?, Error?) -> Void)?
     private let startResult: Bool
+    /// Overrides `startResult` for the session at that index.
+    var startResults: [Int: Bool] = [:]
 
     init(startResult: Bool = true) {
         self.startResult = startResult
@@ -2081,7 +2147,7 @@ private final class FakeSessionFactory {
     ) -> any SpoonjoyWebAuthenticationSessionProtocol {
         requests.append(FakeSessionRequest(authorizationURL: authorizationURL, callback: callback))
         self.completionHandler = completionHandler
-        let session = FakeWebAuthenticationSession(startResult: startResult)
+        let session = FakeWebAuthenticationSession(startResult: startResults[sessions.count] ?? startResult)
         sessions.append(session)
         return session
     }
