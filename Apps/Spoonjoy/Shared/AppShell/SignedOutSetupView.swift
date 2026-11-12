@@ -537,7 +537,12 @@ struct SignedOutSetupView: View {
         isSigningIn = false
         statusTone = .neutral
         authStatus = "Browser sign-in canceled."
-        _ = error
+        // The status line reads the same for a person closing the sheet and for the system ending it; the log tells them apart.
+        let reason = error.map { error in
+            let nsError = error as NSError
+            return "\(nsError.domain) \(nsError.code)"
+        } ?? "no error"
+        Self.browserSignInLogger.notice("Browser sign-in ended without a callback: \(reason, privacy: .public)")
     }
 
     private func focusField(_ field: SignInField) {
