@@ -649,7 +649,7 @@ struct BrowserSignInTests {
         #expect(harness.sheets.sessions.count == 1)
     }
 
-    @Test("a cancel or a newer sign-in during either retry wait stops the start, and nothing opens", arguments: [
+    @Test("a cancel (the view going away) or a newer sign-in during either retry wait stops the start, and nothing opens", arguments: [
         (1, "cancel"), (2, "cancel"), (1, "supersede"), (2, "supersede"),
     ])
     func stoppedDuringRetryWait(wait: Int, by: String) async throws {
@@ -659,12 +659,13 @@ struct BrowserSignInTests {
         harness.onPause.action = {
             guard harness.pauses.all.count == wait else { return }
             if by == "cancel" {
-                harness.flow.cancel()
+                harness.flow.cancelStart()
             } else {
                 _ = await other.flow.begin(provider: .github) { _ in }
             }
         }
-        #expect(await harness.flow.begin(provider: .google) { _ in Issue.record("Nothing opened") } == .stopped)
+        #expect(await harness.flow.begin(provider: .google) { _ in Issue.record("Nothing opened") } == (by == "cancel" ? .canceled : .superseded))
+        #expect(harness.flow.startFailure == nil)
         #expect(await harness.network.registrations == wait)
         #expect(harness.sheets.sessions.isEmpty)
         #expect(!harness.flow.isInProgress)
@@ -672,6 +673,49 @@ struct BrowserSignInTests {
         // The newer sign-in keeps its sheet; the stopped start never claimed the gate.
         #expect(gate.activeAttemptID == other.flow.attempt?.id)
         #expect(other.sheets.sessions.map(\.cancelCount) == (by == "supersede" ? [0] : []))
+    }
+
+    @Test("a cancel while the registration is in flight opens nothing and reports no failure")
+    func cancelDuringRequestOpensNothing() async throws {
+        let latch = Latch()
+        let gate = NativeBrowserOAuthGate()
+        let harness = Harness(gate: gate, registrationLatch: latch)
+        let other = Harness(gate: gate)
+        _ = await other.flow.begin(provider: .github) { _ in }
+        let start = Task { await harness.flow.begin(provider: .google) { _ in Issue.record("Nothing opened") } }
+        await latch.waitUntilReached()
+        harness.flow.cancelStart()
+        await latch.open()
+        #expect(await start.value == .canceled)
+        #expect(harness.flow.startFailure == nil)
+        #expect(harness.sheets.sessions.isEmpty)
+        #expect(!harness.flow.isInProgress)
+        // The other window's sheet is untouched.
+        #expect(gate.activeAttemptID == other.flow.attempt?.id)
+        #expect(other.sheets.sessions.map(\.cancelCount) == [0])
+    }
+
+    @Test("an HTTP error from the registration is never retried", arguments: [503, 429])
+    func httpErrorIsNotRetried(status: Int) async throws {
+        let error = APITransportError(
+            kind: .apiError, requestID: "req_1", statusCode: status, apiError: nil,
+            retryDecision: .retrySameRequest(afterSeconds: 1)
+        )
+        let harness = Harness(transientRegistrationFailures: 1, registrationError: error)
+        #expect(await harness.flow.begin(provider: .google) { _ in Issue.record("Nothing opened") } == .couldNotOpen)
+        #expect(await harness.network.registrations == 1)
+        #expect(harness.pauses.all.isEmpty)
+        #expect((harness.flow.startFailure as? APITransportError)?.statusCode == status)
+    }
+
+    @Test("the production offline error, an APITransportError carrying its NSURLError code, is retried")
+    func productionOfflineErrorIsRetried() async throws {
+        let offline = try #require(OAuthErrorResponse.offlineError(for: URLError(.networkConnectionLost)))
+        let harness = Harness(transientRegistrationFailures: 1, registrationError: offline)
+        let start = await harness.flow.begin(provider: .google) { _ in }
+        #expect(start == .opened(authorizationURL: try #require(harness.flow.attempt).authorizationURL))
+        #expect(await harness.network.registrations == 2)
+        #expect(harness.logs.lines.first == "Browser sign-in start retried after offline NSURLError -1005 status none request none (attempt 1)")
     }
 
     @Test("a second callback for the same attempt is ignored")
@@ -774,6 +818,7 @@ private final class Harness {
         sheetStarts: Bool = true,
         registrationFails: Bool = false,
         transientRegistrationFailures: Int = 0,
+        registrationError: any Error = URLError(.notConnectedToInternet),
         registrationLatch: Latch? = nil,
         exchangeLatch: Latch? = nil,
         randomSecret: @escaping @MainActor () -> String = OAuthPKCE.randomVerifier,
@@ -783,6 +828,7 @@ private final class Harness {
         let vault = InMemoryTokenVault()
         let network = NetworkSpy(
             failures: registrationFails ? Int.max : transientRegistrationFailures,
+            failure: registrationError,
             registrationLatch: registrationLatch,
             exchangeLatch: exchangeLatch
         )
@@ -878,13 +924,15 @@ private struct Exchange: Equatable, Sendable {
 
 private actor NetworkSpy {
     private var failures: Int
+    private let failure: any Error
     private let registrationLatch: Latch?
     private let exchangeLatch: Latch?
     private(set) var registrations = 0
     private(set) var exchanges: [Exchange] = []
 
-    init(failures: Int, registrationLatch: Latch?, exchangeLatch: Latch?) {
+    init(failures: Int, failure: any Error, registrationLatch: Latch?, exchangeLatch: Latch?) {
         self.failures = failures
+        self.failure = failure
         self.registrationLatch = registrationLatch
         self.exchangeLatch = exchangeLatch
     }
@@ -896,7 +944,7 @@ private actor NetworkSpy {
         await registrationLatch?.reach()
         if failures > 0 {
             failures -= 1
-            throw URLError(.notConnectedToInternet)
+            throw failure
         }
         return Harness.clientID
     }
