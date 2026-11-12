@@ -75,7 +75,9 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         // the field's reported frame lags, and in run 43181444584 the tap landed on the keyboard instead.
         let password = try XCTUnwrap(webElement(.secureTextField, label: "Password"), "The login page has no Password field.")
         identifier.typeText("\t")
-        XCTAssertTrue(waitForKeyboardFocus(password), "Tab did not move focus to the Password field.")
+        // Web fields in the sheet do not report hasKeyboardFocus (run 43186142426: Tab moved the caret, the check failed),
+        // so the paste below is checked by the field's value instead.
+        XCTAssertTrue(waitUntilHittable(password), "The Password field never became hittable after Tab.")
         XCTAssertEqual(identifier.value as? String, account.username, "The username changed while moving to the Password field.")
 
         // Pasted, not typed, so the password never appears in activity titles, the log or the result bundle.
@@ -115,10 +117,10 @@ final class BrowserSignInCallbackUITests: XCTestCase {
 
     /// The sign-in sheet's web content is in the app's tree on some iOS versions and in SafariViewService's on others.
     /// Waits for the element in either tree; nil when neither shows it in time.
-    private func waitForKeyboardFocus(_ element: XCUIElement, timeout: TimeInterval = BrowserSignInCallbackUITests.interactionTimeout) -> Bool {
+    private func waitUntilHittable(_ element: XCUIElement, timeout: TimeInterval = 15) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            if (element.value(forKey: "hasKeyboardFocus") as? Bool) == true {
+            if element.exists, element.isHittable {
                 return true
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
