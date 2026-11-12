@@ -97,6 +97,10 @@ jobs:
         run: ruby scripts/check-design-accessibility-contract.rb
       - name: Check App Intents contract (every domain)
         run: bundle exec ruby scripts/check-app-intents-contract.rb --domain all
+      - name: Check iOS and Mac are on one release train
+        run: |
+          ruby scripts/test/release_train_test.rb
+          ruby scripts/check-release-train.rb
       - name: Check App Store listing and review demo kitchen
         run: |
           ruby scripts/test/app_store_listing_test.rb
