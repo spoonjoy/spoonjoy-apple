@@ -266,7 +266,7 @@ publish summary. It fails the job if any of these validations fail:
 
 1. Open the fix as a pull request against `release/<version>`. Native runs on the PR and again on the push to the branch.
 2. Publish it: dispatch TestFlight from `main` with `release_branch: release/<version>`, `source_sha` set to the branch head, and `rollback_notes` holding the TestFlight notes. Both the iPhone build and the Mac build publish from the branch head, after `scripts/verify-testflight-release-candidate.rb` finds a green Native push run for it.
-3. Stage and submit it: dispatch "Stage App Store listing" and "Submit for App Review" with the same `release_branch`. They read `distribution/app-store/listing.json` and the screenshots from the branch head instead of `main`.
+3. Stage and submit it: dispatch "Stage App Store listing" and "Submit for App Review" with the same `release_branch`. They read `distribution/app-store/listing.json` and the screenshots from the branch head instead of `main`. For new screenshots, run Store scenes with `ref` set to the branch first.
 4. If the fix still applies on `main`, port it there in its own pull request.
 
 The branch name must match `^release/[0-9][0-9A-Za-z.-]*$`; every workflow rejects anything else.
@@ -444,6 +444,16 @@ Do not re-enable a Codex heartbeat poller for this lane unless both webhooks and
 the local reconcile job are unavailable. Heartbeats spend agent turns even when
 no feedback exists; this webhook-plus-reconcile path leaves Codex idle until
 Apple emits or exposes a new feedback event.
+
+## App Store screenshots
+
+No agent takes App Store screenshots; CI makes them from the commit being released.
+
+1. **Scenes:** dispatch "Store scenes" (`.github/workflows/store-scenes.yml`) from `main`, with `ref` set to the release commit or branch. `StoreScenesUITests` signs the App Store build in as the review demo account, whose kitchen is seeded from `distribution/app-store/review-demo-kitchen.json`, and photographs each set's scenes. The status bar reads 9:41 with full bars and battery, the locale is en_US, and the scene name sets the appearance (`-dark`). It runs on iPhone 6.9", iPhone 6.1" and iPad 13", one device at a time. The scenes are kept for 90 days as an artifact named by their scene key (`scripts/store-frames/scene-key.mjs`), which hashes the app's screens, the project's build settings, the scene test, the demo kitchen, how scenes are taken (this workflow and its simulator scripts) and the scene lists. A commit whose key already has scenes needs no Mac, so screens are photographed only when something on them changed.
+2. **Frames:** `scripts/store-frames/render.mjs` puts each scene in its device frame with the caption from `distribution/app-store/frames/spec.json`, at the App Store's exact size and without alpha. It uses the app's own fonts and the Chromium pinned in `package-lock.json`, and loads nothing from the network. It also makes the iOS 27 product page header (3840x1646, no caption, because the App Store sets the app's name over it) and the search results art (3840x2560) from the iPhone 6.9" scenes, into `creative/`, where `listing.json`'s `creativeAssets` can name them. `--check` renders everything twice and fails unless every byte matches. The "Store frames" workflow tests it whenever the renderer or the spec changes.
+3. **Upload:** "Stage App Store listing" finds the scenes for its commit's key, frames them twice, compares them, and uploads the frames. A set no scene makes yet keeps its checked-in screenshots in `distribution/app-store/screenshots/`: the Mac, and the iPhone Duo spread (a set's `keep` list). Without scenes for the key, a real staging stops and asks for a Store scenes run; a dry run plans the checked-in screenshots and warns. The key leaves out the version and build numbers, so a version bump alone reuses the last photographs.
+
+Every caption must stay true of the build it ships with (Guideline 2.3). The first three shots of a set are the ones search results show, so they lead with cook mode, a recipe and the kitchen. One shot is in Dark Mode.
 
 ## App Review
 

@@ -10,7 +10,8 @@ require "json"
 # index.html, so a gap is visible on the sheet instead of a pair silently disappearing.
 module ParitySheet
   SCREENS = %w[kitchen recipe cook-step shopping cookbooks cookbook chef sign-in kitchen-empty sheet-add-to-list].freeze
-  DEVICES = %w[iphone duo-open ipad desktop].freeze
+  # ipad-landscape is the iPad turned on its side, shot by ParityJourneys right after each portrait iPad shot.
+  DEVICES = %w[iphone duo-open ipad ipad-landscape desktop].freeze
   SCHEMES = %w[light dark].freeze
   # The native outer display is off while the Duo is open, so a native open-Duo shot only counts from the inner display.
   # The web has one viewport, so its open-Duo shots are plain.
@@ -18,6 +19,7 @@ module ParitySheet
   # Known gaps, with the reason the sheet shows instead of "not captured".
   GAPS = {
     ["web", "sheet-add-to-list"] => "Add to list is one tap, no sheet",
+    ["web", "ipad-landscape"] => "Web has no landscape iPad viewport",
     ["native", "desktop"] => "Mac capture comes with the Mac store frames (Task 10)"
   }.freeze
   PANEL_SIZE = "900x1200"

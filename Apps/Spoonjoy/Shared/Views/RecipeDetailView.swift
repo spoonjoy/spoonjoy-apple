@@ -382,7 +382,8 @@ struct RecipeDetailView: View {
     }
 
     /// Compact width keeps the single scrolling page. Regular width opens into a two-page spread when the
-    /// screen is wide and landscape, such as the inner screen of the iPhone Duo, and reads as one page otherwise.
+    /// screen is wide and landscape, such as the inner screen of the iPhone Duo, or when an iPad held upright is wide
+    /// enough for two pages, and reads as one page otherwise.
     @ViewBuilder private var recipeLayout: some View {
 #if os(iOS)
         // Stood half-open on the counter, the method faces the cook above the fold and the step's ingredients lie
@@ -411,7 +412,9 @@ struct RecipeDetailView: View {
         if usesCompactRecipeDock {
             singlePageLayout
         } else {
-            SpreadLayoutReader(isRegularWidth: true) { layout in
+            // The upright iPad opens the recipe across two pages too: ingredients beside the method, rather than one
+            // narrow column centred on a wide screen.
+            SpreadLayoutReader(isRegularWidth: true, allowsTallSpread: Self.allowsTallSpread) { layout in
                 if layout.isSpread {
                     recipeSpread(layout)
                 } else {
@@ -419,6 +422,15 @@ struct RecipeDetailView: View {
                 }
             }
         }
+    }
+
+    /// The upright iPad opens a spread; a Mac window keeps the landscape rule.
+    private static var allowsTallSpread: Bool {
+#if os(iOS)
+        true
+#else
+        false
+#endif
     }
 
     /// With a real cover the photo runs edge to edge under the status bar and the recipe sits on a sheet of paper
@@ -1524,7 +1536,7 @@ extension RecipeDetailView {
         let index = RecipeSpreadIngredientIndex(stepSections: viewModel.stepSections)
         return KitchenTableSpread(layout: layout) {
             ScrollView {
-                spreadIngredientPage(index: index)
+                spreadIngredientPage(index: index, pageWidth: CGFloat(layout.leadingPage?.width ?? 0))
                     .spreadPagePadding(.leading)
             }
             .scrollPosition($spreadIngredientScrollPosition)
@@ -1545,7 +1557,7 @@ extension RecipeDetailView {
         }
     }
 
-    private func spreadIngredientPage(index: RecipeSpreadIngredientIndex) -> some View {
+    private func spreadIngredientPage(index: RecipeSpreadIngredientIndex, pageWidth: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 22) {
             offlineIndicator
             if let coverImageURL = viewModel.cover.imageURL, viewModel.cover.hasRealCover {
@@ -1556,7 +1568,7 @@ extension RecipeDetailView {
                     showsFallbackLabel: false
                 )
                 .frame(maxWidth: .infinity)
-                .frame(height: 220)
+                .frame(height: CGFloat(BookSpreadLayout.coverHeight(pageWidth: Double(pageWidth))))
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo))
                 .accessibilityElement(children: .ignore)
                 .accessibilityAddTraits(.isImage)
