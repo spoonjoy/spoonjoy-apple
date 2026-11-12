@@ -115,6 +115,12 @@ enum NativeAppleSignInTelemetry {
             await record(descriptor)
         }
 
+        /// A pending Apple link event: that one was received, sent, linked or expired. Never the token.
+        func recordPendingAppleLink(_ event: PendingAppleLinkEvent) async {
+            NativeAppleSignInTelemetry.logPhase(event.phase)
+            await record(event.telemetryDescriptor(sessionState: nil))
+        }
+
         private func record(_ descriptor: NativeAuthTelemetryDescriptor) async {
             await report(descriptor.telemetryEvent(environment: environment, metadata: metadata), configuration)
         }

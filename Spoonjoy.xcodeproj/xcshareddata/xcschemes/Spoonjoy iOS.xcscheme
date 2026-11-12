@@ -87,6 +87,16 @@
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "3779CCD18A27E1CA970FC174AC3115A5"
+               BuildableName = "SpoonjoySiriJourneys.xctest"
+               BlueprintName = "SpoonjoySiriJourneys"
+               ReferencedContainer = "container:Spoonjoy.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

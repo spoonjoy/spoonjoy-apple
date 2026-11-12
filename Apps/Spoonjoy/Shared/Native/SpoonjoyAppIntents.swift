@@ -1808,7 +1808,7 @@ private enum SpoonjoyIntentClock {
 @available(iOS 27.0, macOS 27.0, *)
 private enum SpoonjoyIntentConnectivityProbe {
     static func settingsSurfaceConnectivity() async -> SettingsSurfaceConnectivity {
-        var request = URLRequest(url: APIClientConfiguration.spoonjoyProduction.baseURL)
+        var request = URLRequest(url: SpoonjoyAppServer.configuration().baseURL)
         request.httpMethod = "HEAD"
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = 3
@@ -1829,7 +1829,7 @@ private struct SpoonjoyIntentAPIRefresher: APIAuthenticationRefresher {
     private let refreshCoordinator: RefreshCoordinator
     private let baseURL: URL
 
-    init(vault: any TokenVault, baseURL: URL = APIClientConfiguration.spoonjoyProduction.baseURL) {
+    init(vault: any TokenVault, baseURL: URL = SpoonjoyAppServer.configuration().baseURL) {
         self.baseURL = baseURL
         // The same origin rule and refresh lock as the app's sync: a session another server issued is never sent
         // here, and an intent never refreshes the token the app is refreshing at the same moment.
@@ -2706,7 +2706,7 @@ private struct SpoonjoyIntentStateWriter {
     }
 
     private func executeOAuthRequest(_ requestBuilder: APIRequestBuilder) async throws {
-        let apiRequest = try requestBuilder.urlRequest(configuration: APIClientConfiguration.spoonjoyProduction)
+        let apiRequest = try requestBuilder.urlRequest(configuration: SpoonjoyAppServer.configuration())
         guard var components = URLComponents(url: apiRequest.url.baseURL, resolvingAgainstBaseURL: false) else {
             throw spoonjoyIntentInvalidRequestURL()
         }

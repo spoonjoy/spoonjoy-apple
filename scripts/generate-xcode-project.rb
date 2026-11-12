@@ -17,6 +17,7 @@ JOURNEYS_TARGET_NAME = "SpoonjoyJourneys"
 WIDE_JOURNEYS_TARGET_NAME = "SpoonjoyWideJourneys"
 DUO_JOURNEYS_TARGET_NAME = "SpoonjoyDuoJourneys"
 PARITY_JOURNEYS_TARGET_NAME = "SpoonjoyParityJourneys"
+SIRI_JOURNEYS_TARGET_NAME = "SpoonjoySiriJourneys"
 IOS_BUNDLE_ID = "app.spoonjoy"
 # The Mac app shares the iOS bundle ID so one App Store record sells both (universal purchase).
 MAC_BUNDLE_ID = "app.spoonjoy"
@@ -25,6 +26,7 @@ JOURNEYS_BUNDLE_ID = "app.spoonjoy.journeys"
 WIDE_JOURNEYS_BUNDLE_ID = "app.spoonjoy.wide-journeys"
 DUO_JOURNEYS_BUNDLE_ID = "app.spoonjoy.duo-journeys"
 PARITY_JOURNEYS_BUNDLE_ID = "app.spoonjoy.parity-journeys"
+SIRI_JOURNEYS_BUNDLE_ID = "app.spoonjoy.siri-journeys"
 WIDGET_TARGET_NAME = "SpoonjoyCookTimerWidget"
 WIDGET_BUNDLE_ID = "app.spoonjoy.cook-timer-widget"
 WIDGET_INFO_PLIST = "Apps/Spoonjoy/LiveActivity/Widget/Info.plist"
@@ -72,7 +74,11 @@ DUO_JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Duo").freeze
 # The parity capture shoots the web/native parity sheet's screens on an iPhone and an iPad, each with an account of its
 # own, so the Parity job runs it, as its own target, on both. It shares Journeys/Support.
 PARITY_JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Parity").freeze
-JOURNEYS_SWIFT = (swift_sources_under("Apps/Spoonjoy/Journeys") - WIDE_JOURNEYS_SWIFT - DUO_JOURNEYS_SWIFT - PARITY_JOURNEYS_SWIFT).freeze
+# The Siri journey runs the app's App Intents through AppIntentsTesting, which loads only on a simulator runtime of the
+# same version as the Xcode that built it (dyld fails the whole bundle otherwise). So it is a target of its own, and
+# no other journey bundle links that framework. It shares Journeys/Support.
+SIRI_JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Siri").freeze
+JOURNEYS_SWIFT = (swift_sources_under("Apps/Spoonjoy/Journeys") - WIDE_JOURNEYS_SWIFT - DUO_JOURNEYS_SWIFT - PARITY_JOURNEYS_SWIFT - SIRI_JOURNEYS_SWIFT).freeze
 JOURNEY_SUPPORT_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Support").freeze
 LAYOUT_AUDIT_COLLECTOR = "Apps/Spoonjoy/UITests/LayoutAuditCollector.swift"
 # The Live Activity code the app and the widget extension both compile (attributes and button intents).
@@ -232,6 +238,7 @@ journeys_target = project.new_target(:ui_test_bundle, JOURNEYS_TARGET_NAME, :ios
 wide_journeys_target = project.new_target(:ui_test_bundle, WIDE_JOURNEYS_TARGET_NAME, :ios, "26.5")
 duo_journeys_target = project.new_target(:ui_test_bundle, DUO_JOURNEYS_TARGET_NAME, :ios, "26.5")
 parity_journeys_target = project.new_target(:ui_test_bundle, PARITY_JOURNEYS_TARGET_NAME, :ios, "26.5")
+siri_journeys_target = project.new_target(:ui_test_bundle, SIRI_JOURNEYS_TARGET_NAME, :ios, "26.5")
 widget_target = project.new_target(:app_extension, WIDGET_TARGET_NAME, :ios, "26.5")
 ios_target.frameworks_build_phase.files.clear
 widget_target.frameworks_build_phase.files.clear
@@ -317,6 +324,7 @@ apply_ui_test_settings(journeys_target, bundle_id: JOURNEYS_BUNDLE_ID)
 apply_ui_test_settings(wide_journeys_target, bundle_id: WIDE_JOURNEYS_BUNDLE_ID)
 apply_ui_test_settings(duo_journeys_target, bundle_id: DUO_JOURNEYS_BUNDLE_ID)
 apply_ui_test_settings(parity_journeys_target, bundle_id: PARITY_JOURNEYS_BUNDLE_ID)
+apply_ui_test_settings(siri_journeys_target, bundle_id: SIRI_JOURNEYS_BUNDLE_ID)
 
 apply_common_settings(
   mac_target,
@@ -378,6 +386,11 @@ add_package_product(project, parity_journeys_target, "SpoonjoyCore")
 parity_journeys_target.add_dependency(ios_target)
 parity_journeys_dependency = parity_journeys_target.dependencies[0]
 parity_journeys_dependency_proxy = parity_journeys_dependency.target_proxy
+add_sources(project, siri_journeys_target, SIRI_JOURNEYS_SWIFT + JOURNEY_SUPPORT_SWIFT + [LAYOUT_AUDIT_COLLECTOR])
+add_package_product(project, siri_journeys_target, "SpoonjoyCore")
+siri_journeys_target.add_dependency(ios_target)
+siri_journeys_dependency = siri_journeys_target.dependencies[0]
+siri_journeys_dependency_proxy = siri_journeys_dependency.target_proxy
 
 project.sort
 project.predictabilize_uuids
@@ -416,7 +429,7 @@ end
     assign_stable_uuid(project, build_file, "#{target.name}/resources/#{path}")
   end
 end
-[journeys_target, wide_journeys_target, duo_journeys_target, parity_journeys_target].each do |target|
+[journeys_target, wide_journeys_target, duo_journeys_target, parity_journeys_target, siri_journeys_target].each do |target|
   target.source_build_phase.files.each do |build_file|
     path = build_file.file_ref&.hierarchy_path&.delete_prefix("/")
     next unless path && JOURNEY_SUPPORT_SWIFT.include?(path)
@@ -445,6 +458,9 @@ duo_journeys_dependency.target_proxy = duo_journeys_dependency_proxy
 assign_stable_uuid(project, parity_journeys_dependency_proxy, "SpoonjoyParityJourneys/app-proxy")
 assign_stable_uuid(project, parity_journeys_dependency, "SpoonjoyParityJourneys/app-dependency")
 parity_journeys_dependency.target_proxy = parity_journeys_dependency_proxy
+assign_stable_uuid(project, siri_journeys_dependency_proxy, "SpoonjoySiriJourneys/app-proxy")
+assign_stable_uuid(project, siri_journeys_dependency, "SpoonjoySiriJourneys/app-dependency")
+siri_journeys_dependency.target_proxy = siri_journeys_dependency_proxy
 
 def save_app_scheme(project_path, scheme_name, target, test_targets: [])
   scheme = Xcodeproj::XCScheme.new
@@ -455,7 +471,7 @@ def save_app_scheme(project_path, scheme_name, target, test_targets: [])
   scheme.save_as(project_path, scheme_name, true)
 end
 
-save_app_scheme(project_path, IOS_SCHEME_NAME, ios_target, test_targets: [ui_test_target, journeys_target, wide_journeys_target, duo_journeys_target, parity_journeys_target])
+save_app_scheme(project_path, IOS_SCHEME_NAME, ios_target, test_targets: [ui_test_target, journeys_target, wide_journeys_target, duo_journeys_target, parity_journeys_target, siri_journeys_target])
 save_app_scheme(project_path, MAC_SCHEME_NAME, mac_target)
 
 project.save
