@@ -73,7 +73,9 @@ class ReleaseBranchWorkflowTest < Minitest::Test
       assert_match(%r{--listing release-source/distribution/app-store/listing\.json}, text,
                    "#{name} must read the release branch's listing")
     end
-    assert_match(%r{--screenshots release-source/distribution/app-store/screenshots}, source("stage-app-store-listing.yml"))
+    assert_match(%r{checked_in=release-source/distribution/app-store/screenshots}, source("stage-app-store-listing.yml"))
+    assert_includes source("stage-app-store-listing.yml"), 'node release-source/scripts/store-frames/render.mjs'
+    assert_includes source("stage-app-store-listing.yml"), '--screenshots "${{ steps.frames.outputs.dir }}"'
   end
 
   # The release train: BOTH stages or submits iOS, then the Mac, with the builds TestFlight published from the one

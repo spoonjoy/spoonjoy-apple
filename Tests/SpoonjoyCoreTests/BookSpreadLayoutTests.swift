@@ -18,8 +18,33 @@ struct BookSpreadLayoutTests {
     @Test("a regular-width portrait screen reads as one page")
     func portraitIsOnePage() {
         #expect(BookSpreadLayout.resolve(width: 744, height: 1133, isRegularWidth: true) == .singlePage)
-        // A tall screen wide enough for two pages still reads as one: a spread is a landscape object.
+        // A tall screen wide enough for two pages reads as one unless the view allows a tall spread (the recipe does).
         #expect(BookSpreadLayout.resolve(width: 1032, height: 1376, isRegularWidth: true) == .singlePage)
+    }
+
+    @Test("a view that allows it opens a spread on the upright iPad, but not on the Duo held tall")
+    func tallSpreadOnlyWhereAllowedAndWideEnough() throws {
+        // The 13" iPad upright: the recipe opens across two pages instead of a narrow centred column.
+        let layout = BookSpreadLayout.resolve(width: 1032, height: 1376, isRegularWidth: true, allowsTallSpread: true)
+        #expect(layout.isSpread)
+        #expect(try #require(layout.leadingPage).width == 516)
+        #expect(layout.source == .screenMiddle)
+        // The 11" iPad upright is wide enough too.
+        #expect(BookSpreadLayout.resolve(width: 834, height: 1194, isRegularWidth: true, allowsTallSpread: true).isSpread)
+        // The open Duo held tall (669 pt) and a narrow iPad window keep one page.
+        #expect(BookSpreadLayout.resolve(width: 669, height: 951, isRegularWidth: true, allowsTallSpread: true) == .singlePage)
+        #expect(BookSpreadLayout.resolve(width: 744, height: 1133, isRegularWidth: true, allowsTallSpread: true) == .singlePage)
+        // Compact width never opens.
+        #expect(BookSpreadLayout.resolve(width: 1032, height: 1376, isRegularWidth: false, allowsTallSpread: true) == .singlePage)
+    }
+
+    @Test("the cover keeps 220 pt on the Duo's page and grows with an iPad's page")
+    func coverHeightFollowsThePage() {
+        #expect(BookSpreadLayout.coverHeight(pageWidth: 475) == 220)
+        #expect(BookSpreadLayout.coverHeight(pageWidth: 516) == 220)
+        // A page of the 13" iPad's landscape spread: 620 pt of image, a little over 3:5.
+        #expect(abs(BookSpreadLayout.coverHeight(pageWidth: 688) - 384.4) < 0.01)
+        #expect(BookSpreadLayout.coverHeight(pageWidth: 1200) == 420)
     }
 
     @Test("a narrow landscape window reads as one page")

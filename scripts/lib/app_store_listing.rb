@@ -6,6 +6,7 @@ require "json"
 require "net/http"
 require "openssl"
 require "uri"
+require_relative "changelog"
 
 # Stages the App Store listing in distribution/app-store/listing.json into App Store Connect.
 # It never creates a review submission: submitting stays a human action in App Store Connect.
@@ -85,12 +86,28 @@ module AppStoreListing
     effective["platform"] = platform
     effective["version"] = effective.fetch("version").merge(section.fetch("version", {}))
     effective["review"] = effective.fetch("review").merge(section.fetch("review", {}))
+    # What's New is told against that platform's own last version, so another platform never inherits it.
+    effective["localizations"].each_value { |fields| fields.delete("whatsNew") }
     section.fetch("localizations", {}).each do |locale, fields|
       effective["localizations"][locale] = effective["localizations"].fetch(locale, {}).merge(fields)
     end
     effective["screenshots"] = section.fetch("screenshots")
     effective["creativeAssets"] = section.fetch("creativeAssets", {})
     effective
+  end
+
+  # The listing with What's New assembled from the changelog fragments in changes_dir (changes/README.md). A
+  # whatsNew written in listing.json wins, and null there leaves What's New out (a platform's first version).
+  def self.with_whats_new(listing, changes_dir)
+    platform = Changelog::STORE_PLATFORMS.fetch(listing.fetch("platform"))
+    text = Changelog.whats_new(Changelog.load!(changes_dir), platform)
+    effective = JSON.parse(JSON.generate(listing))
+    effective.fetch("localizations").each_value do |fields|
+      fields["whatsNew"] = text unless fields.key?("whatsNew") || text.empty?
+    end
+    effective
+  rescue Changelog::Error => e
+    raise Error, "The changelog fragments are not valid:\n#{e.message}"
   end
 
   def self.app_level?(listing)

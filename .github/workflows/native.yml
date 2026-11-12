@@ -24,8 +24,10 @@ concurrency:
 
 # macOS lanes. The spoonjoy org (GitHub Free) runs at most 5 macOS jobs at once, xcode-27 included. On 2026-11-11 pull
 # request jobs held all 5 for over 90 minutes while a merge-queue entry's jobs, queued earlier, got none. So the macOS
-# jobs of pull request, after-TestFlight and dispatch runs join one of three shared lanes and run one at a time within
-# it, waiting (queue: max) instead of queueing for a runner:
+# jobs of pull request, after-TestFlight and dispatch runs join one of three lanes and run one at a time within it,
+# waiting (queue: max) instead of queueing for a runner. Lanes a and b are per pull request
+# (spoonjoy-macos-lane-a-pr-<number>): one shared lane held about 10 PRs pending for hours on 2026-11-12 while Macs sat
+# free, so different PRs' required checks now run side by side. Lane c stays one shared lane for all optional work:
 #   lane a: App bundle (required)
 #   lane b: Swift tests, Native scenario verifier, Reins journeys (required, short)
 #   lane c: every optional job: App Intents X-ray, Journeys, Launch smoke, Feel, Beta SDK, Duo tour
@@ -79,6 +81,8 @@ jobs:
           bundler-cache: true
       - name: The simulator helper picks and lists simulators right (offline, no simulator)
         run: python3 -I .github/scripts/test_create_newest_simulator.py
+      - name: Store scenes come out of their result bundle by name (offline)
+        run: python3 -I .github/scripts/test_export_store_scenes.py
       - name: Check native design-language contract
         run: ruby scripts/check-native-design-language.rb --web-design-doc docs/source/spoonjoy-v2-design-language.md
       - name: Check web palette contract
@@ -93,6 +97,10 @@ jobs:
         run: ruby scripts/check-design-accessibility-contract.rb
       - name: Check App Intents contract (every domain)
         run: bundle exec ruby scripts/check-app-intents-contract.rb --domain all
+      - name: Check iOS and Mac are on one release train
+        run: |
+          ruby scripts/test/release_train_test.rb
+          ruby scripts/check-release-train.rb
       - name: Check App Store listing and review demo kitchen
         run: |
           ruby scripts/test/app_store_listing_test.rb
@@ -116,6 +124,7 @@ jobs:
           ruby scripts/test/draft_runs_lane_b_test.rb
           ruby scripts/test/no_design_hex_test.rb
           ruby scripts/test/app_shortcuts_test.rb
+          ruby scripts/test/app_token_vault_test.rb
           ruby scripts/test/macos_lanes_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
           ruby scripts/stage-app-store-listing.rb --validate-only --platform MAC_OS
@@ -131,6 +140,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('native-swift-tests-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || github.event_name == 'pull_request' && format('spoonjoy-macos-lane-b-pr-{0}', github.event.pull_request.number)
         || 'spoonjoy-macos-lane-b' }}
       queue: max
     timeout-minutes: 30
@@ -164,6 +174,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('native-reins-journeys-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || github.event_name == 'pull_request' && format('spoonjoy-macos-lane-b-pr-{0}', github.event.pull_request.number)
         || 'spoonjoy-macos-lane-b' }}
       queue: max
     timeout-minutes: 20
@@ -209,6 +220,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('native-native-scenario-verifier-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || github.event_name == 'pull_request' && format('spoonjoy-macos-lane-b-pr-{0}', github.event.pull_request.number)
         || 'spoonjoy-macos-lane-b' }}
       queue: max
     timeout-minutes: 30
@@ -253,6 +265,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('native-app-bundle-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || github.event_name == 'pull_request' && format('spoonjoy-macos-lane-a-pr-{0}', github.event.pull_request.number)
         || 'spoonjoy-macos-lane-a' }}
       queue: max
     timeout-minutes: 30
@@ -436,20 +449,26 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 1
+          # The parent tells the changelog which fragments this commit added.
+          fetch-depth: 2
           persist-credentials: false
 
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+
+      # What to Test comes from the changelog fragments (changes/README.md): the lines this commit added, then the
+      # rest of the version's. A commit with no fragment says so and names its subject.
       - name: Create exact-SHA TestFlight release note
         run: |
           set -euo pipefail
           note_dir="$RUNNER_TEMP/testflight-release-note"
           mkdir -p "$note_dir"
-          notes="$(git log -1 --format=%s "$GITHUB_SHA" | tr '\n\r' '  ')"
+          notes="$(ruby scripts/changelog.rb testflight-notes --since "$GITHUB_SHA^")"
           [[ -n "${notes//[[:space:]]/}" ]] || {
-            echo "The exact source commit must have a non-empty subject for TestFlight notes." >&2
+            echo "The changelog gave empty TestFlight notes for $GITHUB_SHA." >&2
             exit 1
           }
-          notes="${notes:0:4000}"
           generated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           jq -n \
             --arg sourceSha "$GITHUB_SHA" \

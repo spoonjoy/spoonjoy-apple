@@ -167,7 +167,9 @@ tests`, `Native scenario verifier`, `App bundle`, `Contracts` and `Reins journey
 journeys` existed may lack that one job, but never skip or fail it). A fifth job,
 `TestFlight release note`, runs only after those checks and uploads
 `testflight-release-notes-<source_sha>`. The note JSON embeds its source SHA,
-Native run ID and attempt, generation time, and current commit subject. The
+Native run ID and attempt, generation time, and What to Test from the changelog
+fragments (`ruby scripts/changelog.rb testflight-notes`: the lines this commit
+added, then the rest of the version's; see `changes/README.md`). The
 release fails closed when the run, a required job, the artifact, or any embedded
 provenance is missing, unsuccessful, expired, stale, or mismatched.
 
@@ -264,14 +266,24 @@ publish summary. It fails the job if any of these validations fail:
 
 1. Open the fix as a pull request against `release/<version>`. Native runs on the PR and again on the push to the branch.
 2. Publish it: dispatch TestFlight from `main` with `release_branch: release/<version>`, `source_sha` set to the branch head, and `rollback_notes` holding the TestFlight notes. Both the iPhone build and the Mac build publish from the branch head, after `scripts/verify-testflight-release-candidate.rb` finds a green Native push run for it.
-3. Stage and submit it: dispatch "Stage App Store listing" and "Submit for App Review" with the same `release_branch`. They read `distribution/app-store/listing.json` and the screenshots from the branch head instead of `main`.
+3. Stage and submit it: dispatch "Stage App Store listing" and "Submit for App Review" with the same `release_branch`. They read `distribution/app-store/listing.json` and the screenshots from the branch head instead of `main`. For new screenshots, run Store scenes with `ref` set to the branch first.
 4. If the fix still applies on `main`, port it there in its own pull request.
 
 The branch name must match `^release/[0-9][0-9A-Za-z.-]*$`; every workflow rejects anything else.
 
 Publish only from green: before "Stage App Store listing" or "Submit for App Review" sees an App Store Connect secret, `scripts/require-green-commit.rb` requires the source commit (main's head, or the release branch head) to have a green Native push run with every required check passed, and the job then checks out exactly that commit. A red, unfinished or never-built commit stops the run, dry runs included: wait for Native to finish on that commit, then dispatch.
 
-Stage and submit both platforms together with `platform: BOTH`. `scripts/release-train-builds.rb` finds the TestFlight run named `TestFlight <source sha>` and reads its two publish summaries (`testflight-publish-summary.json` and `mac-app-store-publish-summary.json`), which TestFlight writes only once App Store Connect marks each build VALID. The run stops unless both builds come from the source commit.
+### Release train
+
+iOS and Mac move as one release train. `scripts/check-release-train.rb` runs in Contracts on every pull request and fails when:
+
+- `MARKETING_VERSION` in `Spoonjoy.xcodeproj/project.pbxproj` or `scripts/generate-xcode-project.rb`, `version.versionString` in `listing.json`, or a channel's `store.version` in `apple-distribution.json` differ, or `listing.json`'s `mac` section sets its own `version.versionString`;
+- a `whatsNew` is written in `listing.json` for one platform and left out for the other. Write it for both or for neither, or set `null` for a platform's first version;
+- the privacy, support or marketing URL differs between the platforms.
+
+Keywords and promotional text may differ only where the `mac` section gives its own on purpose (Mac search terms, a Mac promo line). Every copy field the `mac` section leaves alone must match on both platforms' live versions; the App Store Connect drift job compares them.
+
+Stage and submit both platforms together with `platform: BOTH`. `scripts/release-train-builds.rb` finds the TestFlight run that uploaded both publish summaries for the source commit (`testflight-publish-summary.json` and `mac-app-store-publish-summary.json`), which TestFlight writes only once App Store Connect marks each build VALID. The run stops unless both builds come from the source commit.
 - **Stage** leaves `build_number` empty. It plans iOS and then the Mac with those builds, and with `dry_run: false` it writes only after both plans succeed.
 - **Submit** checks that each version has that commit's build attached, then submits iOS and then the Mac. Confirm reads `submit BOTH <version>`. If iOS went in and the Mac then failed, BOTH refuses on the next run because iOS is no longer submittable; finish with `platform: MAC_OS`.
 
@@ -436,6 +448,16 @@ Do not re-enable a Codex heartbeat poller for this lane unless both webhooks and
 the local reconcile job are unavailable. Heartbeats spend agent turns even when
 no feedback exists; this webhook-plus-reconcile path leaves Codex idle until
 Apple emits or exposes a new feedback event.
+
+## App Store screenshots
+
+No agent takes App Store screenshots; CI makes them from the commit being released.
+
+1. **Scenes:** dispatch "Store scenes" (`.github/workflows/store-scenes.yml`) from `main`, with `ref` set to the release commit or branch. `StoreScenesUITests` signs the App Store build in as the review demo account, whose kitchen is seeded from `distribution/app-store/review-demo-kitchen.json`, and photographs each set's scenes. The status bar reads 9:41 with full bars and battery, the locale is en_US, and the scene name sets the appearance (`-dark`). It runs on iPhone 6.9", iPhone 6.1" and iPad 13", one device at a time. The scenes are kept for 90 days as an artifact named by their scene key (`scripts/store-frames/scene-key.mjs`), which hashes the app's screens, the project's build settings, the scene test, the demo kitchen, how scenes are taken (this workflow and its simulator scripts) and the scene lists. A commit whose key already has scenes needs no Mac, so screens are photographed only when something on them changed.
+2. **Frames:** `scripts/store-frames/render.mjs` puts each scene in its device frame with the caption from `distribution/app-store/frames/spec.json`, at the App Store's exact size and without alpha. It uses the app's own fonts and the Chromium pinned in `package-lock.json`, and loads nothing from the network. It also makes the iOS 27 product page header (3840x1646, no caption, because the App Store sets the app's name over it) and the search results art (3840x2560) from the iPhone 6.9" scenes, into `creative/`, where `listing.json`'s `creativeAssets` can name them. `--check` renders everything twice and fails unless every byte matches. The "Store frames" workflow tests it whenever the renderer or the spec changes.
+3. **Upload:** "Stage App Store listing" finds the scenes for its commit's key, frames them twice, compares them, and uploads the frames. A set no scene makes yet keeps its checked-in screenshots in `distribution/app-store/screenshots/`: the Mac, and the iPhone Duo spread (a set's `keep` list). Without scenes for the key, a real staging stops and asks for a Store scenes run; a dry run plans the checked-in screenshots and warns. The key leaves out the version and build numbers, so a version bump alone reuses the last photographs.
+
+Every caption must stay true of the build it ships with (Guideline 2.3). The first three shots of a set are the ones search results show, so they lead with cook mode, a recipe and the kitchen. One shot is in Dark Mode.
 
 ## App Review
 
