@@ -51,8 +51,9 @@ public actor NativeAuthSessionRepository {
     private let refreshCoordinator: RefreshCoordinator
     private let onPendingAppleLinkEvent: PendingAppleLinkEventHandler
     /// An Apple sign-in that found no account, waiting to be linked by the next sign-in another way. Memory only:
-    /// it is never written to the vault. A browser exchange spends it on the attempt; a password attempt the server
-    /// refuses hands it back. It also goes on sign-out, expiry, or an Apple sign-in that succeeds.
+    /// it is never written to the vault. A sign-in that fails, or that succeeds with the server reporting `error`
+    /// for the link, hands it back, because the server spent nothing. It goes once a sign-in succeeds, and on
+    /// sign-out, expiry, or an Apple sign-in that succeeds.
     private var pendingAppleLink: PendingAppleLink? {
         didSet { pendingAppleLinkGeneration &+= 1 }
     }
@@ -170,15 +171,22 @@ public actor NativeAuthSessionRepository {
         appleConnectedOnLastSignIn = false
         let response: OAuthTokenResponse
         if let exchangeAuthorizationCode {
-            let link = await takePendingAppleLink(sendingVia: .browser)?.link
-            response = try await exchangeAuthorizationCode(NativeAuthorizationCodeGrant(
-                clientID: clientID,
-                redirectURI: redirectURI,
-                code: code,
-                codeVerifier: codeVerifier,
-                pendingAppleLinkToken: link?.token
-            ))
-            await reportOutcome(of: link, in: response)
+            let taken = await takePendingAppleLink(sendingVia: .browser)
+            do {
+                response = try await exchangeAuthorizationCode(NativeAuthorizationCodeGrant(
+                    clientID: clientID,
+                    redirectURI: redirectURI,
+                    code: code,
+                    codeVerifier: codeVerifier,
+                    pendingAppleLinkToken: taken?.link.token
+                ))
+            } catch {
+                // The server claims the link only after it has spent the code, so a refused or lost exchange used
+                // nothing.
+                await handBack(taken)
+                throw error
+            }
+            await reportOutcome(of: taken, in: response)
         } else {
             response = try await exchangeCode(clientID, redirectURI, code, codeVerifier)
         }
@@ -231,20 +239,16 @@ public actor NativeAuthSessionRepository {
         _ = try NativePasswordSignInRequests.exchangeCredential(credential)
         appleConnectedOnLastSignIn = false
         let taken = await takePendingAppleLink(sendingVia: .password)
-        let link = taken?.link
         let response: OAuthTokenResponse
         do {
-            response = try await exchangePasswordCredential(credential.linkingApple(link))
+            response = try await exchangePasswordCredential(credential.linkingApple(taken?.link))
         } catch {
             // The server spends a link only on a sign-in that succeeds, so a mistyped password must not cost the
-            // chef their Apple link. A sign-in that did succeed but whose answer was lost leaves a spent link; the
-            // server answers that with `consumed`, which is harmless.
-            if let taken, pendingAppleLinkGeneration == taken.generation {
-                pendingAppleLink = taken.link
-            }
+            // chef their Apple link.
+            await handBack(taken)
             throw error
         }
-        await reportOutcome(of: link, in: response)
+        await reportOutcome(of: taken, in: response)
         let clientID = nativeClientID(issuedIn: response)
         let session = try AuthSession(
             clientID: clientID,
@@ -294,12 +298,27 @@ public actor NativeAuthSessionRepository {
         return (link, generation)
     }
 
-    private func reportOutcome(of link: PendingAppleLink?, in response: OAuthTokenResponse) async {
-        guard link != nil, let outcome = response.appleLinkOutcome else {
+    /// Puts a link that went out back, when the server spent nothing, unless something changed the pending link
+    /// (sign-out, an Apple sign-in, a newer link) while it was out. A sign-in that did succeed but whose answer was
+    /// lost leaves a spent link; the server answers its next use with `consumed`, which is harmless.
+    private func handBack(_ taken: (link: PendingAppleLink, generation: Int)?) async {
+        guard let taken, pendingAppleLinkGeneration == taken.generation else {
+            return
+        }
+        pendingAppleLink = taken.link
+        await onPendingAppleLinkEvent(.kept)
+    }
+
+    private func reportOutcome(of taken: (link: PendingAppleLink, generation: Int)?, in response: OAuthTokenResponse) async {
+        guard taken != nil, let outcome = response.appleLinkOutcome else {
             return
         }
         appleConnectedOnLastSignIn = PendingAppleLinkEvent.connectedOutcomes.contains(outcome)
         await onPendingAppleLinkEvent(.outcome(outcome))
+        // `error` means the server could not write the link and put it back so a retry can still link.
+        if outcome == "error" {
+            await handBack(taken)
+        }
     }
 
     /// True once after a sign-in whose server answer said Apple is now connected to the account (`linked`, or
