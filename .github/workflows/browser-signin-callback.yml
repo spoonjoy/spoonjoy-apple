@@ -63,28 +63,42 @@ jobs:
       - name: Record the entitlements the app is signed with
         run: |
           set -euo pipefail
-          app="$(find "$RUNNER_TEMP/callback/DerivedData/Build/Products/Debug-iphonesimulator" -maxdepth 1 -name 'Spoonjoy.app' -print -quit)"
-          [ -n "$app" ] || { echo "::error::No built Spoonjoy.app"; exit 1; }
+          products="$RUNNER_TEMP/callback/DerivedData/Build/Products/Debug-iphonesimulator"
+          app="$products/Spoonjoy.app"
+          [ -d "$app" ] || { echo "::error::No built Spoonjoy.app"; exit 1; }
           out="$RUNNER_TEMP/callback/evidence"
-          codesign -d --entitlements :- "$app" > "$out/entitlements-codesign.plist" 2>&1 || true
-          # A simulator app carries its entitlements in the binary's __TEXT,__entitlements section.
+          # What swcd reads on a simulator: the entitlements Xcode puts in the binary's __TEXT,__entitlements section,
+          # from the Simulated .xcent it writes. Both are kept; the .xcent is required, the section must agree.
+          xcent="$(find "$RUNNER_TEMP/callback/DerivedData/Build/Intermediates.noindex" -name 'Spoonjoy.app-Simulated.xcent' -path '*Debug-iphonesimulator*' -print -quit)"
+          [ -n "$xcent" ] || { echo "::error::Xcode wrote no Spoonjoy.app-Simulated.xcent"; exit 1; }
+          cp "$xcent" "$out/entitlements-simulated.xcent.plist"
+          plutil -lint "$out/entitlements-simulated.xcent.plist"
+          codesign -d --entitlements - --xml "$app" > "$out/entitlements-codesign.plist" 2> "$out/entitlements-codesign.stderr" || true
           exe="$app/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")"
-          python3 - "$exe" "$out/entitlements-simulated.plist" <<'PY'
-          import subprocess, sys
-          raw = subprocess.run(["otool", "-X", "-s", "__TEXT", "__entitlements", sys.argv[1]], capture_output=True, text=True).stdout
+          otool -s __TEXT __entitlements "$exe" > "$out/entitlements-section.otool.txt"
+          python3 - "$out/entitlements-section.otool.txt" "$out/entitlements-section.plist" <<'PY'
+          import re, sys
           data = bytearray()
-          for line in raw.splitlines():
-              parts = line.split("\t", 1)
-              if len(parts) == 2:
-                  for word in parts[1].split():
-                      data += bytes.fromhex(word) if len(word) == 2 else bytes.fromhex(word)[::-1]
+          for line in open(sys.argv[1]).read().splitlines():
+              tokens = line.split()
+              # Data lines start with a hex address, then hex bytes (2 digits) or little-endian 32-bit words (8 digits).
+              if len(tokens) < 2 or not re.fullmatch(r"[0-9a-f]{8,16}", tokens[0]):
+                  continue
+              for token in tokens[1:]:
+                  if re.fullmatch(r"[0-9a-f]{2}", token):
+                      data += bytes.fromhex(token)
+                  elif re.fullmatch(r"[0-9a-f]{8}", token):
+                      data += bytes.fromhex(token)[::-1]
           open(sys.argv[2], "wb").write(bytes(data).rstrip(b"\0"))
           PY
-          for f in entitlements-codesign.plist entitlements-simulated.plist; do echo "== $f"; cat "$out/$f"; echo; done
-          grep -q "webcredentials:spoonjoy.app" "$out/entitlements-simulated.plist" "$out/entitlements-codesign.plist" \
-            || { echo "::error::The built app does not carry webcredentials:spoonjoy.app"; exit 1; }
-          grep -q "743GT2AJ24.app.spoonjoy<" "$out/entitlements-simulated.plist" "$out/entitlements-codesign.plist" \
-            || { echo "::error::The built app's application identifier is not 743GT2AJ24.app.spoonjoy, so the AASA cannot match it"; exit 1; }
+          for f in entitlements-simulated.xcent.plist entitlements-section.plist entitlements-codesign.plist; do echo "== $f"; cat "$out/$f"; echo; done
+          for f in entitlements-simulated.xcent.plist entitlements-section.plist; do
+            plutil -lint "$out/$f" >/dev/null || { echo "::error::$f is not a plist"; exit 1; }
+            grep -q "<string>webcredentials:spoonjoy.app</string>" "$out/$f" \
+              || { echo "::error::$f does not carry webcredentials:spoonjoy.app"; exit 1; }
+            grep -q "<string>743GT2AJ24.app.spoonjoy</string>" "$out/$f" \
+              || { echo "::error::$f's application identifier is not 743GT2AJ24.app.spoonjoy, so the AASA cannot match it"; exit 1; }
+          done
       - name: Wait for the simulator to settle
         timeout-minutes: 8
         run: python3 .github/scripts/wait-for-simulator-settle.py "${{ steps.sim.outputs.udid }}" --booted-at "${{ steps.sim.outputs.booted-at }}"
@@ -101,9 +115,9 @@ jobs:
           if not raw:
               raise SystemExit("SPOONJOY_BROWSER_CALLBACK_ACCOUNT is empty; seed a throwaway account first.")
           account = json.loads(raw)
-          print(f"::add-mask::{account['password']}")
           if not all(account.get(k) for k in ("email", "username", "password")):
               raise SystemExit("The account secret needs email, username and password.")
+          print(f"::add-mask::{account['password']}")
           if not account["email"].endswith("@example.com"):
               raise SystemExit("The callback proof only signs in throwaway @example.com accounts.")
           json.dump(account, open(sys.argv[1], "w"))
@@ -123,10 +137,9 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/callback/DerivedData" -parallel-testing-enabled NO -collect-test-diagnostics never \
             -resultBundlePath "$RUNNER_TEMP/callback/BrowserSignInCallback.xcresult" 2>&1 | tee "$RUNNER_TEMP/callback/test.log"
           date -u +%Y-%m-%dT%H:%M:%SZ > "$RUNNER_TEMP/callback/evidence/test-ended-at.txt"
-          if grep -E "Test Case .*BrowserSignInCallbackUITests.* skipped" "$RUNNER_TEMP/callback/test.log"; then
-            echo "::error::The callback test was skipped"
-            exit 1
-          fi
+          # Pass means one test passed and none skipped or failed, read from the result bundle, not the log's wording.
+          xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/callback/BrowserSignInCallback.xcresult" \
+            | python3 -c 'import json,sys; s=json.load(sys.stdin); print(s); ok=(s.get("passedTests"),s.get("skippedTests"),s.get("failedTests"))==(1,0,0); sys.exit(0 if ok else "::error::The callback test did not pass exactly once (skipped or failed)")'
       - name: Collect the association log, summary and screenshots
         if: always()
         env:
@@ -162,7 +175,7 @@ jobs:
               sys.exit(0)
           needle = json.loads(raw)["password"].encode()
           for root, _, files in os.walk(sys.argv[1]):
-              if "DerivedData" in root:
+              if "DerivedData" in root or root.endswith(".xcresult") or ".xcresult/" in root:
                   continue
               for name in files:
                   with open(os.path.join(root, name), "rb") as handle:
@@ -171,14 +184,18 @@ jobs:
           PY
       - name: Remove credentials
         if: always()
-        run: rm -f "$RUNNER_TEMP/callback-secrets/account.json"
+        run: |
+          rm -f "$RUNNER_TEMP/callback-secrets/account.json"
+          # The simulator syncs its pasteboard with the runner's.
+          pbcopy < /dev/null || true
       - name: Upload the evidence
         if: ${{ !cancelled() && steps.scan.outcome == 'success' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: browser-signin-callback-${{ github.run_attempt }}
+          # The raw .xcresult is not uploaded: its compressed blobs would hide a password from the scan. The summary,
+          # test tree and attachments exported into evidence/ are plain files the scan reads.
           path: |
-            ${{ runner.temp }}/callback/BrowserSignInCallback.xcresult
             ${{ runner.temp }}/callback/evidence
             ${{ runner.temp }}/callback/test.log
             ${{ runner.temp }}/callback/build.log

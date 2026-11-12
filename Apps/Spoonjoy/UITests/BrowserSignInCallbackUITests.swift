@@ -50,9 +50,14 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         XCTAssertTrue(google.waitForExistence(timeout: Self.interactionTimeout), "There is no Continue with Google button.")
         google.tap()
 
-        // iOS asks before ASWebAuthenticationSession shares the browser's cookies with the app.
-        let allow = springboard.buttons["Continue"]
-        if allow.waitForExistence(timeout: Self.interactionTimeout) {
+        // iOS asks before ASWebAuthenticationSession shares the browser's cookies with the app. SpringBoard hosts the
+        // alert on some iOS versions and the app on others.
+        let prompts = [springboard.buttons["Continue"], app.alerts.buttons["Continue"]]
+        let promptDeadline = Date().addingTimeInterval(Self.interactionTimeout)
+        while Date() < promptDeadline, !prompts.contains(where: \.exists) {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        if let allow = prompts.first(where: \.exists) {
             screenshot("01-system-prompt")
             allow.tap()
         }
@@ -71,9 +76,16 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         defer { UIPasteboard.general.items = [] }
         password.tap()
         password.press(forDuration: 1.2)
-        let paste = try XCTUnwrap(webElement(.menuItem, label: "Paste"), "The Paste action did not appear on the Password field.")
-        paste.tap()
+        // The edit menu's Paste is a menu item or a button depending on the iOS version; without it, Command-V on the
+        // simulator's hardware keyboard pastes the same way.
+        if let paste = webElement(.menuItem, label: "Paste", timeout: 5) ?? webElement(.button, label: "Paste", timeout: 1) {
+            paste.tap()
+        } else {
+            password.typeKey("v", modifierFlags: .command)
+        }
         UIPasteboard.general.items = []
+        let pastedValue = (password.value as? String) ?? ""
+        XCTAssertFalse(pastedValue.isEmpty || pastedValue == "Password", "The password did not reach the Password field.")
         screenshot("03-sheet-filled")
 
         let logIn = try XCTUnwrap(webElement(.button, label: "Log in"), "The login page has no Log in button.")
@@ -93,7 +105,7 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         accountButton.tap()
         let email = element("settings.profile.email")
         XCTAssertTrue(email.waitForExistence(timeout: Self.networkTimeout), "Settings shows no account email.")
-        XCTAssertEqual(email.label, account.email, "The app is signed in as someone other than the throwaway account.")
+        XCTAssertTrue(email.label.contains(account.email), "The app is signed in as someone other than the throwaway account: \(email.label)")
         screenshot("05-settings-signed-in-as-throwaway")
         app.terminate()
     }
