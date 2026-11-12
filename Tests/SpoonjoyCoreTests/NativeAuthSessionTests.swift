@@ -31,6 +31,19 @@ struct NativeAuthSessionTests {
         }
     }
 
+    @Test("Both apps associate spoonjoy.app for https sign-in callbacks")
+    func bothAppsAssociateSpoonjoyAppForHTTPSSignInCallbacks() throws {
+        // ASWebAuthenticationSession.Callback.https only hands
+        // https://spoonjoy.app/oauth/callback back to the app when the host is
+        // associated through webcredentials; applinks alone is not enough.
+        for path in ["Apps/Spoonjoy/Shared/Spoonjoy.entitlements", "Apps/Spoonjoy/macOS/SpoonjoyMac.entitlements"] {
+            let entitlements = try propertyListDictionary(path)
+            let domains = try #require(entitlements["com.apple.developer.associated-domains"] as? [String])
+            #expect(domains.contains("applinks:spoonjoy.app"), "\(path) must keep applinks:spoonjoy.app")
+            #expect(domains.contains("webcredentials:spoonjoy.app"), "\(path) must list webcredentials:spoonjoy.app")
+        }
+    }
+
     @Test("OAuth callback contract uses universal links and rejects custom schemes")
     func oauthCallbackContractUsesUniversalLinksAndRejectsCustomSchemes() throws {
         #expect(try OAuthRedirectValidator.validate(URL(string: "https://spoonjoy.app/oauth/callback")!))
