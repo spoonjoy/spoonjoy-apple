@@ -462,7 +462,9 @@ struct SignedOutSetupView: View {
             authStatus = "Finish \(provider.displayName) sign-in in the browser."
         } catch {
             // The status line is the same for every cause; the log says which step failed (no secrets in these errors).
-            Self.browserSignInLogger.error("Browser sign-in did not start: \(String(describing: error), privacy: .public)")
+            // Domain and code only: an error's description can carry a URL or a server response.
+            let nsError = error as NSError
+            Self.browserSignInLogger.error("Browser sign-in did not start: \(nsError.domain, privacy: .public) \(nsError.code, privacy: .public)")
             pendingOAuthState = nil
             pendingOAuthCodeVerifier = nil
             pendingOAuthProvider = nil

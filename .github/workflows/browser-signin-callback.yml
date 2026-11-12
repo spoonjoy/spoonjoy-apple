@@ -154,6 +154,8 @@ jobs:
           if not all(account.get(k) for k in ("email", "username", "password")):
               raise SystemExit("The account secret needs email, username and password.")
           print(f"::add-mask::{account['password']}")
+          if "'" in account["password"]:
+              raise SystemExit("The throwaway password must not contain a quote; the log redaction stops at one.")
           if not account["email"].endswith("@example.com"):
               raise SystemExit("The callback proof only signs in throwaway @example.com accounts.")
           json.dump(account, open(sys.argv[1], "w"))
@@ -218,27 +220,24 @@ jobs:
           prefix = needle[:12]
           # The test types the password, so xcodebuild's log of the Type step holds it. Redact it everywhere, then
           # check nothing still holds it.
-          for root, _, files in os.walk(sys.argv[1]):
-              if "DerivedData" in root or root.endswith(".xcresult") or ".xcresult/" in root:
-                  continue
+          for root, dirs, files in os.walk(sys.argv[1]):
+              dirs[:] = [d for d in dirs if d != "DerivedData" and not d.endswith(".xcresult")]
               for name in files:
                   path = os.path.join(root, name)
                   with open(path, "rb") as handle:
                       data = handle.read()
                   if needle in data:
+                      data = data.replace(needle, b"<password>")
                       with open(path, "wb") as handle:
-                          handle.write(data.replace(needle, b"<password>"))
+                          handle.write(data)
                       print(f"Redacted the password from {name}")
-                  with open(path, "rb") as handle:
-                      if prefix in handle.read():
-                          raise SystemExit(f"::error::The password appears in {name}; not uploading")
+                  if prefix in data:
+                      raise SystemExit(f"::error::The password appears in {name}; not uploading")
           PY
       - name: Remove credentials
         if: always()
         run: |
           rm -f "$RUNNER_TEMP/callback-secrets/account.json"
-          # The simulator syncs its pasteboard with the runner's.
-          pbcopy < /dev/null || true
       - name: Upload the evidence
         if: ${{ !cancelled() && steps.scan.outcome == 'success' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

@@ -56,7 +56,8 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         for attempt in 1...attempts {
             google.tap()
             let tappedAt = Date()
-            let promptDeadline = tappedAt.addingTimeInterval(Self.interactionTimeout)
+            // The app registers its client over the network before the session starts, so the prompt can be slow.
+            let promptDeadline = tappedAt.addingTimeInterval(Self.networkTimeout)
             var selfCanceled = false
             while Date() < promptDeadline, !prompts.contains(where: \.exists) {
                 // After a retry the status still reads canceled from the attempt before, so a retry's own cancel is
@@ -77,7 +78,9 @@ final class BrowserSignInCallbackUITests: XCTestCase {
             // prompt, in the same millisecond swcd began re-fetching spoonjoy.app's association because the app's
             // install identity had changed. In run 43239521975 swcd only began the download 10 s later, and a retry
             // then canceled too. Nobody can cancel a prompt that never appeared, so the test retries every 20 s, up to
-            // a minute, recording each one; if every attempt cancels, the test fails.
+            // a minute, recording each one; if every attempt cancels, the test fails. This is not a retry around a
+            // flaky tap (AGENTS.md forbids those): it fires only on that error before any UI, which the first attempt
+            // causes by making swcd notice the reinstall, and spoonjoy-apple#320 records it.
             guard selfCanceled, attempt < attempts else { break }
             screenshot("01-self-canceled-before-prompt-\(attempt)")
             XCTContext.runActivity(named: "Self-cancel before any prompt on attempt \(attempt); retrying") { _ in }
@@ -114,7 +117,7 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         }
         password.typeText(account.password)
         // A secure field shows its last character for a moment; wait it out before the screenshot.
-        RunLoop.current.run(until: Date().addingTimeInterval(2))
+        RunLoop.current.run(until: Date().addingTimeInterval(3))
         let typedValue = (password.value as? String) ?? ""
         XCTAssertEqual(typedValue.count, account.password.count, "The Password field does not hold exactly the password's length.")
         screenshot("03-sheet-filled")
