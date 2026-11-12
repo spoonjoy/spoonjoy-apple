@@ -220,7 +220,8 @@ class AppStoreListingTest < Minitest::Test
     localization = steps[3]["attributes"]
     assert_equal mac_listing["localizations"]["en-US"]["description"], localization["description"]
     assert_equal "https://spoonjoy.app/support", localization["supportUrl"]
-    assert_equal Changelog.whats_new(Changelog.load!(CHANGES_DIR), "mac"), localization["whatsNew"]
+    assembled = Changelog.whats_new(Changelog.load!(CHANGES_DIR), "mac")
+    assembled.empty? ? refute(localization.key?("whatsNew")) : assert_equal(assembled, localization["whatsNew"])
     assert_equal listing["mac"]["review"]["notes"], steps[4]["attributes"]["notes"]
     assert_equal "APP_DESKTOP", steps.last["displayType"]
   end
@@ -378,7 +379,8 @@ class AppStoreListingTest < Minitest::Test
     fragments = Changelog.load!(CHANGES_DIR)
     { listing => ["ios", raw_listing["localizations"]["en-US"]],
       mac_listing => ["mac", raw_listing["mac"]["localizations"]["en-US"]] }.each do |platform_listing, (platform, raw)|
-      expected = raw.key?("whatsNew") ? raw["whatsNew"] : Changelog.whats_new(fragments, platform)
+      assembled = Changelog.whats_new(fragments, platform)
+      expected = raw.key?("whatsNew") ? raw["whatsNew"] : (assembled.empty? ? nil : assembled)
       assert_equal expected, platform_listing["localizations"]["en-US"]["whatsNew"], platform
     end
     mac_own = JSON.parse(JSON.generate(raw_listing))
@@ -425,11 +427,12 @@ class AppStoreListingTest < Minitest::Test
     [listing, mac_listing].each do |platform_listing|
       version = platform_listing["version"]
       assert_equal ["1.3", "AFTER_APPROVAL", true], version.values_at("versionString", "releaseType", "phasedRelease")
+      # Empty until the version's first fragment lands; the stager then assembles it from changes/.
       whats_new = platform_listing["localizations"]["en-US"]["whatsNew"].to_s
-      refute_empty whats_new
       assert_operator whats_new.length, :<=, AppStoreListing::LIMITS.fetch("whatsNew")
     end
-    refute_equal listing["localizations"]["en-US"]["whatsNew"], mac_listing["localizations"]["en-US"]["whatsNew"]
+    ios_whats_new = listing["localizations"]["en-US"]["whatsNew"]
+    refute_equal ios_whats_new, mac_listing["localizations"]["en-US"]["whatsNew"] unless ios_whats_new.nil?
   end
 
   # The build App Store Connect attaches must carry the listing's version, or the upload lands on the wrong version.

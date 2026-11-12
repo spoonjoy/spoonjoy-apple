@@ -24,7 +24,8 @@ class ChangelogTest < Minitest::Test
   def test_checked_in_fragments_are_valid
     fragments, errors = Changelog.load(File.join(ROOT, "changes"))
     assert_equal [], errors
-    refute_empty fragments
+    # Right after a version bump archives the old version, changes/ holds no fragments; that is valid.
+    assert_kind_of Array, fragments
   end
 
   def test_a_tale_needs_one_plain_testflight_line
@@ -244,6 +245,6 @@ class ChangelogTest < Minitest::Test
     assert_match(/ios: \d+ fragment\(s\), \d+\/4000 characters/, out)
     out, status = Open3.capture2e(RbConfig.ruby, File.join(ROOT, "scripts/changelog.rb"), "whats-new", "--platform", "MAC_OS")
     assert status.success?, out
-    refute_empty out.strip
+    assert_equal Changelog.whats_new(Changelog.load!(File.join(ROOT, "changes")), "mac"), out.chomp
   end
 end

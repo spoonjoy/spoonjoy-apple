@@ -1,0 +1,18 @@
+Spoonjoy 1.2, or: The Night the Cookbook Got Its Clothes Back.
+
+Ever since it was born, the app had dressed differently from spoonjoy.app, like a sibling who left home and came back with a new accent. This update ends the estrangement. What follows is a true account.
+
+The old look went first, and it did not go quietly. Spoonjoy now wears the same typefaces, brass and paper as spoonjoy.app, so a recipe looks like it came from one well-loved cookbook wherever you open it.
+
+• Ingredients tick off in warm brass.
+• Steps read in a bigger, friendlier serif you can follow from across the kitchen.
+
+Long recipe names in the Kitchen used to vanish mid-word into a cruel little ellipsis, and so did long chef names under a recipe. No more. They wrap onto the next line now, so the Slow-Braised Short Ribs get to finish their sentence.
+
+The little cart on every ingredient row is gone, and Add to list has moved into the ingredient's own menu on the recipe page. The rows breathe easier, and the shopping list still gets its lemon.
+
+After dark, the one button that matters, Cook or Next step, used to fade into a pale bone colour you had to hunt for. It now glows amber, like a pilot light, so you can find it with flour on your glasses.
+
+A chef's @handle on their profile, which used to shout across three lines, has been asked to use its indoor voice.
+
+No recipes were harmed in the making of this update. One ellipsis was.
