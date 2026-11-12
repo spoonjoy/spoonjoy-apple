@@ -48,7 +48,7 @@ struct AddRecipeIngredientsToRemindersIntent: AppIntent {
         let recipeID = try recipe.resolvedRecipeID()
         let syncStore = try SpoonjoyIntentSyncStoreFactory.syncStore()
         let snapshot = try await syncStore.loadSnapshot()
-        let scope = try await SpoonjoyIntentScopeProvider(authVault: KeychainTokenVault()).trustedIntentScope(from: snapshot)
+        let scope = try await SpoonjoyIntentScopeProvider(authVault: SpoonjoyAppTokenVault.current()).trustedIntentScope(from: snapshot)
         let catalog = RecipeCookbookEntityCatalog(
             syncSnapshot: snapshot,
             currentAccountID: scope.accountID,
