@@ -69,20 +69,19 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         screenshot("02-sheet-on-login")
         identifier.tap()
         identifier.typeText(account.username)
+        XCTAssertEqual(identifier.value as? String, account.username, "The username did not land in the Username or email field as typed.")
+
+        // Tab moves focus to Password inside the page. A tap is not used: while the page scrolls above the keyboard,
+        // the field's reported frame lags, and in run 43181444584 the tap landed on the keyboard instead.
+        let password = try XCTUnwrap(webElement(.secureTextField, label: "Password"), "The login page has no Password field.")
+        identifier.typeText("\t")
+        XCTAssertTrue(waitForKeyboardFocus(password), "Tab did not move focus to the Password field.")
+        XCTAssertEqual(identifier.value as? String, account.username, "The username changed while moving to the Password field.")
 
         // Pasted, not typed, so the password never appears in activity titles, the log or the result bundle.
-        let password = try XCTUnwrap(webElement(.secureTextField, label: "Password"), "The login page has no Password field.")
         UIPasteboard.general.string = account.password
         defer { UIPasteboard.general.items = [] }
-        password.tap()
-        password.press(forDuration: 1.2)
-        // The edit menu's Paste is a menu item or a button depending on the iOS version; without it, Command-V on the
-        // simulator's hardware keyboard pastes the same way.
-        if let paste = webElement(.menuItem, label: "Paste", timeout: 5) ?? webElement(.button, label: "Paste", timeout: 1) {
-            paste.tap()
-        } else {
-            password.typeKey("v", modifierFlags: .command)
-        }
+        password.typeKey("v", modifierFlags: .command)
         UIPasteboard.general.items = []
         let pastedValue = (password.value as? String) ?? ""
         XCTAssertFalse(pastedValue.isEmpty || pastedValue == "Password", "The password did not reach the Password field.")
@@ -116,6 +115,17 @@ final class BrowserSignInCallbackUITests: XCTestCase {
 
     /// The sign-in sheet's web content is in the app's tree on some iOS versions and in SafariViewService's on others.
     /// Waits for the element in either tree; nil when neither shows it in time.
+    private func waitForKeyboardFocus(_ element: XCUIElement, timeout: TimeInterval = BrowserSignInCallbackUITests.interactionTimeout) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if (element.value(forKey: "hasKeyboardFocus") as? Bool) == true {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        return false
+    }
+
     private func webElement(_ type: XCUIElement.ElementType, label: String, timeout: TimeInterval = BrowserSignInCallbackUITests.interactionTimeout) -> XCUIElement? {
         let predicate = NSPredicate(format: "label == %@ OR placeholderValue == %@", label, label)
         let candidates = [app, webSheet].map { $0.descendants(matching: type).matching(predicate).firstMatch }
