@@ -8,10 +8,11 @@ require_relative "../lib/parity_sheet"
 class ParitySheetTest < Minitest::Test
   def test_canonical_keys_cover_every_screen_device_and_scheme
     keys = ParitySheet.canonical_keys
-    assert_equal 10 * 4 * 2, keys.size
+    assert_equal 10 * 5 * 2, keys.size
     assert_equal "kitchen-iphone-light", keys.first
     assert_includes keys, "sheet-add-to-list-duo-open-dark"
     assert_includes keys, "kitchen-empty-desktop-light"
+    assert_includes keys, "cook-step-ipad-landscape-dark"
   end
 
   def test_shot_key_reads_web_xcresult_and_duo_names
@@ -21,6 +22,9 @@ class ParitySheetTest < Minitest::Test
                  ParitySheet.shot_key("parity-kitchen-empty-ipad-light_0_25CA8CA8-B5AB-447F-87FD-299F1B826922.png")
     # The Duo posture driver saves the inner display with -inner.
     assert_equal ["chef-duo-open-light", :inner], ParitySheet.shot_key("parity-chef-duo-open-light-inner.png")
+    # The iPad on its side is a device of its own, not the screen "kitchen-ipad".
+    assert_equal ["kitchen-ipad-landscape-light", :plain],
+                 ParitySheet.shot_key("parity-kitchen-ipad-landscape-light_3_25CA8CA8-B5AB-447F-87FD-299F1B826922.png")
     assert_nil ParitySheet.shot_key("05-open-landscape-kitchen.png")
     assert_nil ParitySheet.shot_key("parity-kitchen-watch-light.png")
     assert_nil ParitySheet.shot_key("parity-kitchen-iphone-sepia.png")
@@ -100,9 +104,10 @@ class ParitySheetTest < Minitest::Test
     assert_includes html, "<title>Baseline</title>"
     assert_includes html, %(src="kitchen-iphone-light.jpg")
     assert_equal ParitySheet.canonical_keys.size, html.scan("<figure").size
-    assert_includes html, "1 of 80 pairs complete"
+    assert_includes html, "1 of 100 pairs complete"
     assert_includes html, "web: Add to list is one tap, no sheet"
     assert_includes html, "native: not captured"
+    assert_includes html, "web: Web has no landscape iPad viewport"
   end
   
   def test_shot_file_name_round_trips_through_the_index
