@@ -22,6 +22,100 @@ protocol SpoonjoyWebAuthenticationSessionProtocol: AnyObject {
     var prefersEphemeralWebBrowserSession: Bool { get set }
     func start() -> Bool
     func cancel()
+    /// The window the session presents on, when the app knows it.
+    var presentationAnchor: ASPresentationAnchor? { get }
+}
+
+extension SpoonjoyWebAuthenticationSessionProtocol {
+    var presentationAnchor: ASPresentationAnchor? { nil }
+}
+
+/// Watches one browser sign-in for any sign that the system showed something, so a cancel after it is never retried
+/// (NativeBrowserOAuthEarlyCancel has the rule). The primary signals: the app inactive at `begin`, the app resigning
+/// active, on iOS the anchor's scene deactivating, and on macOS a window beginning a sheet or resigning key. Best
+/// effort: a view controller (on macOS, a sheet) on the anchor window that was not there at `begin`, sampled at each
+/// of those moments and when the cancel arrives. Every signal latches and can only block a retry.
+@MainActor
+final class SpoonjoySystemUIWatch {
+    private(set) var systemUIAppeared = false
+    private(set) var presentedViewControllerSeen = false
+    private(set) var presentedAtStart: ObjectIdentifier?
+    private weak var anchor: ASPresentationAnchor?
+    private let appIsActive: @MainActor () -> Bool
+    private let presentedUI: @MainActor (ASPresentationAnchor?) -> ObjectIdentifier?
+    // Written on the main actor in begin(); read only in deinit. NotificationCenter removal is thread-safe.
+    nonisolated(unsafe) private var observers: [any NSObjectProtocol] = []
+
+    init(
+        appIsActive: @escaping @MainActor () -> Bool = { SpoonjoySystemUIWatch.platformAppIsActive() },
+        presentedUI: @escaping @MainActor (ASPresentationAnchor?) -> ObjectIdentifier? = {
+            SpoonjoyAuthenticationPresentationContextProvider.presentedUI(on: $0)
+        }
+    ) {
+        self.appIsActive = appIsActive
+        self.presentedUI = presentedUI
+    }
+
+    /// Call before each `start()` of a system session, with the anchor it presents on: the baseline for the
+    /// presented-view-controller check is taken here, so a retry compares against its own start.
+    func begin(anchor: ASPresentationAnchor?) {
+        self.anchor = anchor
+        presentedAtStart = presentedUI(anchor)
+        // Already inactive (Control Center, a call banner): the prompt may come without a new resign.
+        if !appIsActive() {
+            systemUIAppeared = true
+        }
+        guard observers.isEmpty else { return }
+        observers.append(observe(Self.resignActiveNotification, object: nil))
+        #if os(iOS) || os(tvOS) || os(visionOS)
+        observers.append(observe(UIScene.willDeactivateNotification, object: anchor?.windowScene))
+        #endif
+        #if os(macOS)
+        observers.append(observe(NSWindow.willBeginSheetNotification, object: nil))
+        observers.append(observe(NSWindow.didResignKeyNotification, object: nil))
+        #endif
+    }
+
+    /// Samples the anchor once more (the cancel has arrived) and reports whether a new view controller was ever seen.
+    func checkPresentedViewController() -> Bool {
+        samplePresented()
+        return presentedViewControllerSeen
+    }
+
+    private func samplePresented() {
+        if presentedUI(anchor) != presentedAtStart {
+            presentedViewControllerSeen = true
+        }
+    }
+
+    private func observe(_ name: Notification.Name, object: AnyObject?) -> any NSObjectProtocol {
+        NotificationCenter.default.addObserver(forName: name, object: object, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.systemUIAppeared = true
+                self?.samplePresented()
+            }
+        }
+    }
+
+    deinit {
+        observers.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
+    static func platformAppIsActive() -> Bool {
+        #if os(iOS) || os(tvOS) || os(visionOS)
+        UIApplication.shared.applicationState == .active
+        #else
+        true
+        #endif
+    }
+
+    private static var resignActiveNotification: Notification.Name {
+        #if os(macOS)
+        NSApplication.willResignActiveNotification
+        #else
+        UIApplication.willResignActiveNotification
+        #endif
+    }
 }
 
 typealias SpoonjoyWebAuthenticationSessionFactory = @MainActor (
@@ -44,19 +138,12 @@ final class SpoonjoyWebAuthenticationSession {
     private var authorizationURL: URL?
     private var sessionStartedAt: TimeInterval?
     private var retried = false
-    private var systemUIAppeared = false
     private var generation = 0
-    private var presentedAtStart: ObjectIdentifier?
+    /// Whether the system showed anything for this sign-in; a cancel after it is never retried.
+    let systemUIWatch: SpoonjoySystemUIWatch
     private let uptime: @MainActor () -> TimeInterval
     private let earlyCancelWindow: TimeInterval?
-    /// The view controller (on macOS, the sheet) presented on the anchor window, if any.
-    private let presentedUI: @MainActor () -> ObjectIdentifier?
     private let pause: @MainActor (Duration) async -> Void
-    // Written once on the main actor in start(); read only in deinit. NotificationCenter removal is thread-safe.
-    nonisolated(unsafe) private var resignObserver: (any NSObjectProtocol)?
-    #if os(macOS)
-    nonisolated(unsafe) private var sheetObservers: [any NSObjectProtocol] = []
-    #endif
 
     init(
         callbackURL: URL,
@@ -65,7 +152,7 @@ final class SpoonjoyWebAuthenticationSession {
         cancellationHandler: @escaping @MainActor (Error?) -> Void = { _ in },
         uptime: @escaping @MainActor () -> TimeInterval = { NativeBrowserOAuthEarlyCancel.monotonicSeconds() },
         earlyCancelWindow: TimeInterval? = NativeBrowserOAuthEarlyCancel.platformWindow,
-        presentedUI: @escaping @MainActor () -> ObjectIdentifier? = { SpoonjoyAuthenticationPresentationContextProvider.presentedUI() },
+        systemUIWatch: SpoonjoySystemUIWatch? = nil,
         pause: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) }
     ) {
         self.oauthCallback = callbackURL
@@ -74,7 +161,7 @@ final class SpoonjoyWebAuthenticationSession {
         self.cancellationHandler = cancellationHandler
         self.uptime = uptime
         self.earlyCancelWindow = earlyCancelWindow
-        self.presentedUI = presentedUI
+        self.systemUIWatch = systemUIWatch ?? SpoonjoySystemUIWatch()
         self.pause = pause
     }
 
@@ -121,32 +208,6 @@ final class SpoonjoyWebAuthenticationSession {
     func start(authorizationURL: URL, oauthState _: OAuthState) throws -> Bool {
         _ = try OAuthRedirectValidator.validate(oauthCallback)
         self.authorizationURL = authorizationURL
-        // The system prompt ("Spoonjoy wants to use spoonjoy.app to sign in") always comes before the sheet and makes
-        // the app resign active, so a cancel after that is the person's and is never retried.
-        if resignObserver == nil {
-            resignObserver = NotificationCenter.default.addObserver(
-                forName: Self.resignActiveNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    self?.systemUIAppeared = true
-                }
-            }
-        }
-        #if os(macOS)
-        // On macOS the prompt and sheet attach to the app's own window, so the app may stay active. A window beginning
-        // a sheet or resigning key counts too; one from another window only skips a retry.
-        if sheetObservers.isEmpty {
-            sheetObservers = [NSWindow.willBeginSheetNotification, NSWindow.didResignKeyNotification].map { name in
-                NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                    MainActor.assumeIsolated {
-                        self?.systemUIAppeared = true
-                    }
-                }
-            }
-        }
-        #endif
         return startSession(authorizationURL)
     }
 
@@ -172,11 +233,11 @@ final class SpoonjoyWebAuthenticationSession {
         // Never ephemeral: the iOS early-cancel retry relies on the "wants to use spoonjoy.app to sign in" prompt, which
         // only a non-ephemeral session shows, to tell the person's Cancel from the system's (NativeBrowserOAuthEarlyCancel).
         session.prefersEphemeralWebBrowserSession = false
+        systemUIWatch.begin(anchor: session.presentationAnchor)
         let didStart = session.start()
         activeSession = didStart ? session : nil
         if didStart {
             sessionStartedAt = uptime()
-            presentedAtStart = presentedUI()
             Self.logger.notice("\(NativeBrowserOAuthEarlyCancel.startedMessage, privacy: .public)")
         }
         return didStart
@@ -187,7 +248,8 @@ final class SpoonjoyWebAuthenticationSession {
     /// Every other end goes to the cancellation handler at once, as before.
     private func sessionEnded(_ error: Error?) {
         let elapsed = sessionStartedAt.map { uptime() - $0 }
-        let presentedViewController = presentedUI() != presentedAtStart
+        let systemUIAppeared = systemUIWatch.systemUIAppeared
+        let presentedViewController = systemUIWatch.checkPresentedViewController()
         guard let authorizationURL,
               NativeBrowserOAuthEarlyCancel.shouldRetry(
                   error: error,
@@ -227,23 +289,6 @@ final class SpoonjoyWebAuthenticationSession {
 
     /// The pending retry after an early cancel, if any; tests await it.
     private(set) var retryTask: Task<Void, Never>?
-
-    deinit {
-        if let resignObserver {
-            NotificationCenter.default.removeObserver(resignObserver)
-        }
-        #if os(macOS)
-        sheetObservers.forEach { NotificationCenter.default.removeObserver($0) }
-        #endif
-    }
-
-    private static var resignActiveNotification: Notification.Name {
-        #if os(macOS)
-        NSApplication.willResignActiveNotification
-        #else
-        UIApplication.willResignActiveNotification
-        #endif
-    }
 
     private func callbackDescriptor(for callbackURL: URL) -> SpoonjoyWebAuthenticationCallback {
         if callbackURL.scheme?.lowercased() == "http",
@@ -451,6 +496,10 @@ final class SpoonjoySystemWebAuthenticationSession: SpoonjoyWebAuthenticationSes
         set { session.prefersEphemeralWebBrowserSession = newValue }
     }
 
+    var presentationAnchor: ASPresentationAnchor? {
+        (presentationContextProvider as? SpoonjoyAuthenticationPresentationContextProvider)?.anchor
+    }
+
     func start() -> Bool {
         session.start()
     }
@@ -461,7 +510,7 @@ final class SpoonjoySystemWebAuthenticationSession: SpoonjoyWebAuthenticationSes
 }
 
 private final class SpoonjoyAuthenticationPresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
-    private let anchor: ASPresentationAnchor
+    let anchor: ASPresentationAnchor
 
     @MainActor
     static func make() -> SpoonjoyAuthenticationPresentationContextProvider? {
@@ -480,17 +529,17 @@ private final class SpoonjoyAuthenticationPresentationContextProvider: NSObject,
         anchor
     }
 
-    /// The topmost view controller presented on the anchor window (on macOS, its attached sheet), or nil.
+    /// The topmost view controller presented on `anchor` (on macOS, its attached sheet), or nil.
     @MainActor
-    static func presentedUI() -> ObjectIdentifier? {
+    static func presentedUI(on anchor: ASPresentationAnchor?) -> ObjectIdentifier? {
         #if os(iOS) || os(tvOS) || os(visionOS)
-        var presented = (preferredPresentationAnchor as UIWindow?)?.rootViewController?.presentedViewController
+        var presented = anchor?.rootViewController?.presentedViewController
         while let next = presented?.presentedViewController {
             presented = next
         }
         return presented.map(ObjectIdentifier.init)
         #elseif os(macOS)
-        return preferredPresentationAnchor?.attachedSheet.map(ObjectIdentifier.init)
+        return anchor?.attachedSheet.map(ObjectIdentifier.init)
         #else
         return nil
         #endif
