@@ -1,0 +1,65 @@
+name: Changelog
+
+# A pull request that changes the app adds a changelog fragment in changes/ (changes/README.md), or carries the
+# no-user-facing-change label. Labelling or unlabelling reruns only this small job, never Native.
+# In the merge queue the pull request has already passed this check, so the entry only revalidates the fragments
+# together with the entries ahead of it (the assembled What's New must still fit the App Store's limit).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  merge_group:
+
+concurrency:
+  group: changelog-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  fragment:
+    name: Changelog fragment
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+      - name: Test the changelog tooling
+        run: ruby scripts/test/changelog_test.rb
+      - name: Check this pull request's fragment
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: ruby scripts/changelog.rb check-pr --base "$BASE_SHA" --head "$HEAD_SHA" --labels "$LABELS"
+      # A version change must archive every fragment main is holding, including ones that merged after the pull
+      # request branched, so the queue checks the version rule again against main as it really is.
+      - name: Check the version rule against main
+        if: github.event_name == 'merge_group'
+        env:
+          BASE_SHA: ${{ github.event.merge_group.base_sha }}
+        run: ruby scripts/changelog.rb check-pr --base "$BASE_SHA" --head HEAD --version-only
+      - name: Validate the waiting fragments
+        run: ruby scripts/changelog.rb validate
+      - name: Show What's New as the App Store will
+        run: |
+          {
+            echo "### What's New (iPhone and iPad)"
+            echo '```text'
+            ruby scripts/changelog.rb whats-new --platform IOS
+            echo '```'
+            echo "### What's New (Mac)"
+            echo '```text'
+            ruby scripts/changelog.rb whats-new --platform MAC_OS
+            echo '```'
+            echo "### TestFlight What to Test"
+            echo '```text'
+            ruby scripts/changelog.rb testflight-notes --since "$(git rev-parse HEAD^1)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

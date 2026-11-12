@@ -50,14 +50,15 @@ The app must feel native and still unmistakably Spoonjoy.
 - Do not self-approve. When approval is needed, use unbiased harsh sub-agent reviewers.
 - Ask the human only for true human-only blockers: credentials, billing/subscription changes, private account actions, unavailable hardware, secrets, destructive production operations with no safe staged path, or product decisions the user has not already delegated.
 - While a version is with App Review, check for open `app-review` issues and the release workflow's `status` at the start of every session; see `docs/apple-distribution.md#app-review`.
-- `main` builds the next version (1.2). A fix for a version already with App Review goes by pull request to that version's release branch (today `release/1.0-resubmit` for iOS 1.0 and `release/1.1` for Mac 1.1; the open `app-review` issues show each platform's version), never by holding `main` back; TestFlight, "Stage App Store listing" and "Submit for App Review" take `release_branch` set to that branch to build, stage and submit from it. Port the fix to `main` too when it still applies. See `docs/apple-distribution.md#release-branches`.
+- `main` builds the next version (1.3). A fix for a version already with App Review goes by pull request to that version's release branch (today `release/1.1` for Mac 1.1 and `release/1.2` for iOS 1.2 and Mac 1.2; the open `app-review` issues show each platform's version), never by holding `main` back; TestFlight, "Stage App Store listing" and "Submit for App Review" take `release_branch` set to that branch to build, stage and submit from it. Port the fix to `main` too when it still applies. See `docs/apple-distribution.md#release-branches`.
 - Completion standard is full moon: defer nothing that is part of the accepted scope. Use multiple atomic PRs until the app is complete and validated.
 
 ## Git Workflow
 
 - Work on agent-scoped branches like `slugger/native-apple-bootstrap`.
 - Keep commits atomic and push after each commit.
-- Required checks on `main` are `Swift tests`, `Native scenario verifier`, `App bundle`, `Contracts`, and `Reins journeys`.
+- Required checks on `main` are `Swift tests`, `Native scenario verifier`, `App bundle`, `Contracts`, and `Reins journeys` from Native, and `Changelog fragment` from `changelog.yml`.
+- A pull request that changes what someone using the app could notice adds a changelog fragment in `changes/`: a short harrowing tale for What's New and one plain line for TestFlight ([changes/README.md](changes/README.md), voice in [docs/whats-new-voice.md](docs/whats-new-voice.md)). Every sentence must be true of the change. The `Changelog fragment` check (`changelog.yml`) fails an app change without one; label the pull request `no-user-facing-change` when nobody could notice it.
 - Optional macOS checks never run beside the required ones on a pull request: Native calls them after every required check passes (README, CI). Never add a `pull_request` trigger to a macOS workflow; add a call in `native.yml` instead.
 
 ## Validation
