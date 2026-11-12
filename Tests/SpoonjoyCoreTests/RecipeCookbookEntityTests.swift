@@ -399,21 +399,21 @@ struct RecipeCookbookEntityTests {
             id: "recipe_qa_toast",
             title: "QA Toast",
             chef: lemon.chef,
-            canonicalURL: try #require(URL(string: "https://spoonjoy-v2-qa.mendelow-studio.workers.dev/recipes/recipe_qa_toast"))
+            canonicalURL: URL(string: "https://spoonjoy-v2-qa.mendelow-studio.workers.dev/recipes/recipe_qa_toast")
         )
         let foreignRecipe = Self.recipeVariant(
             lemon,
             id: "recipe_foreign_toast",
             title: "Foreign Toast",
             chef: lemon.chef,
-            canonicalURL: try #require(URL(string: "https://evil.example/recipes/recipe_foreign_toast"))
+            canonicalURL: URL(string: "https://evil.example/recipes/recipe_foreign_toast")
         )
         let qaCookbook = Self.cookbookVariant(
             weeknights,
             id: "cookbook_qa_suppers",
             title: "QA Suppers",
             chef: weeknights.chef,
-            canonicalURL: try #require(URL(string: "https://spoonjoy-v2-qa.mendelow-studio.workers.dev/cookbooks/cookbook_qa_suppers"))
+            canonicalURL: URL(string: "https://spoonjoy-v2-qa.mendelow-studio.workers.dev/cookbooks/cookbook_qa_suppers")
         )
         let catalog = RecipeCookbookEntityCatalog(
             syncSnapshot: try Self.syncSnapshot(records: [
