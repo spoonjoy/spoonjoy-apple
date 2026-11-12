@@ -206,7 +206,7 @@ struct OpenSearchShareCookIntentTests {
                     label: "SearchSpoonjoyIntent",
                     pattern: #"struct\s+SearchSpoonjoyIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "@Parameter(title: \"Query\")",
+                        "@Parameter(title: \"Query\", requestValueDialog: \"What should I look for in Spoonjoy?\")",
                         "var scope: SpoonjoySearchScopeOption",
                         "NativeIntentActionResolver().searchSpoonjoy(query: query, scope: scope.searchScope)",
                         "OpenURLIntent(action.url)"
