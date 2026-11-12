@@ -165,12 +165,42 @@ final class SpoonjoyBrowserOAuthWebSession: NativeBrowserOAuthWebSession {
         )
     }
 
+    private(set) var systemUIAppeared = false
+    // Written once on the main actor in start(); read only in deinit. NotificationCenter removal is thread-safe.
+    nonisolated(unsafe) private var resignObserver: (any NSObjectProtocol)?
+
     func start() -> Bool {
-        (try? session?.start(authorizationURL: authorizationURL)) == true
+        // The system prompt ("Spoonjoy wants to use spoonjoy.app to sign in") always comes before the sheet and makes
+        // the app resign active, so a cancel after that is the person's. NativeBrowserOAuthSignIn retries only a
+        // cancel with nothing shown.
+        resignObserver = NotificationCenter.default.addObserver(
+            forName: Self.resignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.systemUIAppeared = true
+            }
+        }
+        return (try? session?.start(authorizationURL: authorizationURL)) == true
     }
 
     func cancel() {
         session?.cancel()
+    }
+
+    deinit {
+        if let resignObserver {
+            NotificationCenter.default.removeObserver(resignObserver)
+        }
+    }
+
+    private static var resignActiveNotification: Notification.Name {
+        #if os(macOS)
+        NSApplication.willResignActiveNotification
+        #else
+        UIApplication.willResignActiveNotification
+        #endif
     }
 }
 

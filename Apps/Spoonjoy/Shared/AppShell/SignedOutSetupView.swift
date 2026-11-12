@@ -431,6 +431,7 @@ struct SignedOutSetupView: View {
 
         let signIn = browserSignIn ?? NativeBrowserOAuthSignIn(
             repository: authRepository,
+            log: { Self.browserSignInLogger.notice("\($0, privacy: .public)") },
             makeSession: SpoonjoyBrowserOAuthWebSession.make
         )
         browserSignIn = signIn
@@ -479,9 +480,8 @@ struct SignedOutSetupView: View {
         case .failed:
             statusTone = .error
             authStatus = "Could not finish browser sign-in. Try again."
-        case let .canceled(error):
-            let reason = error.map(NativeBrowserOAuthSignIn.diagnosticReason) ?? "closed by the app"
-            Self.browserSignInLogger.error("Browser sign-in ended without a callback: \(reason, privacy: .public)")
+        case .canceled:
+            // NativeBrowserOAuthSignIn logs the cancel's domain, code and timing.
             statusTone = .neutral
             authStatus = "Browser sign-in canceled."
         case .superseded:

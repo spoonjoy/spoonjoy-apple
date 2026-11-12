@@ -51,41 +51,22 @@ final class BrowserSignInCallbackUITests: XCTestCase {
         // iOS asks before ASWebAuthenticationSession shares the browser's cookies with the app. SpringBoard hosts the
         // alert on some iOS versions and the app on others.
         let prompts = [springboard.buttons["Continue"], app.alerts.buttons["Continue"]]
-        let status = element("native sign-in status")
-        let attempts = 4
-        for attempt in 1...attempts {
-            google.tap()
-            let tappedAt = Date()
-            // The app registers its client over the network before the session starts, so the prompt can be slow.
-            let promptDeadline = tappedAt.addingTimeInterval(Self.networkTimeout)
-            var selfCanceled = false
-            while Date() < promptDeadline, !prompts.contains(where: \.exists) {
-                // After a retry the status still reads canceled from the attempt before, so a retry's own cancel is
-                // only counted once the prompt has had 5 s to appear.
-                let settled = attempt == 1 || Date().timeIntervalSince(tappedAt) > 5
-                if settled, status.exists, status.label.localizedCaseInsensitiveContains("canceled") {
-                    selfCanceled = true
-                    break
-                }
-                RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-            }
-            if let allow = prompts.first(where: \.exists) {
-                screenshot("01-system-prompt")
-                allow.tap()
-                break
-            }
-            // Runs 43191690879 and 43214640448: the session ended with ASWebAuthenticationSessionError 1 before any
-            // prompt, in the same millisecond swcd began re-fetching spoonjoy.app's association because the app's
-            // install identity had changed. In run 43239521975 swcd only began the download 10 s later, and a retry
-            // then canceled too. Nobody can cancel a prompt that never appeared, so the test retries every 20 s, up to
-            // a minute, recording each one; if every attempt cancels, the test fails. This is not a retry around a
-            // flaky tap (AGENTS.md forbids those): it fires only on that error before any UI, which the first attempt
-            // causes by making swcd notice the reinstall, and spoonjoy-apple#320 records it.
-            guard selfCanceled, attempt < attempts else { break }
-            screenshot("01-self-canceled-before-prompt-\(attempt)")
-            XCTContext.runActivity(named: "Self-cancel before any prompt on attempt \(attempt); retrying") { _ in }
-            RunLoop.current.run(until: Date().addingTimeInterval(20))
+        // One tap only. After the workflow's reinstall, iOS often ends the first session itself (canceledLogin, code 1,
+        // before any prompt) while swcd re-fetches spoonjoy.app's association (spoonjoy-apple#320). The app now starts
+        // one fresh session after such an early cancel (NativeBrowserOAuthSignIn), and this test proves that: the
+        // prompt must appear from this single tap. The app's log in the run's swc.log shows whether the retry fired.
+        google.tap()
+        // The app registers its client over the network before the session starts, so the prompt can be slow.
+        let promptDeadline = Date().addingTimeInterval(Self.networkTimeout)
+        while Date() < promptDeadline, !prompts.contains(where: \.exists) {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }
+        let allow = try XCTUnwrap(
+            prompts.first(where: \.exists),
+            "No sign-in prompt after one tap. App status: \(element("native sign-in status").label)"
+        )
+        screenshot("01-system-prompt")
+        allow.tap()
 
         let identifier = try XCTUnwrap(
             webElement(.textField, label: "Username or email", timeout: Self.networkTimeout),

@@ -6,6 +6,10 @@ public protocol NativeBrowserOAuthWebSession: AnyObject {
     /// Shows the sheet; false when the system refused to.
     func start() -> Bool
     func cancel()
+    /// True once anything the system shows for this session has appeared since `start()`: on iOS the "wants to use
+    /// spoonjoy.app to sign in" prompt, which always comes before the sheet and makes the app resign active. A cancel
+    /// after that came from the person, never from the system.
+    var systemUIAppeared: Bool { get }
 }
 
 /// Makes the sheet for one attempt. `completion` gets the callback URL, or nil and an error when the sheet closed
@@ -87,6 +91,9 @@ public final class NativeBrowserOAuthSignIn {
     private let gate: NativeBrowserOAuthGate
     private let makeSession: NativeBrowserOAuthWebSessionFactory
     private let randomSecret: @MainActor () -> String
+    private let uptime: @MainActor () -> TimeInterval
+    private let pause: @MainActor (Duration) async -> Void
+    private let log: @MainActor (String) -> Void
 
     public private(set) var attempt: Attempt?
     /// Why the last `begin` returned `.couldNotOpen`: a `NativeBrowserOAuthStartFailure`, or the registration's own
@@ -97,16 +104,30 @@ public final class NativeBrowserOAuthSignIn {
     private var onReturn: (@MainActor () -> Void)?
     private var isStarting = false
     private var isFinishing = false
+    private var redirectURI: URL?
+    private var sessionStartedAt: TimeInterval?
+    private var retriedAttemptID: UUID?
+
+    /// A cancel this soon after `start()`, with nothing shown, came from the system, not the person.
+    public static let earlyCancelWindow: TimeInterval = 1.5
+    /// How long to wait before the one retry, so a system fetch the cancel came from can finish.
+    public static let earlyCancelRetryDelay: Duration = .milliseconds(750)
 
     public init(
         repository: NativeAuthSessionRepository,
         gate: NativeBrowserOAuthGate = .shared,
         randomSecret: @escaping @MainActor () -> String = OAuthPKCE.randomVerifier,
+        uptime: @escaping @MainActor () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+        pause: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) },
+        log: @escaping @MainActor (String) -> Void = { _ in },
         makeSession: @escaping NativeBrowserOAuthWebSessionFactory
     ) {
         self.repository = repository
         self.gate = gate
         self.randomSecret = randomSecret
+        self.uptime = uptime
+        self.pause = pause
+        self.log = log
         self.makeSession = makeSession
     }
 
@@ -153,9 +174,8 @@ public final class NativeBrowserOAuthSignIn {
         }
 
         let id = UUID()
-        let session = makeSession(start.authorizationURL, start.redirectURI) { [weak self] callbackURL, error in
-            await self?.complete(attemptID: id, callbackURL: callbackURL, error: error)
-        }
+        let session = makeSheet(attemptID: id, authorizationURL: start.authorizationURL, redirectURI: start.redirectURI)
+        redirectURI = start.redirectURI
         attempt = Attempt(
             id: id,
             provider: provider,
@@ -177,6 +197,8 @@ public final class NativeBrowserOAuthSignIn {
             startFailure = NativeBrowserOAuthStartFailure.sheetRefused
             return .couldNotOpen
         }
+        sessionStartedAt = uptime()
+        log("Browser sign-in sheet started")
         return .opened(authorizationURL: start.authorizationURL)
     }
 
@@ -215,12 +237,27 @@ public final class NativeBrowserOAuthSignIn {
         guard let attempt, attempt.id == attemptID, let finish = onFinish else {
             return
         }
-        let returned = onReturn
-        clear(attemptID: attemptID)
         guard let callbackURL else {
+            let elapsed = sessionStartedAt.map { uptime() - $0 }
+            let reason = error.map(Self.diagnosticReason) ?? "no error"
+            let milliseconds = elapsed.map { String(Int(($0 * 1000).rounded())) } ?? "unknown"
+            if Self.isSystemCancel(error),
+               let elapsed, elapsed < Self.earlyCancelWindow,
+               session?.systemUIAppeared == false,
+               retriedAttemptID != attemptID {
+                retriedAttemptID = attemptID
+                log("Browser sign-in early cancel: \(reason) after \(milliseconds) ms with nothing shown; retrying once")
+                await retry(attempt: attempt, error: error)
+                return
+            }
+            log("Browser sign-in ended without a callback: \(reason) after \(milliseconds) ms")
+            clear(attemptID: attemptID)
             finish(.canceled(error))
             return
         }
+        let returned = onReturn
+        clear(attemptID: attemptID)
+        log("Browser sign-in callback received")
 
         isFinishing = true
         defer { isFinishing = false }
@@ -237,6 +274,41 @@ public final class NativeBrowserOAuthSignIn {
         }
     }
 
+    /// ASWebAuthenticationSessionError.canceledLogin: what the system reports both for the person's Cancel and for
+    /// a session it ends by itself.
+    static func isSystemCancel(_ error: (any Error)?) -> Bool {
+        guard let error else { return false }
+        let nsError = error as NSError
+        return nsError.domain == "com.apple.AuthenticationServices.WebAuthenticationSession" && nsError.code == 1
+    }
+
+    /// Starts one fresh sheet for the same attempt after a short pause. A cancel, a newer start or a callback during
+    /// the pause wins: the retry only runs while this attempt is still the open one.
+    private func retry(attempt: Attempt, error: (any Error)?) async {
+        session = nil
+        sessionStartedAt = nil
+        await pause(Self.earlyCancelRetryDelay)
+        guard self.attempt?.id == attempt.id, let redirectURI, let finish = onFinish else {
+            return
+        }
+        let sheet = makeSheet(attemptID: attempt.id, authorizationURL: attempt.authorizationURL, redirectURI: redirectURI)
+        session = sheet
+        guard sheet.start() else {
+            log("Browser sign-in retry did not start")
+            clear(attemptID: attempt.id)
+            finish(.canceled(error))
+            return
+        }
+        sessionStartedAt = uptime()
+        log("Browser sign-in retried: sheet started again")
+    }
+
+    private func makeSheet(attemptID: UUID, authorizationURL: URL, redirectURI: URL) -> any NativeBrowserOAuthWebSession {
+        makeSession(authorizationURL, redirectURI) { [weak self] callbackURL, error in
+            await self?.complete(attemptID: attemptID, callbackURL: callbackURL, error: error)
+        }
+    }
+
     private func supersede(attemptID: UUID) {
         // Only the gate calls this, while this attempt still holds it, so the attempt is always the open one.
         guard attempt?.id == attemptID else { return }
@@ -249,6 +321,8 @@ public final class NativeBrowserOAuthSignIn {
     private func clear(attemptID: UUID) {
         attempt = nil
         session = nil
+        sessionStartedAt = nil
+        redirectURI = nil
         onFinish = nil
         onReturn = nil
         gate.release(attemptID)

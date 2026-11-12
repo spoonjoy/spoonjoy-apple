@@ -111,6 +111,126 @@ struct BrowserSignInTests {
         #expect(NativeBrowserOAuthSignIn.diagnosticReason(bare) == "offline status none request none")
     }
 
+    @Test("a system cancel right after start, with nothing shown, starts one fresh sheet for the same attempt")
+    func earlyCancelRetriesOnce() async throws {
+        let harness = Harness()
+        let finishes = FinishLog()
+        _ = await harness.flow.begin(provider: .google) { finishes.record($0) }
+        let attempt = try #require(harness.flow.attempt)
+
+        harness.clock.advance(0.2)
+        await harness.sheets.close(0, error: systemCancel)
+
+        #expect(finishes.names.isEmpty)
+        #expect(harness.flow.attempt == attempt)
+        #expect(harness.pauses.all == [NativeBrowserOAuthSignIn.earlyCancelRetryDelay])
+        #expect(harness.sheets.opened.map(\.authorizationURL) == [attempt.authorizationURL, attempt.authorizationURL])
+        #expect(harness.sheets.sessions.map(\.startCount) == [1, 1])
+        #expect(harness.gate.activeAttemptID == attempt.id)
+
+        await harness.sheets.complete(1, with: serverCallback(code: "oac_code", state: attempt.state))
+        #expect(finishes.names == ["signedIn"])
+        #expect(await harness.network.exchanges.map(\.codeVerifier) == [attempt.codeVerifier])
+        #expect(harness.logs.lines == [
+            "Browser sign-in sheet started",
+            "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 200 ms with nothing shown; retrying once",
+            "Browser sign-in retried: sheet started again",
+            "Browser sign-in callback received"
+        ])
+    }
+
+    @Test("a second early cancel in the same attempt finishes as canceled")
+    func secondEarlyCancelFinishes() async throws {
+        let harness = Harness()
+        let finishes = FinishLog()
+        _ = await harness.flow.begin(provider: .google) { finishes.record($0) }
+
+        harness.clock.advance(0.2)
+        await harness.sheets.close(0, error: systemCancel)
+        harness.clock.advance(0.2)
+        await harness.sheets.close(1, error: systemCancel)
+
+        #expect(finishes.names == ["canceled"])
+        #expect(harness.sheets.sessions.count == 2)
+        #expect(harness.flow.attempt == nil)
+        #expect(harness.gate.activeAttemptID == nil)
+    }
+
+    @Test("a cancel by the person never starts the sheet again: after the window, after the prompt showed, or another error")
+    func personCancelDoesNotRetry() async throws {
+        let late = Harness()
+        let lateFinishes = FinishLog()
+        _ = await late.flow.begin(provider: .google) { lateFinishes.record($0) }
+        late.clock.advance(NativeBrowserOAuthSignIn.earlyCancelWindow + 0.1)
+        await late.sheets.close(0, error: systemCancel)
+        #expect(lateFinishes.names == ["canceled"])
+        #expect(late.sheets.sessions.count == 1)
+
+        let shown = Harness()
+        let shownFinishes = FinishLog()
+        _ = await shown.flow.begin(provider: .google) { shownFinishes.record($0) }
+        shown.sheets.sessions[0].systemUIAppeared = true
+        shown.clock.advance(0.3)
+        await shown.sheets.close(0, error: systemCancel)
+        #expect(shownFinishes.names == ["canceled"])
+        #expect(shown.sheets.sessions.count == 1)
+
+        let other = Harness()
+        let otherFinishes = FinishLog()
+        _ = await other.flow.begin(provider: .google) { otherFinishes.record($0) }
+        other.clock.advance(0.1)
+        await other.sheets.close(0, error: URLError(.userCancelledAuthentication))
+        #expect(otherFinishes.names == ["canceled"])
+        #expect(other.sheets.sessions.count == 1)
+        #expect(other.pauses.all.isEmpty)
+    }
+
+    @Test("a cancel by the app never starts the sheet again")
+    func appCancelDoesNotRetry() async throws {
+        let harness = Harness()
+        let finishes = FinishLog()
+        _ = await harness.flow.begin(provider: .google) { finishes.record($0) }
+        harness.flow.cancel()
+        #expect(finishes.names == ["canceled"])
+        #expect(harness.sheets.sessions.count == 1)
+        #expect(harness.pauses.all.isEmpty)
+    }
+
+    @Test("a newer start or the app's cancel during the retry pause wins, and the old retry never starts a sheet")
+    func supersedeDuringRetryPause() async throws {
+        let gate = NativeBrowserOAuthGate()
+        let latchA = Latch()
+        let windowA = Harness(gate: gate, pauseLatch: latchA)
+        let windowB = Harness(gate: gate)
+        let finishesA = FinishLog()
+        _ = await windowA.flow.begin(provider: .google) { finishesA.record($0) }
+        windowA.clock.advance(0.2)
+        let closing = Task { await windowA.sheets.close(0, error: systemCancel) }
+        await latchA.waitUntilReached()
+
+        _ = await windowB.flow.begin(provider: .google) { _ in }
+        #expect(finishesA.names == ["superseded"])
+        await latchA.open()
+        await closing.value
+        #expect(windowA.sheets.sessions.count == 1)
+        #expect(windowA.flow.attempt == nil)
+        #expect(gate.activeAttemptID == windowB.flow.attempt?.id)
+
+        let latchC = Latch()
+        let windowC = Harness(pauseLatch: latchC)
+        let finishesC = FinishLog()
+        _ = await windowC.flow.begin(provider: .google) { finishesC.record($0) }
+        windowC.clock.advance(0.2)
+        let closingC = Task { await windowC.sheets.close(0, error: systemCancel) }
+        await latchC.waitUntilReached()
+        windowC.flow.cancel()
+        await latchC.open()
+        await closingC.value
+        #expect(finishesC.names == ["canceled"])
+        #expect(windowC.sheets.sessions.count == 1)
+        #expect(!windowC.flow.isInProgress)
+    }
+
     @Test("each tap starts a fresh attempt with its own state, verifier and sheet")
     func eachTapStartsAFreshAttempt() async throws {
         let harness = Harness()
@@ -425,6 +545,9 @@ private final class Harness {
     let gate: NativeBrowserOAuthGate
     let repository: NativeAuthSessionRepository
     let flow: NativeBrowserOAuthSignIn
+    let clock = TestClock()
+    let pauses = PauseLog()
+    let logs = LogLines()
 
     init(
         gate: NativeBrowserOAuthGate = NativeBrowserOAuthGate(),
@@ -432,7 +555,8 @@ private final class Harness {
         registrationFails: Bool = false,
         registrationLatch: Latch? = nil,
         exchangeLatch: Latch? = nil,
-        randomSecret: @escaping @MainActor () -> String = OAuthPKCE.randomVerifier
+        randomSecret: @escaping @MainActor () -> String = OAuthPKCE.randomVerifier,
+        pauseLatch: Latch? = nil
     ) {
         let vault = InMemoryTokenVault()
         let network = NetworkSpy(
@@ -462,10 +586,42 @@ private final class Harness {
             repository: repository,
             gate: gate,
             randomSecret: randomSecret,
+            uptime: { [clock] in clock.now },
+            pause: { [pauses] duration in
+                pauses.record(duration)
+                await pauseLatch?.reach()
+            },
+            log: { [logs] in logs.lines.append($0) },
             makeSession: sheets.make
         )
     }
 }
+
+@MainActor
+private final class TestClock {
+    var now: TimeInterval = 1000
+
+    func advance(_ seconds: TimeInterval) {
+        now += seconds
+    }
+}
+
+@MainActor
+private final class PauseLog {
+    private(set) var all: [Duration] = []
+
+    func record(_ duration: Duration) {
+        all.append(duration)
+    }
+}
+
+@MainActor
+private final class LogLines {
+    var lines: [String] = []
+}
+
+/// ASWebAuthenticationSessionError.canceledLogin, as the system reports it.
+private let systemCancel = NSError(domain: "com.apple.AuthenticationServices.WebAuthenticationSession", code: 1)
 
 @MainActor
 private final class FinishLog {
@@ -587,8 +743,8 @@ private final class FakeSheets {
         await opened[index].completion(callbackURL, nil)
     }
 
-    func close(_ index: Int) async {
-        await opened[index].completion(nil, URLError(.userCancelledAuthentication))
+    func close(_ index: Int, error: any Error = URLError(.userCancelledAuthentication)) async {
+        await opened[index].completion(nil, error)
     }
 }
 
@@ -597,6 +753,7 @@ private final class FakeSheet: NativeBrowserOAuthWebSession {
     private let startResult: Bool
     private(set) var startCount = 0
     private(set) var cancelCount = 0
+    var systemUIAppeared = false
 
     init(startResult: Bool) {
         self.startResult = startResult
