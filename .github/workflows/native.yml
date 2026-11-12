@@ -122,7 +122,7 @@ jobs:
     # Lane b of 3: see the note on macOS lanes at the top of native.yml.
     concurrency:
       group: >-
-        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push' || startsWith(github.base_ref, 'release/'))
         && format('native-swift-tests-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
         || 'spoonjoy-macos-lane-b' }}
       queue: max
@@ -155,7 +155,7 @@ jobs:
     # Lane b of 3: see the note on macOS lanes at the top of native.yml.
     concurrency:
       group: >-
-        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push' || startsWith(github.base_ref, 'release/'))
         && format('native-reins-journeys-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
         || 'spoonjoy-macos-lane-b' }}
       queue: max
@@ -200,7 +200,7 @@ jobs:
     # Lane b of 3: see the note on macOS lanes at the top of native.yml.
     concurrency:
       group: >-
-        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push' || startsWith(github.base_ref, 'release/'))
         && format('native-native-scenario-verifier-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
         || 'spoonjoy-macos-lane-b' }}
       queue: max
@@ -240,7 +240,7 @@ jobs:
     # Lane a of 3: see the note on macOS lanes at the top of native.yml.
     concurrency:
       group: >-
-        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push' || startsWith(github.base_ref, 'release/'))
         && format('native-app-bundle-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
         || 'spoonjoy-macos-lane-a' }}
       queue: max
@@ -337,7 +337,7 @@ jobs:
     # Lane c of 3: see the note on macOS lanes at the top of native.yml.
     concurrency:
       group: >-
-        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push' || startsWith(github.base_ref, 'release/'))
         && format('native-app-intents-xray-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
         || 'spoonjoy-macos-lane-c' }}
       queue: max
