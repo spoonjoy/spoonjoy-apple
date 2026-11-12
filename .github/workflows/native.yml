@@ -190,7 +190,7 @@ jobs:
     # refused (ReinsNetworkGuard), so no simulator, QA server or account is involved. It is the required "Reins journeys" check.
     name: Reins journeys
     needs: mac-runner
-    # !cancelled(): Reins journeys still runs when the Mac runner job it needs is skipped (pull requests) or fails.
+    # !cancelled(): Reins journeys still runs when the Mac runner job it needs fails (then it runs hosted).
     if: ${{ !cancelled() }}
     # The local Mac only for merge-queue and main/release push runs whose Mac runner job picked it.
     runs-on: >-
@@ -293,9 +293,9 @@ jobs:
   mac-runner:
     # Picks where App bundle and Reins journeys run on a merge-queue or main/release push run: the local Mac when it is
     # up and idle, otherwise hosted xcode-27 and macos-26 runners (see the note on Ari's Mac at the top of native.yml).
-    # Pull requests skip it.
+    # On pull requests it answers hosted at once. It never skips: a skipped job skips every job downstream whose if has
+    # no status function, which on #334's first run skipped all the optional jobs behind App bundle.
     name: Mac runner
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -330,7 +330,7 @@ jobs:
     # A draft pull request skips App bundle, and with it every optional job (they need it), so drafts fill only
     # lane b and never the 15-20 min App bundle lane. A skipped check can't merge a draft, and ready_for_review
     # reruns Native on the same commit with App bundle. Re-running an old draft run replays draft: true, so it skips again.
-    # !cancelled(): App bundle still runs when Mac runner is skipped (pull requests) or fails (then it runs hosted).
+    # !cancelled(): App bundle still runs when the Mac runner job it needs fails (then it runs hosted).
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     # The local Mac only for merge-queue and main/release push runs whose Mac runner job picked it.
     runs-on: >-

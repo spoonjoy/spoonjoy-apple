@@ -50,9 +50,11 @@ class PickMacRunnerTest < Minitest::Test
     end
   end
 
-  def test_the_mac_runner_job_never_runs_on_pull_requests
+  # A skipped job skips every job downstream whose if has no status function, so a Mac runner job skipped on pull
+  # requests skipped all the optional jobs behind App bundle. It always runs, and on a pull request it answers hosted.
+  def test_the_mac_runner_job_never_skips
     job = native.fetch("jobs").fetch("mac-runner")
-    assert_equal "github.event_name != 'pull_request'", job.fetch("if")
+    refute job.key?("if"), "Mac runner must not skip, or the optional jobs behind App bundle skip with it"
     assert_equal "ubuntu-24.04", job.fetch("runs-on")
     assert_equal true, job.fetch("steps").last.fetch("continue-on-error"), "a failed pick falls back to hosted"
   end

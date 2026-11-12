@@ -26,7 +26,7 @@ class DraftRunsLaneBTest < Minitest::Test
   end
 
   def test_a_draft_skips_app_bundle_only
-    # !cancelled() keeps App bundle running when the Mac runner job it needs is skipped (pull requests) or fails.
+    # !cancelled() keeps App bundle running when the Mac runner job it needs fails (then it runs hosted).
     assert_equal "${{ !cancelled() && (#{DRAFT_SKIP}) }}", jobs.fetch("app-bundle").fetch("if")
     %w[swift-tests reins-journeys native-scenario-verifier contracts].each do |id|
       refute_includes jobs.fetch(id)["if"].to_s, "draft", "#{id} is a required check and must run on a draft"
