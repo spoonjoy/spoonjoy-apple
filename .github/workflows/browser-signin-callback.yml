@@ -1,0 +1,259 @@
+name: Browser sign-in callback
+
+# Proves on an iOS simulator that ASWebAuthenticationSession hands https://spoonjoy.app/oauth/callback back to the app
+# and the app lands signed in (BrowserSignInCallbackUITests), on production. iOS 1.2 lacked webcredentials:spoonjoy.app,
+# so every Google and GitHub sign-in stopped in the sheet.
+#
+# The build is Debug, signed ad hoc with the app's entitlements and Spoonjoy's team, so its application identifier is
+# 743GT2AJ24.app.spoonjoy, an app the AASA lists, and the simulator associates spoonjoy.app through Apple's CDN as a
+# device would. Debug honours SPOONJOY_UI_TEST_BROWSER_SIGN_IN_LOGIN_PAGE, which drops the provider
+# hint so the sheet shows spoonjoy.app/login and the test signs in with a password; Release never reads it.
+#
+# Before dispatching, seed a throwaway production account (never a real person's) and store
+# {"email","username","password"} as the repository secret SPOONJOY_BROWSER_CALLBACK_ACCOUNT. After the run, revoke its
+# tokens, delete its rows and the secret. The secret's account is the only one the run touches.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  callback:
+    name: Browser sign-in callback (iPhone)
+    runs-on: xcode-27
+    # Lane c of 3: see the note on macOS lanes at the top of native.yml. The lane also keeps runs one at a time.
+    concurrency:
+      group: spoonjoy-macos-lane-c
+      queue: max
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/select-xcode
+      - name: Create an iPhone on the newest iOS runtime
+        id: sim
+        timeout-minutes: 26
+        run: |
+          set -euo pipefail
+          .github/scripts/create-and-boot-simulator.sh "iPhone" "browser-callback" "$RUNNER_TEMP/sim.udid"
+          udid="$(cat "$RUNNER_TEMP/sim.udid")"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          echo "booted-at=$(cat "$RUNNER_TEMP/sim.udid.booted-at")" >> "$GITHUB_OUTPUT"
+          mkdir -p "$RUNNER_TEMP/callback/evidence"
+          { (xcrun simctl list devices | grep -B30 -F "$udid" | grep -E '^-- |'"$udid" | tail -2) || true; sw_vers; xcodebuild -version; } | tee "$RUNNER_TEMP/callback/evidence/simulator.txt"
+      - name: Record the AASA from spoonjoy.app and Apple's CDN
+        run: |
+          set -uo pipefail
+          cd "$RUNNER_TEMP/callback/evidence"
+          curl -sS -D aasa-prod.headers -o aasa-prod.json https://spoonjoy.app/.well-known/apple-app-site-association
+          curl -sS -D aasa-cdn.headers -o aasa-cdn.json https://app-site-association.cdn-apple.com/a/v1/spoonjoy.app
+          for f in aasa-prod aasa-cdn; do echo "== $f"; head -1 "$f.headers"; python3 -m json.tool "$f.json" || cat "$f.json"; done
+      - name: Build for testing (Debug, signed ad hoc with the entitlements)
+        timeout-minutes: 30
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          set -euo pipefail
+          xcodebuild build-for-testing -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Debug \
+            -destination "platform=iOS Simulator,id=$UDID" -only-testing:SpoonjoyShoppingUITests/BrowserSignInCallbackUITests \
+            -derivedDataPath "$RUNNER_TEMP/callback/DerivedData" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=743GT2AJ24 PROVISIONING_PROFILE_SPECIFIER= \
+            2>&1 | tee "$RUNNER_TEMP/callback/build.log" | tail -30
+      - name: Record the entitlements the app is signed with
+        run: |
+          set -euo pipefail
+          products="$RUNNER_TEMP/callback/DerivedData/Build/Products/Debug-iphonesimulator"
+          app="$products/Spoonjoy.app"
+          [ -d "$app" ] || { echo "::error::No built Spoonjoy.app"; exit 1; }
+          out="$RUNNER_TEMP/callback/evidence"
+          # What swcd reads on a simulator: the entitlements Xcode puts in the binary's __TEXT,__entitlements section,
+          # from the Simulated .xcent it writes. Both are kept; the .xcent is required, the section must agree.
+          xcent="$(find "$RUNNER_TEMP/callback/DerivedData/Build/Intermediates.noindex" -name 'Spoonjoy.app-Simulated.xcent' -path '*Debug-iphonesimulator*' -print -quit)"
+          [ -n "$xcent" ] || { echo "::error::Xcode wrote no Spoonjoy.app-Simulated.xcent"; exit 1; }
+          cp "$xcent" "$out/entitlements-simulated.xcent.plist"
+          plutil -lint "$out/entitlements-simulated.xcent.plist"
+          codesign -d --entitlements - --xml "$app" > "$out/entitlements-codesign.plist" 2> "$out/entitlements-codesign.stderr" || true
+          exe="$app/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")"
+          otool -s __TEXT __entitlements "$exe" > "$out/entitlements-section.otool.txt"
+          python3 - "$out/entitlements-section.otool.txt" "$out/entitlements-section.plist" <<'PY'
+          import re, sys
+          data = bytearray()
+          for line in open(sys.argv[1]).read().splitlines():
+              tokens = line.split()
+              # Data lines start with a hex address, then hex bytes (2 digits) or little-endian 32-bit words (8 digits).
+              if len(tokens) < 2 or not re.fullmatch(r"[0-9a-f]{8,16}", tokens[0]):
+                  continue
+              for token in tokens[1:]:
+                  if re.fullmatch(r"[0-9a-f]{2}", token):
+                      data += bytes.fromhex(token)
+                  elif re.fullmatch(r"[0-9a-f]{8}", token):
+                      data += bytes.fromhex(token)[::-1]
+          open(sys.argv[2], "wb").write(bytes(data).rstrip(b"\0"))
+          PY
+          for f in entitlements-simulated.xcent.plist entitlements-section.plist entitlements-codesign.plist; do echo "== $f"; cat "$out/$f"; echo; done
+          for f in entitlements-simulated.xcent.plist entitlements-section.plist; do
+            plutil -lint "$out/$f" >/dev/null || { echo "::error::$f is not a plist"; exit 1; }
+            grep -q "<string>webcredentials:spoonjoy.app</string>" "$out/$f" \
+              || { echo "::error::$f does not carry webcredentials:spoonjoy.app"; exit 1; }
+            grep -q "<string>743GT2AJ24.app.spoonjoy</string>" "$out/$f" \
+              || { echo "::error::$f's application identifier is not 743GT2AJ24.app.spoonjoy, so the AASA cannot match it"; exit 1; }
+          done
+      - name: Wait for the simulator to settle
+        timeout-minutes: 8
+        run: python3 .github/scripts/wait-for-simulator-settle.py "${{ steps.sim.outputs.udid }}" --booted-at "${{ steps.sim.outputs.booted-at }}"
+      - name: Install the app and wait until iOS has associated spoonjoy.app
+        # A phone fetches the AASA when the app installs, long before anyone taps. The simulator's swcd only notices
+        # the install some seconds later and fetches a minute after that, and ASWebAuthenticationSession will not take
+        # an https callback for a domain it has not verified (run 43170973110: tap 07:11:14, swcd sync 07:11:21, AASA
+        # fetch 07:12:26). So install and launch first, and wait for swcd to approve spoonjoy.app.
+        timeout-minutes: 10
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          set -uo pipefail
+          out="$RUNNER_TEMP/callback/evidence"
+          app="$RUNNER_TEMP/callback/DerivedData/Build/Products/Debug-iphonesimulator/Spoonjoy.app"
+          xcrun simctl install "$UDID" "$app"
+          xcrun simctl launch "$UDID" app.spoonjoy
+          sleep 5
+          xcrun simctl terminate "$UDID" app.spoonjoy || true
+          started=$SECONDS
+          seen_fetch=""
+          while (( SECONDS - started < 420 )); do
+            xcrun simctl spawn "$UDID" swcutil show > "$out/swcutil-show.txt" 2>&1 || true
+            if grep -A15 -F "spoonjoy.app" "$out/swcutil-show.txt" | grep -qiE "(approved|approval[a-z ]*)[: =]+(yes|true|approved|1)"; then
+              echo "swcutil: spoonjoy.app approved after $(( SECONDS - started )) s"; grep -B3 -A15 -F "spoonjoy.app" "$out/swcutil-show.txt"
+              echo "associated=swcutil" > "$out/association.txt"; exit 0
+            fi
+            if [ -z "$seen_fetch" ] && xcrun simctl spawn "$UDID" log show --style compact --last 15m \
+                 --predicate 'process == "swcd" AND eventMessage CONTAINS "domain: spoonjoy.app"' 2>/dev/null | grep -q "Beginning data task"; then
+              seen_fetch=$SECONDS; echo "swcd began fetching spoonjoy.app after $(( SECONDS - started )) s"
+            fi
+            # Without swcutil, a fetch begun 45 s ago has finished (it takes about a second from the CDN).
+            if [ -n "$seen_fetch" ] && (( SECONDS - seen_fetch >= 45 )); then
+              echo "associated=log ($(( SECONDS - started )) s)" > "$out/association.txt"; cat "$out/association.txt"; exit 0
+            fi
+            sleep 10
+          done
+          echo "::warning::swcd did not approve or fetch spoonjoy.app within 7 minutes; running the test anyway"
+          echo "associated=unknown" > "$out/association.txt"
+      - name: Write the throwaway account file
+        env:
+          ACCOUNT: ${{ secrets.SPOONJOY_BROWSER_CALLBACK_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/callback-secrets"
+          python3 - "$RUNNER_TEMP/callback-secrets/account.json" <<'PY'
+          import json, os, sys
+          raw = os.environ.get("ACCOUNT", "")
+          if not raw:
+              raise SystemExit("SPOONJOY_BROWSER_CALLBACK_ACCOUNT is empty; seed a throwaway account first.")
+          account = json.loads(raw)
+          if not all(account.get(k) for k in ("email", "username", "password")):
+              raise SystemExit("The account secret needs email, username and password.")
+          print(f"::add-mask::{account['password']}")
+          if "'" in account["password"]:
+              raise SystemExit("The throwaway password must not contain a quote; the log redaction stops at one.")
+          if not account["email"].endswith("@example.com"):
+              raise SystemExit("The callback proof only signs in throwaway @example.com accounts.")
+          json.dump(account, open(sys.argv[1], "w"))
+          print(f"Throwaway account: {account['username']} <{account['email']}>")
+          PY
+      - name: Run the callback test
+        timeout-minutes: 20
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          set -euo pipefail
+          # The test runner gets only the path of the 0600 file, so the result bundle records no credential.
+          export TEST_RUNNER_SPOONJOY_BROWSER_CALLBACK_ACCOUNT_FILE="$RUNNER_TEMP/callback-secrets/account.json"
+          date -u +%Y-%m-%dT%H:%M:%SZ > "$RUNNER_TEMP/callback/evidence/test-started-at.txt"
+          xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Debug \
+            -destination "platform=iOS Simulator,id=$UDID" -only-testing:SpoonjoyShoppingUITests/BrowserSignInCallbackUITests \
+            -derivedDataPath "$RUNNER_TEMP/callback/DerivedData" -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -resultBundlePath "$RUNNER_TEMP/callback/BrowserSignInCallback.xcresult" 2>&1 \
+            | sed -E "s/(Type ')[^']*(')/\1<redacted>\2/g" | tee "$RUNNER_TEMP/callback/test.log"
+          date -u +%Y-%m-%dT%H:%M:%SZ > "$RUNNER_TEMP/callback/evidence/test-ended-at.txt"
+          # Pass means one test passed and none skipped or failed, read from the result bundle, not the log's wording.
+          xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/callback/BrowserSignInCallback.xcresult" \
+            | python3 -c 'import json,sys; s=json.load(sys.stdin); print(s); ok=(s.get("passedTests"),s.get("skippedTests"),s.get("failedTests"))==(1,0,0); sys.exit(0 if ok else "::error::The callback test did not pass exactly once (skipped or failed)")'
+      - name: Collect the association log, summary and screenshots
+        if: always()
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          set -uo pipefail
+          out="$RUNNER_TEMP/callback/evidence"
+          mkdir -p "$out/attachments"
+          xcrun simctl spawn "$UDID" log show --style compact --last 30m \
+            --predicate '(subsystem CONTAINS "swc" OR process == "swcd" OR subsystem CONTAINS "AuthenticationServices" OR (subsystem == "app.spoonjoy" AND category BEGINSWITH "auth")) AND NOT eventMessage CONTAINS "compose failure"' > "$out/swc.log" 2>&1 || true
+          tail -60 "$out/swc.log"
+          bundle="$RUNNER_TEMP/callback/BrowserSignInCallback.xcresult"
+          if [ -d "$bundle" ]; then
+            xcrun xcresulttool get test-results summary --path "$bundle" > "$out/xcresult-summary.json" 2>&1 || true
+            xcrun xcresulttool get test-results tests --path "$bundle" > "$out/xcresult-tests.json" 2>&1 || true
+            xcrun xcresulttool export attachments --path "$bundle" --output-path "$out/attachments" > /dev/null 2>&1 || true
+            # The screen recording can show the keyboard's paste suggestion, which displays the password, and the scan
+            # below can't read video, so recordings stay on the runner.
+            find "$out/attachments" -type f \( -name '*.mp4' -o -name '*.mov' \) -exec mv {} "$RUNNER_TEMP/" \;
+            cat "$out/xcresult-summary.json"
+          fi
+      - name: Print crash reports
+        if: always()
+        run: python3 .github/scripts/print-crash-reports.py "$HOME/Library/Logs/DiagnosticReports"
+      - name: Redact and scan artifacts for the password
+        id: scan
+        if: always()
+        env:
+          ACCOUNT: ${{ secrets.SPOONJOY_BROWSER_CALLBACK_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/callback" <<'PY'
+          import json, os, sys
+          raw = os.environ.get("ACCOUNT", "")
+          if not raw:
+              sys.exit(0)
+          needle = json.loads(raw)["password"].encode()
+          # xcodebuild shortens long typed text to its first characters, so a prefix is checked too.
+          prefix = needle[:12]
+          # The test types the password, so xcodebuild's log of the Type step holds it. Redact it everywhere, then
+          # check nothing still holds it.
+          for root, dirs, files in os.walk(sys.argv[1]):
+              dirs[:] = [d for d in dirs if d != "DerivedData" and not d.endswith(".xcresult")]
+              for name in files:
+                  path = os.path.join(root, name)
+                  with open(path, "rb") as handle:
+                      data = handle.read()
+                  if needle in data:
+                      data = data.replace(needle, b"<password>")
+                      with open(path, "wb") as handle:
+                          handle.write(data)
+                      print(f"Redacted the password from {name}")
+                  if prefix in data:
+                      raise SystemExit(f"::error::The password appears in {name}; not uploading")
+          PY
+      - name: Remove credentials
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/callback-secrets/account.json"
+      - name: Upload the evidence
+        if: ${{ !cancelled() && steps.scan.outcome == 'success' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: browser-signin-callback-${{ github.run_attempt }}
+          # The raw .xcresult is not uploaded: its compressed blobs would hide a password from the scan. The summary,
+          # test tree and attachments exported into evidence/ are plain files the scan reads.
+          path: |
+            ${{ runner.temp }}/callback/evidence
+            ${{ runner.temp }}/callback/test.log
+            ${{ runner.temp }}/callback/build.log
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Delete the simulator
+        if: always()
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          if [ -n "$UDID" ]; then xcrun simctl shutdown "$UDID" || true; xcrun simctl delete "$UDID" || true; fi

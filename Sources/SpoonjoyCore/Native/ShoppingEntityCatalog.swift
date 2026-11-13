@@ -408,17 +408,15 @@ public struct ShoppingEntityCatalog: Sendable {
         accountID: String,
         environment: NativeCacheEnvironment
     ) throws -> String {
-        let parts = identifier.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
-        guard parts.count == 5,
-              parts[0] == "shopping-item",
-              parts[1] == environment.rawValue,
-              parts[2] == "schema\(NativeDurableCacheSnapshot.currentSchemaVersion)",
-              parts[3] == accountID,
-              !parts[4].isEmpty
-        else {
+        guard let resourceID = NativeScopedEntityIdentifier.resourceID(
+            from: identifier,
+            kind: "shopping-item",
+            accountID: accountID,
+            environment: environment
+        ) else {
             throw ShoppingEntityCatalogError.invalidIdentifier(identifier)
         }
-        return parts[4]
+        return resourceID
     }
 
     public static func purgeEntityIdentifiers(

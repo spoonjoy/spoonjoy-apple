@@ -1,16 +1,17 @@
 name: Submit for App Review
 
 # Submits a version that "Stage App Store listing" has already prepared. Run it with confirm left empty to see
-# the plan; it submits only when confirm reads exactly "submit <platform> <version>".
+# the plan; it submits only when confirm reads exactly "submit <platform> <version>". BOTH checks iOS and the Mac against
+# the builds TestFlight published from the source commit, then submits iOS and then the Mac ("submit BOTH <version>").
 on:
   workflow_dispatch:
     inputs:
       platform:
-        description: Platform to submit
+        description: Platform to submit. BOTH submits iOS, then the Mac, once both carry the source commit's builds.
         required: true
         default: IOS
         type: choice
-        options: [IOS, MAC_OS]
+        options: [IOS, MAC_OS, BOTH]
       version:
         description: App Store version string, for example 1.0
         required: true
@@ -70,6 +71,14 @@ jobs:
           ref: ${{ steps.green.outputs.sha }}
           path: release-source
           persist-credentials: false
+      # The release train: both versions must carry the builds TestFlight published from this one source commit.
+      - name: Find both platforms' builds from the source commit
+        id: train
+        if: inputs.platform == 'BOTH'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.green.outputs.sha }}
+        run: ruby scripts/release-train-builds.rb --repository "$GITHUB_REPOSITORY" --sha "$SOURCE_SHA" --github-output "$GITHUB_OUTPUT"
       - name: Submit
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
@@ -78,8 +87,13 @@ jobs:
           PLATFORM: ${{ inputs.platform }}
           VERSION: ${{ inputs.version }}
           CONFIRM: ${{ inputs.confirm }}
+          IOS_BUILD_ID: ${{ steps.train.outputs.ios_build_id }}
+          MAC_BUILD_ID: ${{ steps.train.outputs.mac_build_id }}
         run: |
+          set -euo pipefail
           apply=
+          builds=()
+          if [ "$PLATFORM" = "BOTH" ]; then builds=(--build-id "IOS=$IOS_BUILD_ID" --build-id "MAC_OS=$MAC_BUILD_ID"); fi
           if [ "$CONFIRM" = "submit $PLATFORM $VERSION" ]; then
             apply=--apply
           elif [ -n "$CONFIRM" ]; then
@@ -87,4 +101,4 @@ jobs:
             exit 1
           fi
           ruby scripts/submit-app-store-review.rb --platform "$PLATFORM" --version "$VERSION" \
-            --listing release-source/distribution/app-store/listing.json $apply
+            --listing release-source/distribution/app-store/listing.json "${builds[@]}" $apply

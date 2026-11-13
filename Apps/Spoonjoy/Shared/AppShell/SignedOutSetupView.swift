@@ -1,4 +1,5 @@
 import AuthenticationServices
+import OSLog
 import Security
 import SpoonjoyCore
 import SwiftUI
@@ -8,6 +9,7 @@ struct SignedOutSetupView: View {
     private static let livePasswordSignInIdentifier = "native password sign-in"
     fileprivate static let liveGoogleOAuthSignInIdentifier = "native Google OAuth sign-in"
     fileprivate static let liveGitHubOAuthSignInIdentifier = "native GitHub OAuth sign-in"
+    private static let browserSignInLogger = Logger(subsystem: "app.spoonjoy", category: "auth.browser")
     private static let appleSignInEntitlement = "com.apple.developer.applesignin"
 
     let authRepository: NativeAuthSessionRepository
@@ -429,10 +431,11 @@ struct SignedOutSetupView: View {
 
         let signIn = browserSignIn ?? NativeBrowserOAuthSignIn(
             repository: authRepository,
+            log: { Self.browserSignInLogger.notice("\($0, privacy: .public)") },
             makeSession: SpoonjoyBrowserOAuthWebSession.make
         )
         browserSignIn = signIn
-        let start = await signIn.begin(provider: provider, onReturn: {
+        let start = await signIn.begin(provider: provider, sendsProviderHint: Self.sendsProviderHint(), onReturn: {
             statusTone = .progress
             authStatus = "Finishing Spoonjoy sign-in."
         }) { finish in
@@ -444,11 +447,25 @@ struct SignedOutSetupView: View {
         case .opened, .alreadyInProgress:
             authStatus = "Finish \(provider.displayName) sign-in in the browser."
         case .couldNotOpen:
+            let reason = signIn.startFailure.map(NativeBrowserOAuthSignIn.diagnosticReason) ?? "unknown"
+            Self.browserSignInLogger.error("Browser sign-in did not start: \(reason, privacy: .public)")
             pendingOAuthProvider = nil
             isSigningIn = false
             statusTone = .error
             authStatus = "Could not open \(provider.displayName) sign-in. Check your connection and try again."
         }
+    }
+
+    /// Whether /oauth/authorize gets the provider hint. Release builds always send it, so the sheet goes straight to
+    /// Google or GitHub. Debug builds launched with `SPOONJOY_UI_TEST_BROWSER_SIGN_IN_LOGIN_PAGE=1` leave it out, so the
+    /// server shows spoonjoy.app/login in the same ASWebAuthenticationSession: BrowserSignInCallbackUITests signs a
+    /// throwaway account in there with a password and proves the https callback comes back to the app.
+    static func sendsProviderHint(environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
+#if DEBUG
+        return !NativeBrowserOAuthSignIn.loginPageRequested(environment: environment)
+#else
+        return true
+#endif
     }
 
     @MainActor
@@ -458,12 +475,13 @@ struct SignedOutSetupView: View {
         case .signedIn:
             canDisconnect = true
             statusTone = .success
-            authStatus = "Signed in. Restoring Spoonjoy."
+            authStatus = await Self.signedInStatus(appleConnected: authRepository.takeAppleConnectedConfirmation())
             await onSignedIn()
         case .failed:
             statusTone = .error
             authStatus = "Could not finish browser sign-in. Try again."
         case .canceled:
+            // NativeBrowserOAuthSignIn logs the cancel's domain, code and timing.
             statusTone = .neutral
             authStatus = "Browser sign-in canceled."
         case .superseded:
@@ -504,7 +522,7 @@ struct SignedOutSetupView: View {
             focusedField = nil
             canDisconnect = true
             statusTone = .success
-            authStatus = "Signed in. Restoring Spoonjoy."
+            authStatus = await Self.signedInStatus(appleConnected: authRepository.takeAppleConnectedConfirmation())
             await onSignedIn()
         } catch {
             statusTone = .error
@@ -623,6 +641,12 @@ struct SignedOutSetupView: View {
             statusTone = .error
             authStatus = Self.signInFailureMessage(for: error)
         }
+    }
+
+    /// The status after a sign-in by another method. When that sign-in also connected an Apple ID that had found no
+    /// account, it says so, so the chef knows Sign in with Apple works from now on.
+    private static func signedInStatus(appleConnected: Bool) -> String {
+        appleConnected ? "Signed in, and Apple is connected. Restoring Spoonjoy." : "Signed in. Restoring Spoonjoy."
     }
 
     private static func passwordSignInFailureMessage(for error: Error) -> String {

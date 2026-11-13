@@ -110,18 +110,25 @@ class MacosLanesTest < Minitest::Test
     end
   end
 
-  # One shared lane a and b held about 10 PRs pending for hours on 2026-11-12 while Macs sat free. Each PR gets its
-  # own lane a and b, so PRs run in parallel while a PR's own required jobs still run one at a time per lane.
-  # Optional work stays in the one shared lane c, so it never takes more than one slot.
-  def test_pull_request_required_jobs_take_a_per_pr_lane
+# One shared lane a and b held about 10 PRs pending for hours on 2026-11-12 while Macs sat free; a lane per PR (#321)
+# then let about 15 open PRs take every macos-26 runner, and the merge queue's head waited 3 hours. So a PR's lane a
+# and b jobs share two PR groups, by the parity of its number (Actions expressions have no %). With lane c, PR work
+# holds at most 3 of the 5 macOS jobs, and the merge queue and main always have at least 2.
+  PR_POOL = "(endsWith(format('{0}', github.event.pull_request.number), '0') || " \
+            "endsWith(format('{0}', github.event.pull_request.number), '2') || " \
+            "endsWith(format('{0}', github.event.pull_request.number), '4') || " \
+            "endsWith(format('{0}', github.event.pull_request.number), '6') || " \
+            "endsWith(format('{0}', github.event.pull_request.number), '8')) && 'even' || 'odd'"
+
+  def test_pull_request_required_jobs_share_two_pr_groups
     macos_jobs("native.yml").each do |id, job|
-      group = job.fetch("concurrency").fetch("group").to_s
+      group = job.fetch("concurrency").fetch("group").to_s.gsub(/\s+/, " ")
       lane = REQUIRED_LANES[id]
       if lane
         assert_includes group,
-                        "github.event_name == 'pull_request' && " \
-                        "format('spoonjoy-macos-lane-#{lane}-pr-{0}', github.event.pull_request.number)",
-                        "native.yml job #{id}: a pull request's required job waits in its own PR's lane #{lane}"
+                        "github.event_name == 'pull_request' && format('spoonjoy-macos-pr-{0}', #{PR_POOL})",
+                        "native.yml job #{id}: a pull request's required job waits in spoonjoy-macos-pr-even or -odd, by its number's parity"
+        refute_match(/spoonjoy-macos-lane-[ab]-pr-/, group, "native.yml job #{id}: a lane a or b group per PR lets PRs take more Macs")
       else
         refute_includes group, "pull_request.number", "native.yml job #{id}: optional work shares lane c"
       end

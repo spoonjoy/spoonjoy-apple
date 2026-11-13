@@ -6,15 +6,16 @@ on:
   workflow_dispatch:
     inputs:
       platform:
-        description: Which version to stage. MAC_OS leaves app-level data to the iOS listing.
+        description: Which version to stage. MAC_OS leaves app-level data to the iOS listing. BOTH stages iOS, then the Mac, with the builds TestFlight published from the source commit.
         required: true
         default: IOS
         type: choice
         options:
           - IOS
           - MAC_OS
+          - BOTH
       build_number:
-        description: TestFlight build number to attach (required when dry_run is false)
+        description: TestFlight build number to attach (required when dry_run is false; leave empty for BOTH)
         required: false
         type: string
       dry_run:
@@ -73,6 +74,21 @@ jobs:
           ref: ${{ steps.green.outputs.sha }}
           path: release-source
           persist-credentials: false
+      # The release train: iOS and the Mac stage the builds TestFlight published from this one source commit, and
+      # the run refuses unless both exist and are VALID.
+      - name: Find both platforms' builds from the source commit
+        id: train
+        if: inputs.platform == 'BOTH'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+          SOURCE_SHA: ${{ steps.green.outputs.sha }}
+        run: |
+          if [ -n "$BUILD_NUMBER" ]; then
+            echo "::error::Leave build_number empty for BOTH: each platform stages its build from the source commit."
+            exit 1
+          fi
+          ruby scripts/release-train-builds.rb --repository "$GITHUB_REPOSITORY" --sha "$SOURCE_SHA" --github-output "$GITHUB_OUTPUT"
       # Screenshots come from this commit's Store scenes, framed here twice and compared byte for byte. Without
       # scenes for its scene key (or on a release branch cut before frames existed), the checked-in ones are staged.
       - name: Frame the screenshots from Store scenes
@@ -136,10 +152,34 @@ jobs:
           BUILD_NUMBER: ${{ inputs.build_number }}
           DRY_RUN: ${{ inputs.dry_run }}
           PLATFORM: ${{ inputs.platform || 'IOS' }}
+          IOS_BUILD_NUMBER: ${{ steps.train.outputs.ios_build_number }}
+          IOS_BUILD_ID: ${{ steps.train.outputs.ios_build_id }}
+          MAC_BUILD_NUMBER: ${{ steps.train.outputs.mac_build_number }}
+          MAC_BUILD_ID: ${{ steps.train.outputs.mac_build_id }}
         run: |
+          set -euo pipefail
           mode=--dry-run
           if [ "$DRY_RUN" = "false" ]; then mode=--apply; fi
-          ruby scripts/stage-app-store-listing.rb "$mode" --platform "$PLATFORM" --build-number "$BUILD_NUMBER" \
-            --listing release-source/distribution/app-store/listing.json \
-            --screenshots "${{ steps.frames.outputs.dir }}" \
-            --changes release-source/changes
+          if [ "$PLATFORM" = "BOTH" ]; then
+            if [ -z "$IOS_BUILD_ID" ] || [ -z "$MAC_BUILD_ID" ]; then
+              echo "::error::BOTH needs the iOS and Mac builds from the source commit."
+              exit 1
+            fi
+            plan=("IOS:$IOS_BUILD_NUMBER:$IOS_BUILD_ID" "MAC_OS:$MAC_BUILD_NUMBER:$MAC_BUILD_ID")
+            # Both platforms plan first, so one that cannot stage stops the train before anything is written.
+            if [ "$mode" = "--apply" ]; then passes=(--dry-run --apply); else passes=(--dry-run); fi
+          else
+            plan=("$PLATFORM:$BUILD_NUMBER:")
+            passes=("$mode")
+          fi
+          for pass in "${passes[@]}"; do
+            for entry in "${plan[@]}"; do
+              IFS=: read -r PLATFORM BUILD_NUMBER BUILD_ID <<<"$entry"
+              echo "::group::$pass $PLATFORM${BUILD_NUMBER:+ build $BUILD_NUMBER}"
+              ruby scripts/stage-app-store-listing.rb "$pass" --platform "$PLATFORM" --build-number "$BUILD_NUMBER" --build-id "$BUILD_ID" \
+                --listing release-source/distribution/app-store/listing.json \
+                --screenshots "${{ steps.frames.outputs.dir }}" \
+                --changes release-source/changes
+              echo "::endgroup::"
+            done
+          done

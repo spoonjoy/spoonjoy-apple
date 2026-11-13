@@ -11,12 +11,17 @@ module AppStoreReviewSubmission
   #   version: {id, state, buildId}|nil
   #   submission: {id, state, versionIds: [...], otherItems: n}|nil — the open submission (READY_FOR_REVIEW, or
   #   UNRESOLVED_ISSUES after a rejection) that holds this version, else an empty-handed READY_FOR_REVIEW one.
-  def self.plan(version:, submission:, platform:, version_string:)
+  #   build_id: when given, the version's attached build must be this one (the release train's build from the source commit).
+  def self.plan(version:, submission:, platform:, version_string:, build_id: nil)
     return { "error" => "No #{platform} version #{version_string} in App Store Connect" } if version.nil?
     unless SUBMITTABLE_STATES.include?(version["state"])
       return { "error" => "#{platform} #{version_string} is #{version['state']}, not ready to submit" }
     end
     return { "error" => "#{platform} #{version_string} has no build attached" } if version["buildId"].nil?
+    if build_id && version["buildId"] != build_id
+      return { "error" => "#{platform} #{version_string} has build #{version['buildId']} attached, not #{build_id}, the build " \
+                          "TestFlight published from the source commit. Stage it again with that build first." }
+    end
     if submission && submission["otherItems"].to_i.positive?
       return { "error" => "Review submission #{submission['id']} also holds #{submission['otherItems']} other item(s); " \
                           "submitting it would send them too. Remove them in App Store Connect first." }
@@ -40,8 +45,11 @@ module AppStoreReviewSubmission
   end
 
   class Runner
-    def initialize(client, bundle_id:, platform:, version_string:, log: $stdout)
+    attr_reader :platform
+
+    def initialize(client, bundle_id:, platform:, version_string:, build_id: nil, log: $stdout)
       @client = client
+      @build_id = build_id
       @bundle_id = bundle_id
       @platform = platform
       @version_string = version_string
@@ -86,12 +94,20 @@ module AppStoreReviewSubmission
         described.find { |sub| sub["state"] == "READY_FOR_REVIEW" && [nil, @platform].include?(sub["platform"]) }
     end
 
-    def run(apply:)
+    # The steps a submit would take, read fresh from App Store Connect; raises when the version cannot be submitted.
+    # Writes nothing, so the release train checks every platform before it submits any.
+    def check
       v = version
       submission = v && open_submission(v["id"])
-      result = AppStoreReviewSubmission.plan(version: v, submission: submission, platform: @platform, version_string: @version_string)
+      result = AppStoreReviewSubmission.plan(version: v, submission: submission, platform: @platform, version_string: @version_string,
+                                                build_id: @build_id)
       raise AppStoreListing::Error, result["error"] if result["error"]
 
+      [v, submission, result]
+    end
+
+    def run(apply:)
+      v, submission, result = check
       result["steps"].each { |step| @log.puts "- #{step['summary']}" }
       unless apply
         @log.puts "Dry run: nothing was submitted."
