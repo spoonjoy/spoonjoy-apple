@@ -500,7 +500,7 @@ struct SignedOutSetupView: View {
             )
             canDisconnect = true
             statusTone = .success
-            authStatus = "Signed in. Restoring Spoonjoy."
+            authStatus = await Self.signedInStatus(appleConnected: authRepository.takeAppleConnectedConfirmation())
             await onSignedIn()
         } catch {
             statusTone = .error
@@ -551,7 +551,7 @@ struct SignedOutSetupView: View {
             focusedField = nil
             canDisconnect = true
             statusTone = .success
-            authStatus = "Signed in. Restoring Spoonjoy."
+            authStatus = await Self.signedInStatus(appleConnected: authRepository.takeAppleConnectedConfirmation())
             await onSignedIn()
         } catch {
             statusTone = .error
@@ -649,6 +649,16 @@ struct SignedOutSetupView: View {
                 authStatus = "Apple sign-in canceled."
                 return
             }
+            // Apple vouched for this Apple ID but sent no email, and no account has it yet. That is a next step,
+            // not a failure: the next sign-in with Google, GitHub or a password connects Apple to that account.
+            if let message = PendingAppleLink.userMessage(for: error) {
+                await appleSignInTelemetry.recordPhase("sign_in_needs_account",
+                    outcome: .completed
+                )
+                statusTone = .warning
+                authStatus = message
+                return
+            }
             NativeAppleSignInTelemetry.logFailure(
                 phase: "sign_in_failed",
                 code: NativeAppleSignInTelemetry.diagnosticCode(for: error)
@@ -660,6 +670,12 @@ struct SignedOutSetupView: View {
             statusTone = .error
             authStatus = Self.signInFailureMessage(for: error)
         }
+    }
+
+    /// The status after a sign-in by another method. When that sign-in also connected an Apple ID that had found no
+    /// account, it says so, so the chef knows Sign in with Apple works from now on.
+    private static func signedInStatus(appleConnected: Bool) -> String {
+        appleConnected ? "Signed in, and Apple is connected. Restoring Spoonjoy." : "Signed in. Restoring Spoonjoy."
     }
 
     private static func passwordSignInFailureMessage(for error: Error) -> String {
