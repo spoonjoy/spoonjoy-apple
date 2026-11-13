@@ -70,7 +70,8 @@ public enum OAuthErrorResponse {
             requestID: nil,
             statusCode: nil,
             apiError: nil,
-            retryDecision: .retrySameRequest(afterSeconds: nil)
+            retryDecision: .retrySameRequest(afterSeconds: nil),
+            urlErrorCode: error.code.rawValue
         )
     }
 

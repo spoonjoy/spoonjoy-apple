@@ -630,6 +630,25 @@ struct NativeAuthSessionTests {
         )
     }
 
+    @Test("the browser sign-in start retries a transient failure, stays busy, and stops quietly when replaced")
+    func browserSignInStartRetriesTransientFailures() throws {
+        let path = "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift"
+        let content = try readRepoFile(path)
+        expectContent(
+            content,
+            in: path,
+            contains: [
+                "let start = try await NativeBrowserOAuthStartRetry.run(",
+                "isCurrent: { isSigningIn && browserSignInStartID == startID },",
+                "try await authRepository.startSignIn(",
+                "} catch is CancellationError {"
+            ],
+            forbids: [
+                "let start = try await authRepository.startSignIn("
+            ]
+        )
+    }
+
     @Test("no sign-in session is ever ephemeral: the iOS early-cancel retry gate relies on the prompt a non-ephemeral session shows")
     func browserSignInSessionsAreNeverEphemeral() throws {
         // NativeBrowserOAuthEarlyCancel retries a canceledLogin on iOS only when the app never resigned active. That
