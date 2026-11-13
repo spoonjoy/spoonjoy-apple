@@ -26,7 +26,8 @@ class DraftRunsLaneBTest < Minitest::Test
   end
 
   def test_a_draft_skips_app_bundle_only
-    assert_equal DRAFT_SKIP, jobs.fetch("app-bundle").fetch("if")
+    # !cancelled() keeps App bundle running when the Mac runner job it needs is skipped (pull requests) or fails.
+    assert_equal "${{ !cancelled() && (#{DRAFT_SKIP}) }}", jobs.fetch("app-bundle").fetch("if")
     %w[swift-tests reins-journeys native-scenario-verifier contracts].each do |id|
       refute_includes jobs.fetch(id)["if"].to_s, "draft", "#{id} is a required check and must run on a draft"
     end
@@ -35,7 +36,7 @@ class DraftRunsLaneBTest < Minitest::Test
   # Every job that isn't a required check, the advisory scan or the release note is optional, and must wait for
   # App bundle so a draft skips it.
   NOT_OPTIONAL = %w[contracts swift-tests reins-journeys native-scenario-verifier app-bundle ruby-advisory-scan
-                    testflight-release-note].freeze
+                    testflight-release-note mac-runner].freeze
 
   def test_every_optional_job_needs_app_bundle
     (jobs.keys - NOT_OPTIONAL).each do |id|
