@@ -21,8 +21,9 @@ import Foundation
 ///
 /// On iOS there is no time limit. The cancel can come seconds after `start()`: in CI run 43312729950 it came 5242 ms
 /// after, 13 ms after swcd logged "app PI changed". If the resign signal ever failed to fire, a person's Cancel could
-/// reopen the sheet up to `iOSRetryDelays.count` times, which is bounded. On macOS and visionOS, where the signals are
-/// not guaranteed, each cancel must also come within `window` of its session's `start()`.
+/// reopen the sheet up to `iOSRetryDelays.count` times, which is bounded; their next Cancel would then end as
+/// `CouldNotOpen` (the could-not-open status and its VoiceOver announcement), not as canceled. On macOS and visionOS,
+/// where the signals are not guaranteed, each cancel must also come within `window` of its session's `start()`.
 public enum NativeBrowserOAuthEarlyCancel {
     /// The time limit outside iOS. See `platformWindow`.
     public static let window: TimeInterval = 1.5
@@ -144,7 +145,7 @@ public enum NativeBrowserOAuthEarlyCancel {
     }
 
     public static func exhaustedMessage(error: (any Error)?, secondsSinceStart: TimeInterval?, retries: Int) -> String {
-        "Browser sign-in early cancel: \(error.map(diagnosticReason) ?? "no error") after \(milliseconds(secondsSinceStart)) ms, systemUIAppeared=false, presentedVC=false; all \(retries) retries used"
+        "Browser sign-in early cancel: \(error.map(diagnosticReason) ?? "no error") after \(milliseconds(secondsSinceStart)) ms, systemUIAppeared=false, presentedVC=false; \(retries == 1 ? "the only retry" : "all \(retries) retries") used"
     }
 
     public static func endedMessage(

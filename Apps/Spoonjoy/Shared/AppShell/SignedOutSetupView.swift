@@ -477,6 +477,8 @@ struct SignedOutSetupView: View {
                     }
                 },
                 cancellationHandler: { error in
+                    // The sign-in has ended: no Cancel for a pending retry from here on (spoonjoy-apple#345 review).
+                    browserSignInRetryPending = false
                     Task {
                         await handleBrowserOAuthCancellation(error)
                     }
@@ -558,6 +560,8 @@ struct SignedOutSetupView: View {
 
     @MainActor
     private func handleBrowserOAuthCancellation(_ error: Error?) async {
+        // A Cancel tapped before this ran already ended the sign-in and set its status.
+        guard isSigningIn else { return }
         let ended = NativeBrowserOAuthEarlyCancel.endedStatus(error: error, providerName: pendingOAuthProvider?.displayName)
         pendingOAuthState = nil
         pendingOAuthCodeVerifier = nil

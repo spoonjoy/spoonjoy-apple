@@ -646,12 +646,18 @@ struct NativeAuthSessionTests {
                 "authStatus = NativeBrowserOAuthEarlyCancel.status(for: phase, providerName: provider.displayName)",
                 "browserSignInRetryPending = phase != .started",
                 "let ended = NativeBrowserOAuthEarlyCancel.endedStatus(error: error, providerName: pendingOAuthProvider?.displayName)\n        pendingOAuthState = nil",
+                "authStatus = ended.text",
+                "guard isSigningIn else { return }\n        let ended = NativeBrowserOAuthEarlyCancel.endedStatus(",
+                "browserSignInRetryPending = false\n                    Task {\n                        await handleBrowserOAuthCancellation(error)",
                 "AccessibilityNotification.Announcement(ended.text).post()",
                 "if browserSignInRetryPending {\n                Button(\"Cancel\", action: cancelBrowserSignInRetry)",
                 "guard browserSignInRetryPending else { return }\n        webAuthenticationSession?.cancel()"
             ],
             forbids: [
-                "authStatus = \"Could not open sign-in. Try again.\""
+                // The could-not-open text comes from endedStatus; the start failure keeps its own line.
+                "authStatus = \"Could not open sign-in. Try again.\"",
+                "authStatus = \"Could not open \\(provider.displayName) sign-in. Try again.\"",
+                "authStatus = \"Could not open \\(pendingOAuthProvider"
             ]
         )
     }
@@ -2164,6 +2170,18 @@ struct WebAuthenticationSessionAdapterContract {
         #expect(probe.cancellations.isEmpty)
     }
 
+    /// Waits, a bounded number of turns, for the retry task to reach its held pause.
+    @MainActor
+    private static func waitForHeldPause(_ probe: Probe) async throws {
+        for _ in 0..<10_000 where probe.heldPause == nil {
+            await Task.yield()
+        }
+        if probe.heldPause == nil {
+            Issue.record("The retry never reached its pause")
+            throw CancellationError()
+        }
+    }
+
     /// Ends the current session with the system's cancel, nothing shown, and waits out the retry pause.
     @MainActor
     private func systemCancelAndWait(_ probe: Probe, after seconds: TimeInterval = 0.2) async {
@@ -2274,9 +2292,7 @@ struct WebAuthenticationSessionAdapterContract {
             // A sign-in that ended instead of pausing fails here rather than waiting forever for the pause.
             try #require(probe.cancellations.isEmpty, "retry \(index + 1) ended the sign-in instead of pausing")
             let retry = try #require(probe.adapter.retryTask)
-            while probe.heldPause == nil {
-                await Task.yield()
-            }
+            try await Self.waitForHeldPause(probe)
             // The view keeps its buttons disabled until the handler runs, so a tap here starts nothing.
             #expect(probe.cancellations.isEmpty)
             #expect(probe.factory.sessions.count == index + 1)
@@ -2497,9 +2513,7 @@ struct WebAuthenticationSessionAdapterContract {
         probe.now += 0.2
         probe.factory.complete(with: nil, error: Self.systemCancel)
         let retry = try #require(probe.adapter.retryTask)
-        while probe.heldPause == nil {
-            await Task.yield()
-        }
+        try await Self.waitForHeldPause(probe)
 
         weak let gone = probe.adapter
         probe.adapter = nil

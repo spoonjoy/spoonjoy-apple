@@ -119,7 +119,7 @@ struct NativeBrowserOAuthEarlyCancelTests {
         #expect(NativeBrowserOAuthEarlyCancel.exhaustedMessage(error: systemCancel, secondsSinceStart: 0.246, retries: 4) ==
             "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 246 ms, systemUIAppeared=false, presentedVC=false; all 4 retries used")
         #expect(NativeBrowserOAuthEarlyCancel.exhaustedMessage(error: nil, secondsSinceStart: nil, retries: 1) ==
-            "Browser sign-in early cancel: no error after unknown ms, systemUIAppeared=false, presentedVC=false; all 1 retries used")
+            "Browser sign-in early cancel: no error after unknown ms, systemUIAppeared=false, presentedVC=false; the only retry used")
         #expect(NativeBrowserOAuthEarlyCancel.endedMessage(error: systemCancel, secondsSinceStart: 4, systemUIAppeared: true, presentedViewController: false) ==
             "Browser sign-in ended without a callback: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 4000 ms, systemUIAppeared=true, presentedVC=false")
         #expect(NativeBrowserOAuthEarlyCancel.endedMessage(error: nil, secondsSinceStart: nil, systemUIAppeared: false, presentedViewController: true) ==
