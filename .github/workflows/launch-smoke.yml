@@ -27,7 +27,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('launch-smoke-build-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
-        || 'spoonjoy-macos-lane-c' }}
+        || 'spoonjoy-macos-lane-c2' }}
       queue: max
     timeout-minutes: 45
     steps:
@@ -73,7 +73,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('launch-smoke-launch-smoke-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
-        || 'spoonjoy-macos-lane-c' }}
+        || 'spoonjoy-macos-lane-c2' }}
       queue: max
     timeout-minutes: 45
     strategy:

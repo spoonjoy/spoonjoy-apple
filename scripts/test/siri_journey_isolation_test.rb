@@ -84,7 +84,7 @@ class SiriJourneyIsolationTest < Minitest::Test
     job = siri_job
     concurrency = job[/^    concurrency:\n.*?(?=^    [a-z-]+:)/m]
     refute_nil concurrency, "the Siri journey job has no concurrency group"
-    assert_includes concurrency, "|| 'spoonjoy-macos-lane-c' }}"
+    assert_includes concurrency, "|| 'spoonjoy-macos-lane-c2' }}"
     assert_includes concurrency, "format('journeys-siri-journeys-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)"
     assert_includes concurrency, "queue: max"
   end

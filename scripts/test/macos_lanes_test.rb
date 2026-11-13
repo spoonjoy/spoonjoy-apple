@@ -13,7 +13,10 @@ require "yaml"
 class MacosLanesTest < Minitest::Test
   ROOT = File.expand_path("../..", __dir__)
   WORKFLOWS = File.join(ROOT, ".github/workflows")
-  LANE = /spoonjoy-macos-lane-([abc])\b/
+  # Lane c's group is spoonjoy-macos-lane-c2: GitHub left spoonjoy-macos-lane-c held by a holder lost in the
+  # 2026-11-12 outage, so no job in it ever started again (#309).
+  LANE = /spoonjoy-macos-lane-([ab]|c2)\b/
+  STUCK_GROUP = "spoonjoy-macos-lane-c'"
   # Tied to shipping, so never laned: they share the slots outside the lanes with the merge queue and main.
   UNLANED = %w[testflight.yml testflight-signing-dry-run.yml review-demo-launch.yml].freeze
   # Native's required checks take lanes a and b; everything else waits in lane c, so no required check queues
@@ -49,7 +52,7 @@ class MacosLanesTest < Minitest::Test
     concurrency = job["concurrency"]
     return nil unless concurrency.is_a?(Hash) && concurrency["queue"] == "max"
 
-    concurrency["group"].to_s[LANE, 1]
+    concurrency["group"].to_s[LANE, 1]&.delete("2")
   end
 
   def called_workflows(name)
@@ -68,9 +71,16 @@ class MacosLanesTest < Minitest::Test
 
       macos_jobs(name).each do |id, job|
         refute_nil lane_of(job), "#{name} job #{id} runs on macOS with no lane: give it concurrency " \
-                                 "group 'spoonjoy-macos-lane-c' (or a/b for a required check) and queue: max"
+                                 "group 'spoonjoy-macos-lane-c2' (or a/b for a required check) and queue: max"
         refute job["concurrency"].key?("cancel-in-progress"), "#{name} job #{id}: a lane never cancels"
       end
+    end
+  end
+
+  def test_no_workflow_uses_the_stuck_lane_c_group
+    all_workflows.each do |name|
+      refute_includes File.read(File.join(WORKFLOWS, name)), STUCK_GROUP,
+                      "#{name} uses spoonjoy-macos-lane-c, which GitHub never releases (#309); use spoonjoy-macos-lane-c2"
     end
   end
 

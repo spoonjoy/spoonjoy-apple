@@ -24,7 +24,7 @@ jobs:
     runs-on: xcode-27
     # Lane c of 3: see the note on macOS lanes at the top of native.yml. The lane also keeps runs one at a time.
     concurrency:
-      group: spoonjoy-macos-lane-c
+      group: spoonjoy-macos-lane-c2
       queue: max
     timeout-minutes: 70
     steps:
