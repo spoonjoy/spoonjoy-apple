@@ -296,6 +296,44 @@ struct BrowserSignInTests {
         #expect(!windowC.flow.isInProgress)
     }
 
+    @Test("a second close from the old sheet during the retry pause ends the attempt, and the retry opens nothing")
+    func closeDuringRetryPauseEndsAttempt() async throws {
+        let latch = Latch()
+        let harness = Harness(pauseLatch: latch)
+        let finishes = FinishLog()
+        _ = await harness.flow.begin(provider: .google) { finishes.record($0) }
+        harness.clock.advance(0.2)
+        await harness.sheets.close(0, error: systemCancel)
+        let retry = try #require(harness.flow.retryTask)
+        await latch.waitUntilReached()
+
+        // The pause has dropped the sheet, so nothing says whether the system showed anything: no second retry.
+        await harness.sheets.close(0, error: systemCancel)
+        #expect(finishes.names == ["canceled"])
+        await latch.open()
+        await retry.value
+        #expect(harness.sheets.sessions.count == 1)
+        #expect(!harness.flow.isInProgress)
+        #expect(harness.logs.lines.last?.contains("systemUIAppeared=true, presentedVC=true") == true)
+    }
+
+    @Test("the default pause waits before the retry sheet opens")
+    func defaultRetryPause() async throws {
+        let harness = Harness()
+        let flow = NativeBrowserOAuthSignIn(
+            repository: harness.repository,
+            gate: harness.gate,
+            uptime: { [clock = harness.clock] in clock.now },
+            earlyCancelWindow: NativeBrowserOAuthEarlyCancel.window,
+            makeSession: harness.sheets.make
+        )
+        _ = await flow.begin(provider: .google) { _ in }
+        harness.clock.advance(0.2)
+        await harness.sheets.close(0, error: systemCancel)
+        await flow.retryTask?.value
+        #expect(harness.sheets.sessions.map(\.startCount) == [1, 1])
+    }
+
     @Test("a retry the system will not start logs that and finishes the attempt as canceled")
     func retryThatDoesNotStartFinishesCanceled() async throws {
         let harness = Harness()

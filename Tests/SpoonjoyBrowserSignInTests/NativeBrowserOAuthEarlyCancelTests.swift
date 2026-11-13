@@ -93,5 +93,7 @@ struct NativeBrowserOAuthEarlyCancelTests {
         #expect(!NativeBrowserOAuthEarlyCancel.endedMessage(error: secret, secondsSinceStart: 1, systemUIAppeared: false, presentedViewController: false).contains("oac_secret"))
         let transport = APITransportError(kind: .apiError, requestID: "req_1", statusCode: 503, apiError: nil, retryDecision: .doNotRetry)
         #expect(NativeBrowserOAuthEarlyCancel.diagnosticReason(transport) == "apiError status 503 request req_1")
+        #expect(NativeBrowserOAuthEarlyCancel.earlyCancelMessage(error: nil, secondsSinceStart: nil) ==
+            "Browser sign-in early cancel: no error after unknown ms, systemUIAppeared=false, presentedVC=false; retrying once")
     }
 }
