@@ -124,7 +124,7 @@ struct BrowserSignInTests {
 
         #expect(finishes.names.isEmpty)
         #expect(harness.flow.attempt == attempt)
-        #expect(harness.pauses.all == [NativeBrowserOAuthSignIn.earlyCancelRetryDelay])
+        #expect(harness.pauses.all == [.milliseconds(750)])
         #expect(harness.sheets.opened.map(\.authorizationURL) == [attempt.authorizationURL, attempt.authorizationURL])
         #expect(harness.sheets.sessions.map(\.startCount) == [1, 1])
         #expect(harness.gate.activeAttemptID == attempt.id)
@@ -134,7 +134,7 @@ struct BrowserSignInTests {
         #expect(await harness.network.exchanges.map(\.codeVerifier) == [attempt.codeVerifier])
         #expect(harness.logs.lines == [
             "Browser sign-in sheet started",
-            "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 200 ms, systemUIAppeared=false, presentedVC=false; retrying once",
+            "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 200 ms, systemUIAppeared=false, presentedVC=false; retry 1 of 1",
             "Browser sign-in retried: sheet started again",
             "Browser sign-in callback received"
         ])
@@ -142,7 +142,7 @@ struct BrowserSignInTests {
         #expect(harness.logs.lines.allSatisfy { line in !secrets.contains { line.contains($0) } })
     }
 
-    @Test("a second early cancel in the same attempt finishes as canceled")
+    @Test("outside iOS, a second early cancel in the same attempt uses up the one retry: the sheet could not open")
     func secondEarlyCancelFinishes() async throws {
         let harness = Harness()
         let finishes = FinishLog()
@@ -154,10 +154,128 @@ struct BrowserSignInTests {
         harness.clock.advance(0.2)
         await harness.sheets.close(1, error: systemCancel)
 
-        #expect(finishes.names == ["canceled"])
+        #expect(finishes.names == ["couldNotOpen"])
+        #expect(harness.logs.lines.last ==
+            "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 200 ms, systemUIAppeared=false, presentedVC=false; the only retry used")
         #expect(harness.sheets.sessions.count == 2)
         #expect(harness.flow.attempt == nil)
         #expect(harness.gate.activeAttemptID == nil)
+    }
+
+    @Test("iOS: early cancels back off 0.75, 2, 4, 8 and 16 s, and the sheet that opens signs in", arguments: [1, 2, 5])
+    func earlyCancelBacksOffUntilSignIn(cancels: Int) async throws {
+        // spoonjoy-apple#344: swcd's re-sync can outlast several retries; proof run 43368852856 opened on the fifth sheet.
+        let delays = NativeBrowserOAuthEarlyCancel.iOSRetryDelays
+        let harness = Harness(earlyCancelWindow: nil, retryDelays: delays)
+        let finishes = FinishLog()
+        let phases = PhaseLog()
+        _ = await harness.flow.begin(provider: .google, onRetry: { phases.all.append($0) }) { finishes.record($0) }
+        let attempt = try #require(harness.flow.attempt)
+
+        for sheet in 0..<cancels {
+            harness.clock.advance(0.3)
+            await harness.sheets.close(sheet, error: systemCancel)
+            #expect(harness.flow.isInProgress)
+            #expect(await harness.flow.begin(provider: .google) { _ in } == .alreadyInProgress)
+            await harness.flow.retryTask?.value
+        }
+
+        #expect(finishes.names.isEmpty)
+        #expect(harness.pauses.all == Array(delays.prefix(cancels)))
+        #expect(phases.all == (1...cancels).flatMap { [.waiting(retry: $0), .started] })
+        #expect(harness.sheets.sessions.map(\.startCount) == Array(repeating: 1, count: cancels + 1))
+        #expect(await harness.network.registrations == 1)
+        await harness.sheets.complete(cancels, with: serverCallback(code: "oac_code", state: attempt.state))
+        #expect(finishes.names == ["signedIn"])
+        let retryLines = harness.logs.lines.filter { $0.hasPrefix("Browser sign-in early cancel") }
+        #expect(retryLines == (1...cancels).map {
+            "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 300 ms, systemUIAppeared=false, presentedVC=false; retry \($0) of 5"
+        })
+    }
+
+    @Test("iOS: after five early cancels the retries run out and the sheet could not open")
+    func earlyCancelRetriesRunOut() async throws {
+        let delays = NativeBrowserOAuthEarlyCancel.iOSRetryDelays
+        let harness = Harness(earlyCancelWindow: nil, retryDelays: delays)
+        let finishes = FinishLog()
+        let phases = PhaseLog()
+        _ = await harness.flow.begin(provider: .github, onRetry: { phases.all.append($0) }) { finishes.record($0) }
+
+        for sheet in 0...delays.count {
+            harness.clock.advance(0.25)
+            await harness.sheets.close(sheet, error: systemCancel)
+            await harness.flow.retryTask?.value
+        }
+
+        #expect(finishes.names == ["couldNotOpen"])
+        #expect(harness.pauses.all == delays)
+        #expect(phases.all.count == delays.count * 2)
+        #expect(harness.sheets.sessions.count == delays.count + 1)
+        #expect(harness.logs.lines.last ==
+            "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 250 ms, systemUIAppeared=false, presentedVC=false; all 5 retries used")
+        #expect(!harness.flow.isInProgress)
+        #expect(harness.gate.activeAttemptID == nil)
+        // The next tap starts a fresh attempt with its full set of retries.
+        _ = await harness.flow.begin(provider: .github) { finishes.record($0) }
+        harness.clock.advance(0.25)
+        await harness.sheets.close(delays.count + 1, error: systemCancel)
+        await harness.flow.retryTask?.value
+        #expect(harness.logs.lines.last == "Browser sign-in retried: sheet started again")
+    }
+
+    @Test("the window applies to each sheet, not to the whole sign-in")
+    func windowIsPerSheet() async throws {
+        let harness = Harness(
+            earlyCancelWindow: NativeBrowserOAuthEarlyCancel.window,
+            retryDelays: NativeBrowserOAuthEarlyCancel.iOSRetryDelays
+        )
+        let finishes = FinishLog()
+        _ = await harness.flow.begin(provider: .google) { finishes.record($0) }
+        for sheet in 0..<3 {
+            harness.clock.advance(1.0)
+            await harness.sheets.close(sheet, error: systemCancel)
+            await harness.flow.retryTask?.value
+        }
+        #expect(finishes.names.isEmpty)
+        #expect(harness.sheets.sessions.count == 4)
+    }
+
+    @Test("the person's Cancel on a retried sheet ends as canceled and is never retried")
+    func personCancelOnRetriedSheet() async throws {
+        let harness = Harness(earlyCancelWindow: nil, retryDelays: NativeBrowserOAuthEarlyCancel.iOSRetryDelays)
+        let finishes = FinishLog()
+        _ = await harness.flow.begin(provider: .google) { finishes.record($0) }
+        harness.clock.advance(0.2)
+        await harness.sheets.close(0, error: systemCancel)
+        await harness.flow.retryTask?.value
+        harness.sheets.sessions[1].systemUIAppeared = true
+        harness.clock.advance(3)
+        await harness.sheets.close(1, error: systemCancel)
+        #expect(finishes.names == ["canceled"])
+        #expect(harness.pauses.all == [.milliseconds(750)])
+        #expect(harness.sheets.sessions.count == 2)
+    }
+
+    @Test("Cancel during a backoff pause ends the sign-in, and the pending retry opens nothing")
+    func cancelDuringBackoff() async throws {
+        let latch = Latch()
+        let harness = Harness(pauseLatch: latch, earlyCancelWindow: nil, retryDelays: NativeBrowserOAuthEarlyCancel.iOSRetryDelays)
+        let finishes = FinishLog()
+        let phases = PhaseLog()
+        _ = await harness.flow.begin(provider: .google, onRetry: { phases.all.append($0) }) { finishes.record($0) }
+        harness.clock.advance(0.2)
+        await harness.sheets.close(0, error: systemCancel)
+        let retry = try #require(harness.flow.retryTask)
+        await latch.waitUntilReached()
+        #expect(phases.all == [.waiting(retry: 1)])
+
+        harness.flow.cancel()
+        #expect(finishes.names == ["canceled"])
+        #expect(!harness.flow.isInProgress)
+        await latch.open()
+        await retry.value
+        #expect(harness.sheets.sessions.count == 1)
+        #expect(phases.all == [.waiting(retry: 1)])
     }
 
     @Test("a cancel by the person never starts the sheet again: after the window, after the prompt showed, or another error")
@@ -189,10 +307,10 @@ struct BrowserSignInTests {
         #expect(other.pauses.all.isEmpty)
     }
 
-    @Test("iOS: a system cancel 5 s after start, with nothing shown, still gets one fresh sheet; a second one finishes as canceled")
+    @Test("iOS: a system cancel 5 s after start, with nothing shown, still gets a fresh sheet; a cancel the person saw finishes as canceled")
     func iOSLateEarlyCancelRetries() async throws {
         // CI run 43312729950: the cancel came 5242 ms after start, 13 ms after swcd's "app PI changed".
-        let harness = Harness(earlyCancelWindow: nil)
+        let harness = Harness(earlyCancelWindow: nil, retryDelays: NativeBrowserOAuthEarlyCancel.iOSRetryDelays)
         let finishes = FinishLog()
         _ = await harness.flow.begin(provider: .google) { finishes.record($0) }
 
@@ -203,11 +321,12 @@ struct BrowserSignInTests {
         #expect(harness.sheets.sessions.map(\.startCount) == [1, 1])
 
         harness.clock.advance(5)
+        harness.sheets.sessions[1].systemUIAppeared = true
         await harness.sheets.close(1, error: systemCancel)
         #expect(finishes.names == ["canceled"])
         #expect(harness.sheets.sessions.count == 2)
         #expect(harness.logs.lines.last ==
-            "Browser sign-in ended without a callback: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 5000 ms, systemUIAppeared=false, presentedVC=false")
+            "Browser sign-in ended without a callback: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 5000 ms, systemUIAppeared=true, presentedVC=false")
     }
 
     @Test("macOS: the same 5 s cancel is outside the window and finishes as canceled")
@@ -334,7 +453,7 @@ struct BrowserSignInTests {
         #expect(harness.sheets.sessions.map(\.startCount) == [1, 1])
     }
 
-    @Test("a retry the system will not start logs that and finishes the attempt as canceled")
+    @Test("a retry the system will not start logs that and finishes the attempt as could-not-open")
     func retryThatDoesNotStartFinishesCanceled() async throws {
         let harness = Harness()
         let finishes = FinishLog()
@@ -345,7 +464,7 @@ struct BrowserSignInTests {
         await harness.sheets.close(0, error: systemCancel)
         await harness.flow.retryTask?.value
 
-        #expect(finishes.names == ["canceled"])
+        #expect(finishes.names == ["couldNotOpen"])
         #expect(harness.sheets.sessions.map(\.startCount) == [1, 1])
         #expect(harness.logs.lines.last == NativeBrowserOAuthEarlyCancel.retryDidNotStartMessage)
         #expect(harness.flow.attempt == nil)
@@ -709,6 +828,21 @@ struct BrowserSignInTests {
         #expect(await start.value == .canceled)
         #expect(harness.flow.startFailure == nil)
         #expect(harness.sheets.sessions.isEmpty)
+        #expect(await harness.network.registrations == 1)
+    }
+
+    @Test("a cancel while the registration is in flight, which then fails transiently, logs no retry and waits for nothing")
+    func cancelDuringTransientFailureLogsNoRetry() async throws {
+        let latch = Latch()
+        let harness = Harness(transientRegistrationFailures: 1, registrationLatch: latch)
+        let start = Task { await harness.flow.begin(provider: .google) { _ in Issue.record("Nothing opened") } }
+        await latch.waitUntilReached()
+        harness.flow.cancelStart()
+        await latch.open()
+        #expect(await start.value == .canceled)
+        #expect(harness.pauses.all.isEmpty)
+        #expect(harness.logs.lines == [NativeBrowserOAuthStartRetry.abandonedMessage])
+        #expect(await harness.network.registrations == 1)
     }
 
     @Test("an HTTP error from the registration is never retried", arguments: [503, 429])
@@ -839,7 +973,8 @@ private final class Harness {
         exchangeLatch: Latch? = nil,
         randomSecret: @escaping @MainActor () -> String = OAuthPKCE.randomVerifier,
         pauseLatch: Latch? = nil,
-        earlyCancelWindow: TimeInterval? = NativeBrowserOAuthEarlyCancel.window
+        earlyCancelWindow: TimeInterval? = NativeBrowserOAuthEarlyCancel.window,
+        retryDelays: [Duration] = NativeBrowserOAuthEarlyCancel.otherRetryDelays
     ) {
         let vault = InMemoryTokenVault()
         let network = NetworkSpy(
@@ -877,6 +1012,7 @@ private final class Harness {
                 await pauseLatch?.reach()
                 await onPause.action()
             },
+            retryDelays: retryDelays,
             log: { [logs] in logs.lines.append($0) },
             makeSession: sheets.make
         )
@@ -904,6 +1040,11 @@ private final class PauseLog {
     func record(_ duration: Duration) {
         all.append(duration)
     }
+}
+
+@MainActor
+private final class PhaseLog {
+    var all: [NativeBrowserOAuthEarlyCancel.RetryPhase] = []
 }
 
 @MainActor
@@ -1166,8 +1307,8 @@ private func describe(_ finish: NativeBrowserOAuthFinish) -> String {
         "signedIn"
     case .failed(let error):
         "failed(\(error))"
-    case .canceled:
-        "canceled"
+    case .canceled(let error):
+        error is NativeBrowserOAuthEarlyCancel.CouldNotOpen ? "couldNotOpen" : "canceled"
     case .superseded:
         "superseded"
     }

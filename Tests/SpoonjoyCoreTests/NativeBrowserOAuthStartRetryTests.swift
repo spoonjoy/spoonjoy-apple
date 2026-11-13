@@ -157,6 +157,16 @@ struct NativeBrowserOAuthStartRetryTests {
         #expect(script.lines.last == NativeBrowserOAuthStartRetry.abandonedMessage)
     }
 
+    @Test("replaced while the request is in flight: its transient failure logs no retry and waits for nothing")
+    func replacedDuringRequest() async {
+        let script = Script([.failure(Self.offline), .success("never")])
+        script.current = false
+        await #expect(throws: CancellationError.self) { try await script.run() }
+        #expect(script.calls == 1)
+        #expect(script.pauses.isEmpty)
+        #expect(script.lines == [NativeBrowserOAuthStartRetry.abandonedMessage])
+    }
+
     @Test("the default pause sleeps for the delay, then the start goes again")
     func defaultPause() async throws {
         var calls = 0
