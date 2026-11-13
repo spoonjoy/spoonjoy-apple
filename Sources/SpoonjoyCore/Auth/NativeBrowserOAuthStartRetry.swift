@@ -54,23 +54,22 @@ public enum NativeBrowserOAuthStartRetry {
         log: @MainActor (String) -> Void,
         operation: @MainActor () async throws -> Value
     ) async throws -> Value {
-        var attempt = 1
-        while true {
+        for (index, delay) in delays.enumerated() {
             let sentAt = now()
             do {
                 return try await operation()
             } catch {
-                guard attempt <= delays.count, shouldRetry(error, secondsTaken: now() - sentAt) else {
+                guard shouldRetry(error, secondsTaken: now() - sentAt) else {
                     throw error
                 }
-                log(retriedMessage(error: error, attempt: attempt))
-                try await pause(delays[attempt - 1])
+                log(retriedMessage(error: error, attempt: index + 1))
+                try await pause(delay)
                 guard !Task.isCancelled, isCurrent() else {
                     log(abandonedMessage)
                     throw CancellationError()
                 }
-                attempt += 1
             }
         }
+        return try await operation()
     }
 }
