@@ -33,6 +33,9 @@ struct SignedOutSetupView: View {
     /// The browser sign-in whose start is in flight; a retry wait stops when another one replaces it.
     @State private var browserSignInStartID: UUID?
     @State private var webAuthenticationSession: SpoonjoyWebAuthenticationSession?
+    /// True while browser sign-in waits to retry after the system's early cancel (spoonjoy-apple#344): no sheet is up,
+    /// so the status row offers Cancel.
+    @State private var browserSignInRetryPending = false
     @State private var appleSignInCapability = Self.currentAppleSignInCapability()
     @FocusState private var focusedField: SignInField?
 
@@ -302,6 +305,14 @@ struct SignedOutSetupView: View {
 
             statusRow
 
+            if browserSignInRetryPending {
+                Button("Cancel", action: cancelBrowserSignInRetry)
+                    .font(KitchenTableTheme.control)
+                    .foregroundStyle(KitchenTableTheme.ink2)
+                    .accessibilityHint("Stops opening sign-in")
+                    .accessibilityIdentifier("native browser sign-in cancel retry")
+            }
+
             HStack(spacing: 20) {
                 Button(action: openSettings) {
                     Label("Settings", systemImage: "gearshape")
@@ -466,9 +477,17 @@ struct SignedOutSetupView: View {
                     }
                 },
                 cancellationHandler: { error in
+                    // The sign-in has ended: no Cancel for a pending retry from here on (spoonjoy-apple#345 review).
+                    browserSignInRetryPending = false
                     Task {
                         await handleBrowserOAuthCancellation(error)
                     }
+                },
+                retryHandler: { phase in
+                    // The system ended the sheet before showing it and a retry is coming (spoonjoy-apple#344).
+                    browserSignInRetryPending = phase != .started
+                    statusTone = .progress
+                    authStatus = NativeBrowserOAuthEarlyCancel.status(for: phase, providerName: provider.displayName)
                 }
             )
             webAuthenticationSession = session
@@ -541,15 +560,37 @@ struct SignedOutSetupView: View {
 
     @MainActor
     private func handleBrowserOAuthCancellation(_ error: Error?) async {
+        // A Cancel tapped before this ran already ended the sign-in and set its status.
+        guard isSigningIn else { return }
+        let ended = NativeBrowserOAuthEarlyCancel.endedStatus(error: error, providerName: pendingOAuthProvider?.displayName)
         pendingOAuthState = nil
         pendingOAuthCodeVerifier = nil
         pendingOAuthProvider = nil
         webAuthenticationSession = nil
+        browserSignInRetryPending = false
+        isSigningIn = false
+        statusTone = ended.isProblem ? .error : .neutral
+        authStatus = ended.text
+        if ended.isProblem {
+            // The sheet never opened (spoonjoy-apple#344), so nothing on screen changed for VoiceOver to notice.
+            AccessibilityNotification.Announcement(ended.text).post()
+        }
+        // SpoonjoyWebAuthenticationSession logs the cancel's domain, code and timing.
+    }
+
+    /// Cancel while browser sign-in waits to retry: the pending retry never starts, and the buttons are free again.
+    @MainActor
+    private func cancelBrowserSignInRetry() {
+        guard browserSignInRetryPending else { return }
+        webAuthenticationSession?.cancel()
+        pendingOAuthState = nil
+        pendingOAuthCodeVerifier = nil
+        pendingOAuthProvider = nil
+        webAuthenticationSession = nil
+        browserSignInRetryPending = false
         isSigningIn = false
         statusTone = .neutral
         authStatus = "Browser sign-in canceled."
-        // SpoonjoyWebAuthenticationSession logs the cancel's domain, code and timing.
-        _ = error
     }
 
     private func focusField(_ field: SignInField) {
