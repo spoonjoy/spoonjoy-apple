@@ -852,7 +852,6 @@ struct NativeScenarioTests {
             "struct EditCookLogIntent: AppIntent",
             "struct DeleteCookLogIntent: AppIntent",
             "struct CreateCoverFromSpoonIntent: AppIntent",
-            "struct AddShoppingListItemIntent: AppIntent",
             "struct SetShoppingListItemCheckedIntent: AppIntent",
             "struct RemoveShoppingListItemIntent: AppIntent",
             "struct AddRecipeIngredientsToShoppingListIntent: AppIntent",
@@ -879,6 +878,9 @@ struct NativeScenarioTests {
         ] {
             #expect(appIntentsSource.contains(declaration))
         }
+        // Generated from actions/spoonjoy.actions.mts; the app binds its handler in SpoonjoyAddShoppingListItemBinding.
+        #expect(try readRepoFile("actions/generated/OuroActions.swift").contains("public struct AddShoppingListItemIntent: AppIntent"))
+        #expect(appIntentsSource.contains("enum SpoonjoyAddShoppingListItemBinding"))
         #expect(appIntentsSource.contains("#if canImport(AppIntents)"))
         #expect(appIntentsSource.contains("import AppIntents"))
         #expect(appIntentsSource.contains("import SpoonjoyCore"))

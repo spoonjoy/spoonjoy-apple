@@ -50,15 +50,15 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         XCTAssertTrue(app.otherElements["shopping.ui-test.root"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.textFields["Add an item"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.textFields["Add an item"].isHittable)
-        XCTAssertTrue(app.buttons["Add item"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.buttons["Add item"].isHittable)
+        XCTAssertTrue(app.buttons["Add to list"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["Add to list"].isHittable)
         // Need, Basket and All, and the aisle filter, live in the ⋯ menu.
         XCTAssertTrue(app.buttons["Receipt actions"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["Receipt actions"].isHittable)
 
         XCUIDevice.shared.orientation = .landscapeLeft
         XCTAssertTrue(app.textFields["Add an item"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["Add item"].isHittable)
+        XCTAssertTrue(app.buttons["Add to list"].isHittable)
     }
 
     func testPendingAndRetryStatesStayLocalizedToTheShoppingSurface() {
@@ -89,7 +89,7 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         itemField.tap()
 
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["Add item"].isHittable)
+        XCTAssertTrue(app.buttons["Add to list"].isHittable)
     }
 
     func testMarketFiltersComposerCheckAndDestructiveActionsAreInteractive() {
@@ -113,7 +113,7 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         let itemField = app.textFields["Add an item"]
         itemField.tap()
         itemField.typeText("mint")
-        app.buttons["Add item"].tap()
+        app.buttons["Add to list"].tap()
         XCTAssertTrue(app.staticTexts["Shopping list updated"].waitForExistence(timeout: 3))
         // Adding with the button keeps the field focused for the next item. Return submits the next item and
         // closes the keyboard, which otherwise covers the rows below (run 36345815010: the long press on the
@@ -149,6 +149,31 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         tapWhenHittable(app.buttons["Clear all"], named: "The Clear all menu item", in: app)
         tapConfirmation("Clear All", in: app)
         waitForNoSheet(in: app)
+    }
+
+    /// Add to list is Button(intent:) over the generated AddShoppingListItemIntent, the same App Intent Siri and
+    /// Shortcuts run, so this press goes through the action's one handler (SpoonjoyAddShoppingListItemBinding) to the
+    /// list on screen. The fixture kitchen is synthetic; the screenshot is the Apple proof for the action model.
+    func testAddToListRunsTheGeneratedActionIntoTheListOnScreen() {
+        ensurePortrait()
+        let app = launchShopping(variant: "normal")
+        let itemField = app.textFields["Add an item"]
+        XCTAssertTrue(itemField.waitForExistence(timeout: 8))
+        itemField.tap()
+        itemField.typeText("oat milk")
+        let addToList = app.buttons["Add to list"]
+        XCTAssertTrue(addToList.waitForExistence(timeout: 3))
+        addToList.tap()
+
+        XCTAssertTrue(app.staticTexts["Shopping list updated"].waitForExistence(timeout: 5), "Add to list gave no feedback. \(app.debugDescription)")
+        let added = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "oat milk")).firstMatch
+        XCTAssertTrue(added.waitForExistence(timeout: 5), "oat milk never reached the list. \(app.debugDescription)")
+        // An empty field reports its placeholder as its value.
+        XCTAssertTrue(["", "Add an item"].contains(itemField.value as? String ?? ""), "The form kept the added item.")
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "apple-add-to-list-oat-milk"
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     func testAccessibilityMenusAndRecipeFallbacksAreInteractive() {

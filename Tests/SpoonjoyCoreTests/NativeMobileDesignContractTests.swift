@@ -1391,14 +1391,14 @@ struct NativeMobileDesignContractTests {
             proof,
             in: proofPath,
             contains: [
-                "voiceOverLabels: [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add item\", \"Add from recipe\", \"Clear checked\"]"
+                "voiceOverLabels: [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add to list\", \"Add from recipe\", \"Clear checked\"]"
             ]
         )
         expectContent(
             screenshotHarness,
             in: screenshotHarnessPath,
             contains: [
-                "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add item\", \"Add from recipe\", \"Clear checked\"]"
+                "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add to list\", \"Add from recipe\", \"Clear checked\"]"
             ]
         )
     }
@@ -1500,7 +1500,7 @@ struct NativeMobileDesignContractTests {
             proof,
             in: proofPath,
             contains: [
-                "voiceOverLabels: [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add item\", \"Add from recipe\", \"Clear checked\"]"
+                "voiceOverLabels: [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add to list\", \"Add from recipe\", \"Clear checked\"]"
             ],
             forbids: [
                 "voiceOverLabels: [\"Shopping\", \"Kitchen\", \"List Actions\", \"Add\", \"Clear checked\"]"
@@ -1515,7 +1515,7 @@ struct NativeMobileDesignContractTests {
                 "\"shopping-list-duplicate\"",
                 "\"shopping-list-conflict\"",
                 "\"shopping-list-offline-queued\"",
-                "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add item\", \"Add from recipe\", \"Clear checked\"]"
+                "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add to list\", \"Add from recipe\", \"Clear checked\"]"
             ],
             forbids: [
                 "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"List Actions\", \"Add\", \"Clear checked\"]"

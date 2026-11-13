@@ -52,6 +52,15 @@ let package = Package(
             name: "SpoonjoyBrowserSignInTests",
             dependencies: ["SpoonjoyCore"]
         ),
+        // Spoonjoy's actions as Ouro UI core generates them from actions/spoonjoy.actions.mts; the apps compile the same
+        // file. A target here so its refusal and intent parameters are tested as code, not as text.
+        .target(
+            name: "SpoonjoyActions",
+            path: "actions/generated",
+            exclude: ["OuroActionsReins.swift", "actions.json", "commands.json", "mcp.json", "web.ts", "webmcp.json"],
+            sources: ["OuroActions.swift"]
+        ),
+        .testTarget(name: "SpoonjoyActionsTests", dependencies: ["SpoonjoyActions"]),
         .testTarget(
             name: "SpoonjoyCoreTests",
             dependencies: [
