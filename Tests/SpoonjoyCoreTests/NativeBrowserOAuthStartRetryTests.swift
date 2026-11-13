@@ -157,6 +157,23 @@ struct NativeBrowserOAuthStartRetryTests {
         #expect(script.lines.last == NativeBrowserOAuthStartRetry.abandonedMessage)
     }
 
+    @Test("the default pause sleeps for the delay, then the start goes again")
+    func defaultPause() async throws {
+        var calls = 0
+        let value = try await NativeBrowserOAuthStartRetry.run(
+            delays: [.milliseconds(1)],
+            isCurrent: { true },
+            log: { _ in },
+            operation: { () async throws -> String in
+                calls += 1
+                if calls == 1 { throw Self.offline }
+                return "sheet"
+            }
+        )
+        #expect(value == "sheet")
+        #expect(calls == 2)
+    }
+
     @Test("a cancelled wait stops the start")
     func cancelledWait() async {
         var calls = 0

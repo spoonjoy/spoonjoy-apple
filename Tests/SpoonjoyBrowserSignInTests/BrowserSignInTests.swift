@@ -695,6 +695,22 @@ struct BrowserSignInTests {
         #expect(other.sheets.sessions.map(\.cancelCount) == [0])
     }
 
+    @Test("a cancel while the registration is in flight, which then fails, reports no failure")
+    func cancelDuringFailingRequestReportsNoFailure() async throws {
+        let latch = Latch()
+        let error = APITransportError(
+            kind: .apiError, requestID: "req_1", statusCode: 503, apiError: nil, retryDecision: .doNotRetry
+        )
+        let harness = Harness(transientRegistrationFailures: 1, registrationError: error, registrationLatch: latch)
+        let start = Task { await harness.flow.begin(provider: .google) { _ in Issue.record("Nothing opened") } }
+        await latch.waitUntilReached()
+        harness.flow.cancelStart()
+        await latch.open()
+        #expect(await start.value == .canceled)
+        #expect(harness.flow.startFailure == nil)
+        #expect(harness.sheets.sessions.isEmpty)
+    }
+
     @Test("an HTTP error from the registration is never retried", arguments: [503, 429])
     func httpErrorIsNotRetried(status: Int) async throws {
         let error = APITransportError(
