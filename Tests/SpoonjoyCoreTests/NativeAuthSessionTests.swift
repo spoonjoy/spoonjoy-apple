@@ -601,6 +601,81 @@ struct NativeAuthSessionTests {
         #expect(result.status == 0, Comment(rawValue: result.truncatedOutput))
     }
 
+    @Test("the early-cancel retry watches the platform's own sign that the system showed something")
+    func earlyCancelRetryWatchesPlatformSignals() throws {
+        let path = "Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift"
+        let content = try readRepoFile(path)
+        // The probe package runs on macOS only, so the iOS notification is checked in the source.
+        expectContent(
+            content,
+            in: path,
+            contains: [
+                "UIApplication.willResignActiveNotification",
+                "NSApplication.willResignActiveNotification",
+                "NSWindow.willBeginSheetNotification",
+                "NSWindow.didResignKeyNotification",
+                "NativeBrowserOAuthEarlyCancel.shouldRetry(",
+                "systemUIAppeared: systemUIAppeared",
+                "presentedViewController: presentedViewController",
+                "earlyCancelWindow: TimeInterval? = NativeBrowserOAuthEarlyCancel.platformWindow",
+                "anchor?.rootViewController?.presentedViewController",
+                "UIScene.willDeactivateNotification",
+                "UIApplication.shared.applicationState == .active",
+                "systemUIWatch.begin(anchor: session.presentationAnchor)\n        let didStart = session.start()"
+            ],
+            forbids: [
+                "authorizationURL, privacy: .public",
+                "callbackURL, privacy: .public"
+            ]
+        )
+    }
+
+    @Test("no sign-in session is ever ephemeral: the iOS early-cancel retry gate relies on the prompt a non-ephemeral session shows")
+    func browserSignInSessionsAreNeverEphemeral() throws {
+        // NativeBrowserOAuthEarlyCancel retries a canceledLogin on iOS only when the app never resigned active. That
+        // proves nothing was shown only because a non-ephemeral session always shows the "wants to use spoonjoy.app to
+        // sign in" prompt first. An ephemeral session skips the prompt, so a person's Cancel would look like the system's.
+        // Any assignment or initialiser other than a literal `false` (`= true`, `: Bool = true`, `= someFlag`), or a
+        // key-value write, is an offender. The one exception is the system wrapper's pass-through setter.
+        let assignment = #"prefersEphemeralWebBrowserSession\s*(:\s*Bool\s*)?=(?!=)(?!\s*false\b)"#
+        let keyValue = #""prefersEphemeralWebBrowserSession""#
+        let passThrough = "set { session.prefersEphemeralWebBrowserSession = newValue }"
+        let fileManager = FileManager.default
+        var offenders: [String] = []
+        for root in ["Apps", "Sources"] {
+            let base = repoRoot().appendingPathComponent(root)
+            let files = fileManager.enumerator(at: base, includingPropertiesForKeys: nil)?
+                .compactMap { $0 as? URL }
+                .filter { $0.pathExtension == "swift" } ?? []
+            for file in files {
+                let lines = try String(contentsOf: file, encoding: .utf8).components(separatedBy: .newlines)
+                for (index, line) in lines.enumerated() where line.contains("prefersEphemeralWebBrowserSession") {
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    if trimmed == passThrough { continue }
+                    if line.range(of: assignment, options: .regularExpression) != nil || line.contains(keyValue) {
+                        offenders.append("\(file.path):\(index + 1)")
+                    }
+                }
+            }
+        }
+        for caught in ["x.prefersEphemeralWebBrowserSession = true", "var prefersEphemeralWebBrowserSession: Bool = true",
+                       "s.prefersEphemeralWebBrowserSession = flag", "s.prefersEphemeralWebBrowserSession=true"] {
+            #expect(caught.range(of: assignment, options: .regularExpression) != nil, Comment(rawValue: caught))
+        }
+        for allowed in ["s.prefersEphemeralWebBrowserSession = false", "var prefersEphemeralWebBrowserSession = false",
+                        "s.prefersEphemeralWebBrowserSession == false", "var prefersEphemeralWebBrowserSession: Bool {"] {
+            #expect(allowed.range(of: assignment, options: .regularExpression) == nil, Comment(rawValue: allowed))
+        }
+        #expect(offenders.isEmpty, "Ephemeral sign-in sessions break the iOS early-cancel retry gate: \(offenders)")
+        let path = "Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift"
+        expectContent(
+            try readRepoFile(path),
+            in: path,
+            contains: ["prefersEphemeralWebBrowserSession = false"],
+            forbids: []
+        )
+    }
+
     @Test("Keychain token vault stores auth material outside general cache")
     func keychainTokenVaultStoresAuthMaterialOutsideGeneralCache() throws {
         let content = try readRepoFile("Sources/SpoonjoyCore/Auth/KeychainTokenVault.swift")
@@ -1835,7 +1910,8 @@ import Testing
 @testable import SpoonjoyAppAuth
 
 @MainActor
-@Suite("Web authentication session adapter contract")
+// Serialized: the tests post app-wide notifications that every live sign-in in the process observes.
+@Suite("Web authentication session adapter contract", .serialized)
 struct WebAuthenticationSessionAdapterContract {
     @Test("system session keeps its presentation provider alive until start")
     func systemSessionKeepsItsPresentationProviderAliveUntilStart() throws {
@@ -1861,6 +1937,19 @@ struct WebAuthenticationSessionAdapterContract {
             )
         }
         #expect(wrapped.attachedPresentationContextProvider != nil)
+    }
+
+    @Test("the system session wrapper passes prefersEphemeralWebBrowserSession straight to ASWebAuthenticationSession")
+    func systemSessionPassesEphemeralThrough() {
+        let url = URL(string: "https://spoonjoy.app/oauth/authorize?state=s")!
+        let callback = ASWebAuthenticationSession.Callback.https(host: "spoonjoy.app", path: "/oauth/callback")
+        let raw = ASWebAuthenticationSession(url: url, callback: callback) { _, _ in }
+        let provider = ProbePresentationContextProvider()
+        let wrapped = SpoonjoySystemWebAuthenticationSession(session: raw, presentationContextProvider: provider)
+        raw.prefersEphemeralWebBrowserSession = true
+        wrapped.prefersEphemeralWebBrowserSession = false
+        #expect(raw.prefersEphemeralWebBrowserSession == false)
+        #expect(wrapped.prefersEphemeralWebBrowserSession == false)
     }
 
     @Test("adapter configures exact HTTPS callback forwards callback and cancels")
@@ -1946,6 +2035,310 @@ struct WebAuthenticationSessionAdapterContract {
         #expect(forwardedCallbacks.isEmpty)
         #expect(cancellations == 1)
     }
+
+    private static let systemCancel = NSError(domain: "com.apple.AuthenticationServices.WebAuthenticationSession", code: 1)
+
+    @MainActor
+    private final class Probe {
+        var now: TimeInterval = 1000
+        var pauses: [Duration] = []
+        var cancellations: [Error?] = []
+        var callbacks: [URL] = []
+        let factory = FakeSessionFactory()
+        var adapter: SpoonjoyWebAuthenticationSession!
+        var holdsPause = false
+        var heldPause: CheckedContinuation<Void, Never>?
+        /// What the anchor window has presented; a new value during the session means a view controller appeared.
+        var presented: ObjectIdentifier?
+        var appActive = true
+        /// Each sample of the anchor, with each fake session's start, in order.
+        var events: [String] = []
+
+        /// `window` nil is the iOS rule (no time limit); the default is the macOS window.
+        init(window: TimeInterval? = NativeBrowserOAuthEarlyCancel.window) {
+            defer { factory.onStart = { [unowned self] in self.events.append("start") } }
+            adapter = SpoonjoyWebAuthenticationSession(
+                callbackURL: URL(string: "https://spoonjoy.app/oauth/callback")!,
+                sessionFactory: factory.makeSession,
+                callbackHandler: { [unowned self] in self.callbacks.append($0) },
+                cancellationHandler: { [unowned self] in self.cancellations.append($0) },
+                uptime: { [unowned self] in self.now },
+                earlyCancelWindow: window,
+                systemUIWatch: SpoonjoySystemUIWatch(
+                    appIsActive: { [unowned self] in self.appActive },
+                    presentedUI: { [unowned self] _ in
+                        self.events.append("sample")
+                        return self.presented
+                    }
+                ),
+                pause: { [unowned self] in
+                    self.pauses.append($0)
+                    if self.holdsPause {
+                        await withCheckedContinuation { self.heldPause = $0 }
+                    }
+                }
+            )
+        }
+
+        @MainActor
+        func start() throws {
+            let state = try #require(OAuthState(rawValue: "state_123"))
+            #expect(try adapter.start(
+                authorizationURL: URL(string: "https://spoonjoy.app/oauth/authorize?client_id=cm_native_spoonjoy&state=state_123")!,
+                oauthState: state
+            ))
+        }
+    }
+
+    @Test("an early system cancel with nothing shown starts one fresh session, which can still sign in")
+    func earlyCancelRetriesOnce() async throws {
+        let probe = Probe()
+        try probe.start()
+        probe.now += 0.2
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(probe.cancellations.isEmpty)
+        await probe.adapter.retryTask?.value
+        #expect(probe.pauses == [NativeBrowserOAuthEarlyCancel.retryDelay])
+        #expect(probe.factory.sessions.map(\.startCount) == [1, 1])
+        #expect(probe.factory.requests.count == 2)
+        #expect(probe.factory.requests[0] == probe.factory.requests[1])
+
+        let callbackURL = URL(string: "https://spoonjoy.app/oauth/callback?code=oac_code&state=state_123")!
+        probe.factory.complete(with: callbackURL)
+        #expect(probe.callbacks == [callbackURL])
+        #expect(probe.cancellations.isEmpty)
+    }
+
+    @Test("a second early cancel is reported as a cancel")
+    func secondEarlyCancelIsReported() async throws {
+        let probe = Probe()
+        try probe.start()
+        probe.now += 0.2
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        await probe.adapter.retryTask?.value
+        probe.now += 0.2
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(probe.cancellations.count == 1)
+        #expect(probe.factory.sessions.count == 2)
+    }
+
+    @Test("the person's cancel is never retried: after the window, or once the system prompt made the app resign active")
+    func personCancelIsNotRetried() async throws {
+        let late = Probe()
+        try late.start()
+        late.now += NativeBrowserOAuthEarlyCancel.window + 0.1
+        late.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(late.cancellations.count == 1)
+        #expect(late.factory.sessions.count == 1)
+        #expect(late.adapter.retryTask == nil)
+
+        let shown = Probe()
+        try shown.start()
+        NotificationCenter.default.post(name: NSApplication.willResignActiveNotification, object: nil)
+        await Task.yield()
+        shown.now += 0.3
+        shown.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(shown.cancellations.count == 1)
+        #expect(shown.factory.sessions.count == 1)
+        #expect(shown.adapter.retryTask == nil)
+    }
+
+    @Test("a session the app canceled, or an app cancel during the retry pause, never starts another session")
+    func appCancelIsNotRetried() async throws {
+        let canceled = Probe()
+        try canceled.start()
+        canceled.adapter.cancel()
+        canceled.now += 0.2
+        canceled.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(canceled.cancellations.count == 1)
+        #expect(canceled.factory.sessions.count == 1)
+        #expect(canceled.adapter.retryTask == nil)
+
+        let paused = Probe()
+        try paused.start()
+        paused.now += 0.2
+        paused.factory.complete(with: nil, error: Self.systemCancel)
+        paused.adapter.cancel()
+        await paused.adapter.retryTask?.value
+        #expect(paused.factory.sessions.count == 1)
+        #expect(paused.cancellations.isEmpty)
+    }
+
+    @Test("on macOS a window beginning a sheet or resigning key means the system showed something: no retry")
+    func macSheetSignalsBlockRetry() async throws {
+        for name in [NSWindow.willBeginSheetNotification, NSWindow.didResignKeyNotification] {
+            let probe = Probe()
+            try probe.start()
+            NotificationCenter.default.post(name: name, object: nil)
+            await Task.yield()
+            probe.now += 0.3
+            probe.factory.complete(with: nil, error: Self.systemCancel)
+            #expect(probe.cancellations.count == 1, Comment(rawValue: name.rawValue))
+            #expect(probe.factory.sessions.count == 1, Comment(rawValue: name.rawValue))
+            #expect(probe.adapter.retryTask == nil, Comment(rawValue: name.rawValue))
+        }
+    }
+
+    @Test("iOS: a system cancel 5 s after start, with nothing shown, still gets one fresh session")
+    func iOSLateEarlyCancelRetries() async throws {
+        // CI run 43312729950: the cancel came 5242 ms after start, 13 ms after swcd's "app PI changed".
+        let probe = Probe(window: nil)
+        try probe.start()
+        probe.now += 5.242
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(probe.cancellations.isEmpty)
+        await probe.adapter.retryTask?.value
+        #expect(probe.factory.sessions.map(\.startCount) == [1, 1])
+
+        // A second cancel with nothing shown finishes as canceled.
+        probe.now += 5
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(probe.cancellations.count == 1)
+        #expect(probe.factory.sessions.count == 2)
+    }
+
+    @Test("macOS: the same 5 s cancel is outside the window and is not retried")
+    func macLateCancelIsNotRetried() async throws {
+        let probe = Probe(window: NativeBrowserOAuthEarlyCancel.window)
+        try probe.start()
+        probe.now += 5.242
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(probe.cancellations.count == 1)
+        #expect(probe.factory.sessions.count == 1)
+        #expect(probe.adapter.retryTask == nil)
+    }
+
+    private enum Shown: CaseIterable {
+        case inactiveAtStart, resignedActive, sheetBegan, resignedKey, presentedAtCancel
+    }
+
+    @Test("the person's Cancel after the sheet was shown never relaunches it, early or late, on either platform")
+    func personCancelAfterSheetShown() async throws {
+        for window in [nil, NativeBrowserOAuthEarlyCancel.window] {
+            for seconds in [0.3, 5.242] {
+                for shown in Shown.allCases {
+                    let probe = Probe(window: window)
+                    let sheet = NSObject()
+                    if shown == .inactiveAtStart {
+                        probe.appActive = false
+                    }
+                    try probe.start()
+                    // The real flow: the system's sheet is up when the signal fires and gone when the cancel arrives.
+                    let signal: Notification.Name? = switch shown {
+                    case .resignedActive: NSApplication.willResignActiveNotification
+                    case .sheetBegan: NSWindow.willBeginSheetNotification
+                    case .resignedKey: NSWindow.didResignKeyNotification
+                    case .inactiveAtStart, .presentedAtCancel: nil
+                    }
+                    probe.presented = ObjectIdentifier(sheet)
+                    if let signal {
+                        NotificationCenter.default.post(name: signal, object: nil)
+                        await Task.yield()
+                        probe.presented = nil
+                    } else if shown == .inactiveAtStart {
+                        probe.presented = nil
+                    }
+                    probe.now += seconds
+                    probe.factory.complete(with: nil, error: Self.systemCancel)
+                    let label = Comment(rawValue: "window \(String(describing: window)) after \(seconds) s, \(shown)")
+                    #expect(probe.cancellations.count == 1, label)
+                    #expect(probe.factory.sessions.count == 1, label)
+                    #expect(probe.adapter.retryTask == nil, label)
+                    // The presented view controller is latched when seen, even though it is gone by the cancel.
+                    #expect(probe.adapter.systemUIWatch.presentedViewControllerSeen == (shown != .inactiveAtStart), label)
+                    withExtendedLifetime(sheet) {}
+                }
+            }
+        }
+    }
+
+    @Test("an app already inactive when the sign-in starts (Control Center, a call banner) never gets a retry")
+    func inactiveAtStartIsNotRetried() async throws {
+        let probe = Probe(window: nil)
+        probe.appActive = false
+        try probe.start()
+        probe.now += 0.2
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        #expect(probe.cancellations.count == 1)
+        #expect(probe.factory.sessions.count == 1)
+        #expect(probe.adapter.retryTask == nil)
+    }
+
+    @Test("the presented-view-controller baseline is taken before each start, and the retry takes its own")
+    func retryTakesItsOwnBaseline() async throws {
+        let probe = Probe(window: nil)
+        try probe.start()
+        #expect(probe.events == ["sample", "start"])
+        #expect(probe.adapter.systemUIWatch.presentedAtStart == nil)
+        probe.now += 0.2
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        let appSheet = NSObject()
+        probe.presented = ObjectIdentifier(appSheet)
+        await probe.adapter.retryTask?.value
+        #expect(probe.factory.sessions.count == 2)
+        #expect(probe.adapter.systemUIWatch.presentedAtStart == ObjectIdentifier(appSheet))
+        #expect(Array(probe.events.suffix(2)) == ["sample", "start"])
+        withExtendedLifetime(appSheet) {}
+    }
+
+    @Test("a view controller already presented when the sign-in started does not block the retry")
+    func presentedBeforeStartDoesNotBlockRetry() async throws {
+        let host = NSObject()
+        let probe = Probe(window: nil)
+        probe.presented = ObjectIdentifier(host)
+        try probe.start()
+        probe.now += 0.3
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        await probe.adapter.retryTask?.value
+        #expect(probe.factory.sessions.count == 2)
+        #expect(probe.cancellations.isEmpty)
+        withExtendedLifetime(host) {}
+    }
+
+    @Test("every sign-in session, the retry included, is non-ephemeral: the iOS retry gate relies on the prompt it shows")
+    func sessionsAreNeverEphemeral() async throws {
+        let probe = Probe(window: nil)
+        try probe.start()
+        probe.now += 0.2
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        await probe.adapter.retryTask?.value
+        #expect(probe.factory.sessions.count == 2)
+        #expect(probe.factory.sessions.allSatisfy { !$0.prefersEphemeralWebBrowserSession })
+    }
+
+    @Test("a retry the system will not start is reported as a cancel")
+    func retryThatDoesNotStartIsReported() async throws {
+        let probe = Probe()
+        probe.factory.startResults[1] = false
+        try probe.start()
+        probe.now += 0.2
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        await probe.adapter.retryTask?.value
+        #expect(probe.factory.sessions.map(\.startCount) == [1, 1])
+        #expect(probe.cancellations.count == 1)
+        #expect(probe.callbacks.isEmpty)
+    }
+
+    @Test("a sign-in whose owner lets go of it during the retry pause opens no sheet")
+    func ownerGoneDuringRetryPause() async throws {
+        let probe = Probe()
+        probe.holdsPause = true
+        try probe.start()
+        probe.now += 0.2
+        probe.factory.complete(with: nil, error: Self.systemCancel)
+        let retry = try #require(probe.adapter.retryTask)
+        while probe.heldPause == nil {
+            await Task.yield()
+        }
+
+        weak let gone = probe.adapter
+        probe.adapter = nil
+        #expect(gone == nil)
+        probe.heldPause?.resume()
+        await retry.value
+        #expect(probe.factory.sessions.count == 1)
+        #expect(probe.cancellations.isEmpty)
+    }
 }
 
 private enum TestAuthenticationError: Error {
@@ -1963,6 +2356,9 @@ private final class FakeSessionFactory {
     private(set) var sessions: [FakeWebAuthenticationSession] = []
     private var completionHandler: (@MainActor (URL?, Error?) -> Void)?
     private let startResult: Bool
+    /// Overrides `startResult` for the session at that index.
+    var startResults: [Int: Bool] = [:]
+    var onStart: (@MainActor () -> Void)?
 
     init(startResult: Bool = true) {
         self.startResult = startResult
@@ -1975,7 +2371,8 @@ private final class FakeSessionFactory {
     ) -> any SpoonjoyWebAuthenticationSessionProtocol {
         requests.append(FakeSessionRequest(authorizationURL: authorizationURL, callback: callback))
         self.completionHandler = completionHandler
-        let session = FakeWebAuthenticationSession(startResult: startResult)
+        let session = FakeWebAuthenticationSession(startResult: startResults[sessions.count] ?? startResult)
+        session.onStart = onStart
         sessions.append(session)
         return session
     }
@@ -1987,10 +2384,12 @@ private final class FakeSessionFactory {
 
 @MainActor
 private final class FakeWebAuthenticationSession: SpoonjoyWebAuthenticationSessionProtocol {
-    var prefersEphemeralWebBrowserSession = false
+    /// Starts true, so a test sees whether the adapter set it.
+    var prefersEphemeralWebBrowserSession = true
     private(set) var startCount = 0
     private(set) var cancelCount = 0
     private let startResult: Bool
+    var onStart: (@MainActor () -> Void)?
 
     init(startResult: Bool = true) {
         self.startResult = startResult
@@ -1998,6 +2397,7 @@ private final class FakeWebAuthenticationSession: SpoonjoyWebAuthenticationSessi
 
     func start() -> Bool {
         startCount += 1
+        onStart?()
         return startResult
     }
 
