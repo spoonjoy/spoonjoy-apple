@@ -62,6 +62,11 @@ public enum NativeBrowserOAuthStartRetry {
                 guard shouldRetry(error, secondsTaken: now() - sentAt) else {
                     throw error
                 }
+                // Cancelled or replaced while the request was in flight: stop without logging a retry or waiting.
+                guard !Task.isCancelled, isCurrent() else {
+                    log(abandonedMessage)
+                    throw CancellationError()
+                }
                 log(retriedMessage(error: error, attempt: index + 1))
                 try await pause(delay)
                 guard !Task.isCancelled, isCurrent() else {

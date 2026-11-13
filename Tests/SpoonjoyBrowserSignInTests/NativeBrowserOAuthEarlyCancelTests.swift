@@ -11,7 +11,6 @@ struct NativeBrowserOAuthEarlyCancelTests {
         after seconds: TimeInterval?,
         systemUIAppeared: Bool = false,
         presentedViewController: Bool = false,
-        alreadyRetried: Bool = false,
         window: TimeInterval?
     ) -> Bool {
         NativeBrowserOAuthEarlyCancel.shouldRetry(
@@ -19,12 +18,11 @@ struct NativeBrowserOAuthEarlyCancelTests {
             secondsSinceStart: seconds,
             systemUIAppeared: systemUIAppeared,
             presentedViewController: presentedViewController,
-            alreadyRetried: alreadyRetried,
             window: window
         )
     }
 
-    @Test("iOS: a system cancel with nothing shown is retried once, however late it comes")
+    @Test("iOS: a system cancel with nothing shown is retried, however late it comes")
     func iOSRetryRule() {
         // CI run 43312729950: the cancel came 5242 ms after start, 13 ms after swcd's "app PI changed".
         for seconds in [0.2, 5.242, 30] {
@@ -35,7 +33,42 @@ struct NativeBrowserOAuthEarlyCancelTests {
             #expect(!retries(after: seconds, systemUIAppeared: true, window: nil))
             #expect(!retries(after: seconds, presentedViewController: true, window: nil))
         }
-        #expect(!retries(after: 5.242, alreadyRetried: true, window: nil))
+    }
+
+    @Test("iOS retries back off over about 31 s and then stop; other platforms keep one retry")
+    func retryBackoff() {
+        // swcd's re-sync in CI run 43353272527 ran about 10 s, and a retry 750 ms in was cancelled too (#344); proof run
+        // 43368852856 opened only on its fourth retry, about 15 s in, so a fifth pause of 16 s leaves room.
+        let iOS = NativeBrowserOAuthEarlyCancel.iOSRetryDelays
+        #expect(iOS == [.milliseconds(750), .seconds(2), .seconds(4), .seconds(8), .seconds(16)])
+        #expect((0..<5).map { NativeBrowserOAuthEarlyCancel.retryDelay(afterRetries: $0, in: iOS) } == iOS)
+        #expect(NativeBrowserOAuthEarlyCancel.retryDelay(afterRetries: 5, in: iOS) == nil)
+        #expect(NativeBrowserOAuthEarlyCancel.retryDelay(afterRetries: -1, in: iOS) == nil)
+        let other = NativeBrowserOAuthEarlyCancel.otherRetryDelays
+        #expect(other == [.milliseconds(750)])
+        #expect(NativeBrowserOAuthEarlyCancel.retryDelay(afterRetries: 1, in: other) == nil)
+        #if os(iOS)
+        #expect(NativeBrowserOAuthEarlyCancel.platformRetryDelays == iOS)
+        #else
+        #expect(NativeBrowserOAuthEarlyCancel.platformRetryDelays == other)
+        #endif
+        #expect(NativeBrowserOAuthEarlyCancel.CouldNotOpen() == NativeBrowserOAuthEarlyCancel.CouldNotOpen())
+    }
+
+    @Test("the status line says what the sign-in is doing, and a sheet that never opened says what to do")
+    func statusLines() {
+        #expect(NativeBrowserOAuthEarlyCancel.status(for: .waiting(retry: 2), providerName: "Google") == "Opening Google sign-in.")
+        #expect(NativeBrowserOAuthEarlyCancel.status(for: .started, providerName: "GitHub") == "Finish GitHub sign-in in the browser.")
+        let couldNotOpen = NativeBrowserOAuthEarlyCancel.endedStatus(error: NativeBrowserOAuthEarlyCancel.CouldNotOpen(), providerName: "Google")
+        #expect(couldNotOpen.text == "Could not open Google sign-in. Try again.")
+        #expect(couldNotOpen.isProblem)
+        #expect(NativeBrowserOAuthEarlyCancel.endedStatus(error: NativeBrowserOAuthEarlyCancel.CouldNotOpen(), providerName: nil).text ==
+            "Could not open sign-in. Try again.")
+        for error in [systemCancel, nil] as [(any Error)?] {
+            let canceled = NativeBrowserOAuthEarlyCancel.endedStatus(error: error, providerName: "Google")
+            #expect(canceled.text == "Browser sign-in canceled.")
+            #expect(!canceled.isProblem)
+        }
     }
 
     @Test("macOS: only a system cancel within the window, with nothing shown, is retried")
@@ -46,7 +79,6 @@ struct NativeBrowserOAuthEarlyCancelTests {
         #expect(!retries(after: window, window: window))
         #expect(!retries(after: 0.2, systemUIAppeared: true, window: window))
         #expect(!retries(after: 0.2, presentedViewController: true, window: window))
-        #expect(!retries(after: 0.2, alreadyRetried: true, window: window))
     }
 
     @Test("this platform's time limit is none on iOS and the window everywhere else")
@@ -65,7 +97,7 @@ struct NativeBrowserOAuthEarlyCancelTests {
             #expect(!retries(NSError(domain: "com.apple.AuthenticationServices.WebAuthenticationSession", code: 2), after: 0.2, window: window))
             #expect(!NativeBrowserOAuthEarlyCancel.shouldRetry(
                 error: nil, secondsSinceStart: 0.2, systemUIAppeared: false, presentedViewController: false,
-                alreadyRetried: false, window: window
+                window: window
             ))
             #expect(!retries(after: nil, window: window))
             #expect(!retries(after: -1, window: window))
@@ -83,8 +115,12 @@ struct NativeBrowserOAuthEarlyCancelTests {
 
     @Test("the log lines carry the domain, code and timing, never a description")
     func logLines() {
-        #expect(NativeBrowserOAuthEarlyCancel.earlyCancelMessage(error: systemCancel, secondsSinceStart: 0.1754) ==
-            "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 175 ms, systemUIAppeared=false, presentedVC=false; retrying once")
+        #expect(NativeBrowserOAuthEarlyCancel.earlyCancelMessage(error: systemCancel, secondsSinceStart: 0.1754, retry: 2, of: 4) ==
+            "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 175 ms, systemUIAppeared=false, presentedVC=false; retry 2 of 4")
+        #expect(NativeBrowserOAuthEarlyCancel.exhaustedMessage(error: systemCancel, secondsSinceStart: 0.246, retries: 4) ==
+            "Browser sign-in early cancel: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 246 ms, systemUIAppeared=false, presentedVC=false; all 4 retries used")
+        #expect(NativeBrowserOAuthEarlyCancel.exhaustedMessage(error: nil, secondsSinceStart: nil, retries: 1) ==
+            "Browser sign-in early cancel: no error after unknown ms, systemUIAppeared=false, presentedVC=false; the only retry used")
         #expect(NativeBrowserOAuthEarlyCancel.endedMessage(error: systemCancel, secondsSinceStart: 4, systemUIAppeared: true, presentedViewController: false) ==
             "Browser sign-in ended without a callback: com.apple.AuthenticationServices.WebAuthenticationSession 1 after 4000 ms, systemUIAppeared=true, presentedVC=false")
         #expect(NativeBrowserOAuthEarlyCancel.endedMessage(error: nil, secondsSinceStart: nil, systemUIAppeared: false, presentedViewController: true) ==
@@ -93,7 +129,9 @@ struct NativeBrowserOAuthEarlyCancelTests {
         #expect(!NativeBrowserOAuthEarlyCancel.endedMessage(error: secret, secondsSinceStart: 1, systemUIAppeared: false, presentedViewController: false).contains("oac_secret"))
         let transport = APITransportError(kind: .apiError, requestID: "req_1", statusCode: 503, apiError: nil, retryDecision: .doNotRetry)
         #expect(NativeBrowserOAuthEarlyCancel.diagnosticReason(transport) == "apiError status 503 request req_1")
-        #expect(NativeBrowserOAuthEarlyCancel.earlyCancelMessage(error: nil, secondsSinceStart: nil) ==
-            "Browser sign-in early cancel: no error after unknown ms, systemUIAppeared=false, presentedVC=false; retrying once")
+        let bare = APITransportError(kind: .offline, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        #expect(NativeBrowserOAuthEarlyCancel.diagnosticReason(bare) == "offline status none request none")
+        #expect(NativeBrowserOAuthEarlyCancel.earlyCancelMessage(error: nil, secondsSinceStart: nil, retry: 1, of: 1) ==
+            "Browser sign-in early cancel: no error after unknown ms, systemUIAppeared=false, presentedVC=false; retry 1 of 1")
     }
 }

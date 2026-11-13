@@ -114,20 +114,22 @@ public final class NativeBrowserOAuthSignIn {
     private var session: (any NativeBrowserOAuthWebSession)?
     private var onFinish: (@MainActor (NativeBrowserOAuthFinish) -> Void)?
     private var onReturn: (@MainActor () -> Void)?
+    private var onRetry: (@MainActor (NativeBrowserOAuthEarlyCancel.RetryPhase) -> Void)?
     private var isStarting = false
     private var startCancelled = false
     private let startRetryDelays: [Duration]
     private var isFinishing = false
     private var redirectURI: URL?
     private var sessionStartedAt: TimeInterval?
-    private var retriedAttemptID: UUID?
+    /// Early-cancel retries the open attempt has used, up to `retryDelays.count` (spoonjoy-apple#344).
+    private var retries = 0
+    private let retryDelays: [Duration]
     /// The pause before an early-cancel retry. It holds this object weakly, so a view torn down mid-pause opens no sheet.
     private(set) var retryTask: Task<Void, Never>?
 
     /// On macOS, a cancel with nothing shown is retried only this soon after `start()`. iOS has no time limit
     /// (`NativeBrowserOAuthEarlyCancel.platformWindow`).
     public static let earlyCancelWindow = NativeBrowserOAuthEarlyCancel.window
-    public static let earlyCancelRetryDelay = NativeBrowserOAuthEarlyCancel.retryDelay
 
     public init(
         repository: NativeAuthSessionRepository,
@@ -136,11 +138,13 @@ public final class NativeBrowserOAuthSignIn {
         uptime: @escaping @MainActor () -> TimeInterval = { NativeBrowserOAuthEarlyCancel.monotonicSeconds() },
         earlyCancelWindow: TimeInterval? = NativeBrowserOAuthEarlyCancel.platformWindow,
         pause: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) },
+        retryDelays: [Duration] = NativeBrowserOAuthEarlyCancel.platformRetryDelays,
         startRetryDelays: [Duration] = NativeBrowserOAuthStartRetry.delays,
         log: @escaping @MainActor (String) -> Void = { _ in },
         makeSession: @escaping NativeBrowserOAuthWebSessionFactory
     ) {
         self.startRetryDelays = startRetryDelays
+        self.retryDelays = retryDelays
         self.repository = repository
         self.gate = gate
         self.randomSecret = randomSecret
@@ -152,21 +156,23 @@ public final class NativeBrowserOAuthSignIn {
     }
 
     /// True from the tap until the attempt finishes, including the client registration before the sheet opens and
-    /// the code exchange after it closes.
+    /// the code exchange after it closes, and through every pause before an early-cancel retry.
     public var isInProgress: Bool {
         isStarting || attempt != nil || isFinishing
     }
 
     /// Starts a new attempt with its own state and verifier, unless one is already in progress. `onReturn` is called
     /// when the sheet comes back with a callback, before the code exchange; `onFinish` is called once, when the
-    /// attempt ends after it opened. A transient failure of the client registration is retried
-    /// (`NativeBrowserOAuthStartRetry`). A `cancelStart()` before the sheet opens ends the start with `.canceled`, and a
+    /// attempt ends after it opened. `onRetry` hears each pause before an early-cancel retry and each retried sheet
+    /// that starts (spoonjoy-apple#344); a sheet that never opens finishes `.canceled(CouldNotOpen())`. A transient
+    /// failure of the client registration is retried (`NativeBrowserOAuthStartRetry`). A `cancelStart()` before the sheet opens ends the start with `.canceled`, and a
     /// newer attempt claiming the gate during a retry wait ends it with `.superseded`. With `sendsProviderHint` false, /oauth/authorize gets no provider
     /// hint and shows spoonjoy.app/login (BrowserSignInCallbackUITests, Debug builds only).
     public func begin(
         provider: OAuthProviderHint,
         sendsProviderHint: Bool = true,
         onReturn: @escaping @MainActor () -> Void = {},
+        onRetry: @escaping @MainActor (NativeBrowserOAuthEarlyCancel.RetryPhase) -> Void = { _ in },
         onFinish: @escaping @MainActor (NativeBrowserOAuthFinish) -> Void
     ) async -> NativeBrowserOAuthStart {
         startFailure = nil
@@ -227,6 +233,8 @@ public final class NativeBrowserOAuthSignIn {
         self.session = session
         self.onFinish = onFinish
         self.onReturn = onReturn
+        self.onRetry = onRetry
+        retries = 0
         // The gate is claimed after registration and before the sheet starts: the older sheet must close before this
         // one's server start replaces its state, even though this start may still fail. So the newest start to
         // finish registering wins, which is nearly always the newest tap.
@@ -292,12 +300,23 @@ public final class NativeBrowserOAuthSignIn {
                 secondsSinceStart: elapsed,
                 systemUIAppeared: systemUIAppeared,
                 presentedViewController: presentedViewController,
-                alreadyRetried: retriedAttemptID == attemptID,
                 window: retryWindow
             ) {
-                retriedAttemptID = attemptID
-                log(NativeBrowserOAuthEarlyCancel.earlyCancelMessage(error: error, secondsSinceStart: elapsed))
-                scheduleRetry(attemptID: attemptID, error: error)
+                guard let delay = NativeBrowserOAuthEarlyCancel.retryDelay(afterRetries: retries, in: retryDelays) else {
+                    // Every retry was cancelled with nothing shown: the sheet never opened.
+                    log(NativeBrowserOAuthEarlyCancel.exhaustedMessage(error: error, secondsSinceStart: elapsed, retries: retries))
+                    clear(attemptID: attemptID)
+                    finish(.canceled(NativeBrowserOAuthEarlyCancel.CouldNotOpen()))
+                    return
+                }
+                retries += 1
+                log(NativeBrowserOAuthEarlyCancel.earlyCancelMessage(
+                    error: error,
+                    secondsSinceStart: elapsed,
+                    retry: retries,
+                    of: retryDelays.count
+                ))
+                scheduleRetry(attemptID: attemptID, delay: delay)
                 return
             }
             log(NativeBrowserOAuthEarlyCancel.endedMessage(
@@ -329,19 +348,20 @@ public final class NativeBrowserOAuthSignIn {
         }
     }
 
-    /// Starts one fresh sheet for the same attempt after a short pause. A cancel, a newer start or a callback during
+    /// Starts a fresh sheet for the same attempt after `delay`. A cancel, a newer start or a callback during
     /// the pause wins: the retry only runs while this attempt is still the open one. The pause holds this object
     /// weakly, so if its owner goes away meanwhile, no sheet opens.
-    private func scheduleRetry(attemptID: UUID, error: (any Error)?) {
+    private func scheduleRetry(attemptID: UUID, delay: Duration) {
         session = nil
         sessionStartedAt = nil
+        onRetry?(.waiting(retry: retries))
         retryTask = Task { [weak self, pause] in
-            await pause(Self.earlyCancelRetryDelay)
-            self?.resumeRetry(attemptID: attemptID, error: error)
+            await pause(delay)
+            self?.resumeRetry(attemptID: attemptID)
         }
     }
 
-    private func resumeRetry(attemptID: UUID, error: (any Error)?) {
+    private func resumeRetry(attemptID: UUID) {
         guard let attempt, attempt.id == attemptID, let redirectURI, let finish = onFinish else {
             return
         }
@@ -350,11 +370,12 @@ public final class NativeBrowserOAuthSignIn {
         guard sheet.start() else {
             log(NativeBrowserOAuthEarlyCancel.retryDidNotStartMessage)
             clear(attemptID: attempt.id)
-            finish(.canceled(error))
+            finish(.canceled(NativeBrowserOAuthEarlyCancel.CouldNotOpen()))
             return
         }
         sessionStartedAt = uptime()
         log(NativeBrowserOAuthEarlyCancel.retriedMessage)
+        onRetry?(.started)
     }
 
     private func makeSheet(attemptID: UUID, authorizationURL: URL, redirectURI: URL) -> any NativeBrowserOAuthWebSession {
@@ -379,6 +400,8 @@ public final class NativeBrowserOAuthSignIn {
         redirectURI = nil
         onFinish = nil
         onReturn = nil
+        onRetry = nil
+        retries = 0
         gate.release(attemptID)
     }
 }
