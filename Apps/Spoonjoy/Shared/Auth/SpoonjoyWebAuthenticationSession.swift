@@ -134,7 +134,8 @@ final class SpoonjoyWebAuthenticationSession {
     private var activeSession: (any SpoonjoyWebAuthenticationSessionProtocol)?
     private let oauthCallback: URL
     private static let logger = Logger(subsystem: "app.spoonjoy", category: "auth.browser")
-    // Early-cancel retries for this sign-in, up to NativeBrowserOAuthEarlyCancel.retryDelays (spoonjoy-apple#320, #344).
+    // Early-cancel retries for this sign-in, up to `retryDelays.count` (NativeBrowserOAuthEarlyCancel, spoonjoy-apple#320,
+    // #344).
     private var authorizationURL: URL?
     private var sessionStartedAt: TimeInterval?
     private var retries = 0
@@ -144,12 +145,16 @@ final class SpoonjoyWebAuthenticationSession {
     private let uptime: @MainActor () -> TimeInterval
     private let earlyCancelWindow: TimeInterval?
     private let pause: @MainActor (Duration) async -> Void
+    private let retryDelays: [Duration]
+    private let retryHandler: @MainActor (NativeBrowserOAuthEarlyCancel.RetryPhase) -> Void
 
     init(
         callbackURL: URL,
         sessionFactory: @escaping SpoonjoyWebAuthenticationSessionFactory,
         callbackHandler: @escaping @MainActor (URL) -> Void,
         cancellationHandler: @escaping @MainActor (Error?) -> Void = { _ in },
+        retryHandler: @escaping @MainActor (NativeBrowserOAuthEarlyCancel.RetryPhase) -> Void = { _ in },
+        retryDelays: [Duration] = NativeBrowserOAuthEarlyCancel.platformRetryDelays,
         uptime: @escaping @MainActor () -> TimeInterval = { NativeBrowserOAuthEarlyCancel.monotonicSeconds() },
         earlyCancelWindow: TimeInterval? = NativeBrowserOAuthEarlyCancel.platformWindow,
         systemUIWatch: SpoonjoySystemUIWatch? = nil,
@@ -163,12 +168,15 @@ final class SpoonjoyWebAuthenticationSession {
         self.earlyCancelWindow = earlyCancelWindow
         self.systemUIWatch = systemUIWatch ?? SpoonjoySystemUIWatch()
         self.pause = pause
+        self.retryDelays = retryDelays
+        self.retryHandler = retryHandler
     }
 
     convenience init(
         callbackURL: URL,
         callbackHandler: @escaping @MainActor (URL) -> Void,
-        cancellationHandler: @escaping @MainActor (Error?) -> Void = { _ in }
+        cancellationHandler: @escaping @MainActor (Error?) -> Void = { _ in },
+        retryHandler: @escaping @MainActor (NativeBrowserOAuthEarlyCancel.RetryPhase) -> Void = { _ in }
     ) {
         self.init(
             callbackURL: callbackURL,
@@ -200,7 +208,8 @@ final class SpoonjoyWebAuthenticationSession {
                 )
             },
             callbackHandler: callbackHandler,
-            cancellationHandler: cancellationHandler
+            cancellationHandler: cancellationHandler,
+            retryHandler: retryHandler
         )
     }
 
@@ -246,8 +255,9 @@ final class SpoonjoyWebAuthenticationSession {
     /// iOS can end a session by itself right after an install or update (spoonjoy-apple#320); while nothing was shown,
     /// each such cancel gets a fresh session after a growing pause, until the retries run out (spoonjoy-apple#344;
     /// NativeBrowserOAuthEarlyCancel has the rule). The cancellation handler is not called during a pause, so the
-    /// sign-in stays in progress and its buttons stay disabled. Every other end goes to the handler at once, as before;
-    /// running out reports `RetriesExhausted`.
+    /// sign-in stays in progress and its buttons stay disabled; `retryHandler` hears each pause and each restarted sheet.
+    /// Every other end goes to the handler at once, as before. A sheet that never opens, because the retries ran out
+    /// or the system would not start one, reports `CouldNotOpen`.
     private func sessionEnded(_ error: Error?) {
         let elapsed = sessionStartedAt.map { uptime() - $0 }
         let systemUIAppeared = systemUIWatch.systemUIAppeared
@@ -270,17 +280,23 @@ final class SpoonjoyWebAuthenticationSession {
             handleAuthenticationCancellation(error)
             return
         }
-        guard let delay = NativeBrowserOAuthEarlyCancel.retryDelay(afterRetries: retries) else {
-            let exhausted = NativeBrowserOAuthEarlyCancel.exhaustedMessage(error: error, secondsSinceStart: elapsed)
+        guard let delay = NativeBrowserOAuthEarlyCancel.retryDelay(afterRetries: retries, in: retryDelays) else {
+            let exhausted = NativeBrowserOAuthEarlyCancel.exhaustedMessage(error: error, secondsSinceStart: elapsed, retries: retries)
             Self.logger.notice("\(exhausted, privacy: .public)")
-            handleAuthenticationCancellation(NativeBrowserOAuthEarlyCancel.RetriesExhausted())
+            handleAuthenticationCancellation(NativeBrowserOAuthEarlyCancel.CouldNotOpen())
             return
         }
         retries += 1
-        let message = NativeBrowserOAuthEarlyCancel.earlyCancelMessage(error: error, secondsSinceStart: elapsed, retry: retries)
+        let message = NativeBrowserOAuthEarlyCancel.earlyCancelMessage(
+            error: error,
+            secondsSinceStart: elapsed,
+            retry: retries,
+            of: retryDelays.count
+        )
         Self.logger.notice("\(message, privacy: .public)")
         activeSession = nil
         sessionStartedAt = nil
+        retryHandler(.waiting(retry: retries))
         let pausedGeneration = generation
         retryTask = Task { [weak self, pause] in
             await pause(delay)
@@ -288,9 +304,10 @@ final class SpoonjoyWebAuthenticationSession {
             guard let self, pausedGeneration == self.generation else { return }
             if self.startSession(authorizationURL) {
                 Self.logger.notice("\(NativeBrowserOAuthEarlyCancel.retriedMessage, privacy: .public)")
+                self.retryHandler(.started)
             } else {
                 Self.logger.notice("\(NativeBrowserOAuthEarlyCancel.retryDidNotStartMessage, privacy: .public)")
-                self.handleAuthenticationCancellation(error)
+                self.handleAuthenticationCancellation(NativeBrowserOAuthEarlyCancel.CouldNotOpen())
             }
         }
     }
