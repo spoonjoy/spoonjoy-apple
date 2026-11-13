@@ -812,6 +812,8 @@ struct NativeScenarioTests {
     @Test("app integration sources typecheck and declare expected native types")
     func appIntegrationSourcesTypecheckAndDeclareExpectedNativeTypes() throws {
         let appIntentsPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift"
+        // AddShoppingListItemIntent and its input, generated from actions/spoonjoy.actions.mts; both apps compile it.
+        let generatedActionsPath = "actions/generated/OuroActions.swift"
         let cookSessionPath = "Apps/Spoonjoy/Shared/Native/CookModeSessionCenter.swift"
         let cookStepEntityPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyCookStepEntity.swift"
         let appEntitiesPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyRecipeCookbookEntities.swift"
@@ -1052,7 +1054,7 @@ struct NativeScenarioTests {
         #expect(platformNavigationSource.contains("indexer.replaceAll("))
         #expect(platformNavigationSource.contains("spotlightIndexIdentity"))
 
-        try assertSwiftSourcesTypecheck([appEntitiesPath, shoppingEntitiesPath, spoonEntitiesPath, captureDraftEntitiesPath, chefProfileEntitiesPath, settingsEntitiesPath, cookSessionPath, cookStepEntityPath, appIntentsPath, spotlightPath, appTokenVaultPath])
+        try assertSwiftSourcesTypecheck([appEntitiesPath, shoppingEntitiesPath, spoonEntitiesPath, captureDraftEntitiesPath, chefProfileEntitiesPath, settingsEntitiesPath, cookSessionPath, cookStepEntityPath, appIntentsPath, generatedActionsPath, spotlightPath, appTokenVaultPath])
         try assertSwiftSourcesTypecheck([
             appEntitiesPath,
             shoppingEntitiesPath,
@@ -1063,6 +1065,7 @@ struct NativeScenarioTests {
             cookSessionPath,
             cookStepEntityPath,
             appIntentsPath,
+            generatedActionsPath,
             spotlightPath,
             appTokenVaultPath
         ])
