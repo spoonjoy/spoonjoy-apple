@@ -447,6 +447,7 @@ struct NativeAuthSessionTests {
                 "handleBrowserOAuthSignIn",
                 "handleBrowserOAuthSignIn(provider:",
                 "signIn.begin(provider: provider",
+                ".onDisappear {\n            // A start still waiting on its request must not open a sheet for a window that has gone.\n            browserSignIn?.cancelStart()",
                 "handleBrowserOAuthFinish",
                 "pendingOAuthProvider",
                 "Continue with Google",

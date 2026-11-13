@@ -54,6 +54,10 @@ struct SignedOutSetupView: View {
             await restoreState()
             await writeCapturePendingProofIfNeeded()
         }
+        .onDisappear {
+            // A start still waiting on its request must not open a sheet for a window that has gone.
+            browserSignIn?.cancelStart()
+        }
     }
 
     @ViewBuilder private var signedOutLayout: some View {
@@ -446,6 +450,18 @@ struct SignedOutSetupView: View {
         switch start {
         case .opened, .alreadyInProgress:
             authStatus = "Finish \(provider.displayName) sign-in in the browser."
+        case .canceled:
+            // Stopped before the sheet opened (the view went away): free the buttons quietly.
+            pendingOAuthProvider = nil
+            isSigningIn = false
+            statusTone = .neutral
+            authStatus = "Browser sign-in canceled."
+        case .superseded:
+            // Another window's sign-in claimed the gate while this one waited to retry its request.
+            pendingOAuthProvider = nil
+            isSigningIn = false
+            statusTone = .neutral
+            authStatus = "Browser sign-in continued in another window."
         case .couldNotOpen:
             let reason = signIn.startFailure.map(NativeBrowserOAuthSignIn.diagnosticReason) ?? "unknown"
             Self.browserSignInLogger.error("Browser sign-in did not start: \(reason, privacy: .public)")

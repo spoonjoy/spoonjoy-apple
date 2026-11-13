@@ -606,6 +606,134 @@ struct BrowserSignInTests {
         #expect(await blankSecret.network.registrations == 0)
     }
 
+    @Test("a registration that fails transiently is retried after 0.7 s and then 2 s, and the sheet opens", arguments: [1, 2])
+    func transientRegistrationIsRetried(failures: Int) async throws {
+        let harness = Harness(transientRegistrationFailures: failures)
+        let start = await harness.flow.begin(provider: .google) { _ in }
+
+        let attempt = try #require(harness.flow.attempt)
+        #expect(start == .opened(authorizationURL: attempt.authorizationURL))
+        #expect(await harness.network.registrations == failures + 1)
+        #expect(harness.pauses.all == Array(NativeBrowserOAuthStartRetry.delays.prefix(failures)))
+        #expect(harness.sheets.sessions.map(\.startCount) == [1])
+        #expect(harness.gate.activeAttemptID == attempt.id)
+        let retried = (1...failures).map {
+            "Browser sign-in start retried after \(NSURLErrorDomain) \(URLError.notConnectedToInternet.rawValue) (attempt \($0))"
+        }
+        #expect(harness.logs.lines == retried + ["Browser sign-in sheet started"])
+    }
+
+    @Test("three transient failures give up once, after 2.7 s of waiting, with nothing open")
+    func threeTransientFailuresGiveUp() async throws {
+        let harness = Harness(transientRegistrationFailures: 3)
+        #expect(await harness.flow.begin(provider: .google) { _ in Issue.record("Nothing opened") } == .couldNotOpen)
+        #expect(await harness.network.registrations == 3)
+        #expect(harness.pauses.all.reduce(Duration.zero, +) == .milliseconds(2700))
+        #expect((harness.flow.startFailure as? URLError)?.code == .notConnectedToInternet)
+        #expect(harness.sheets.sessions.isEmpty)
+        #expect(!harness.flow.isInProgress)
+        #expect(harness.gate.activeAttemptID == nil)
+    }
+
+    @Test("a tap during a retry wait starts nothing new: the attempt stays busy")
+    func tapDuringRetryWaitIsRefused() async throws {
+        let harness = Harness(transientRegistrationFailures: 1)
+        var secondTap: NativeBrowserOAuthStart?
+        harness.onPause.action = {
+            #expect(harness.flow.isInProgress)
+            secondTap = await harness.flow.begin(provider: .github) { _ in Issue.record("A refused tap must not finish") }
+        }
+        #expect(await harness.flow.begin(provider: .google) { _ in } != .couldNotOpen)
+        #expect(secondTap == .alreadyInProgress)
+        #expect(await harness.network.registrations == 2)
+        #expect(harness.sheets.sessions.count == 1)
+    }
+
+    @Test("a cancel (the view going away) or a newer sign-in during either retry wait stops the start, and nothing opens", arguments: [
+        (1, "cancel"), (2, "cancel"), (1, "supersede"), (2, "supersede"),
+    ])
+    func stoppedDuringRetryWait(wait: Int, by: String) async throws {
+        let gate = NativeBrowserOAuthGate()
+        let harness = Harness(gate: gate, transientRegistrationFailures: 2)
+        let other = Harness(gate: gate)
+        harness.onPause.action = {
+            guard harness.pauses.all.count == wait else { return }
+            if by == "cancel" {
+                harness.flow.cancelStart()
+            } else {
+                _ = await other.flow.begin(provider: .github) { _ in }
+            }
+        }
+        #expect(await harness.flow.begin(provider: .google) { _ in Issue.record("Nothing opened") } == (by == "cancel" ? .canceled : .superseded))
+        #expect(harness.flow.startFailure == nil)
+        #expect(await harness.network.registrations == wait)
+        #expect(harness.sheets.sessions.isEmpty)
+        #expect(!harness.flow.isInProgress)
+        #expect(harness.logs.lines.last == NativeBrowserOAuthStartRetry.abandonedMessage)
+        // The newer sign-in keeps its sheet; the stopped start never claimed the gate.
+        #expect(gate.activeAttemptID == other.flow.attempt?.id)
+        #expect(other.sheets.sessions.map(\.cancelCount) == (by == "supersede" ? [0] : []))
+    }
+
+    @Test("a cancel while the registration is in flight opens nothing and reports no failure")
+    func cancelDuringRequestOpensNothing() async throws {
+        let latch = Latch()
+        let gate = NativeBrowserOAuthGate()
+        let harness = Harness(gate: gate, registrationLatch: latch)
+        let other = Harness(gate: gate)
+        _ = await other.flow.begin(provider: .github) { _ in }
+        let start = Task { await harness.flow.begin(provider: .google) { _ in Issue.record("Nothing opened") } }
+        await latch.waitUntilReached()
+        harness.flow.cancelStart()
+        await latch.open()
+        #expect(await start.value == .canceled)
+        #expect(harness.flow.startFailure == nil)
+        #expect(harness.sheets.sessions.isEmpty)
+        #expect(!harness.flow.isInProgress)
+        // The other window's sheet is untouched.
+        #expect(gate.activeAttemptID == other.flow.attempt?.id)
+        #expect(other.sheets.sessions.map(\.cancelCount) == [0])
+    }
+
+    @Test("a cancel while the registration is in flight, which then fails, reports no failure")
+    func cancelDuringFailingRequestReportsNoFailure() async throws {
+        let latch = Latch()
+        let error = APITransportError(
+            kind: .apiError, requestID: "req_1", statusCode: 503, apiError: nil, retryDecision: .doNotRetry
+        )
+        let harness = Harness(transientRegistrationFailures: 1, registrationError: error, registrationLatch: latch)
+        let start = Task { await harness.flow.begin(provider: .google) { _ in Issue.record("Nothing opened") } }
+        await latch.waitUntilReached()
+        harness.flow.cancelStart()
+        await latch.open()
+        #expect(await start.value == .canceled)
+        #expect(harness.flow.startFailure == nil)
+        #expect(harness.sheets.sessions.isEmpty)
+    }
+
+    @Test("an HTTP error from the registration is never retried", arguments: [503, 429])
+    func httpErrorIsNotRetried(status: Int) async throws {
+        let error = APITransportError(
+            kind: .apiError, requestID: "req_1", statusCode: status, apiError: nil,
+            retryDecision: .retrySameRequest(afterSeconds: 1)
+        )
+        let harness = Harness(transientRegistrationFailures: 1, registrationError: error)
+        #expect(await harness.flow.begin(provider: .google) { _ in Issue.record("Nothing opened") } == .couldNotOpen)
+        #expect(await harness.network.registrations == 1)
+        #expect(harness.pauses.all.isEmpty)
+        #expect((harness.flow.startFailure as? APITransportError)?.statusCode == status)
+    }
+
+    @Test("the production offline error, an APITransportError carrying its NSURLError code, is retried")
+    func productionOfflineErrorIsRetried() async throws {
+        let offline = try #require(OAuthErrorResponse.offlineError(for: URLError(.networkConnectionLost)))
+        let harness = Harness(transientRegistrationFailures: 1, registrationError: offline)
+        let start = await harness.flow.begin(provider: .google) { _ in }
+        #expect(start == .opened(authorizationURL: try #require(harness.flow.attempt).authorizationURL))
+        #expect(await harness.network.registrations == 2)
+        #expect(harness.logs.lines.first == "Browser sign-in start retried after offline NSURLError -1005 status none request none (attempt 1)")
+    }
+
     @Test("a second callback for the same attempt is ignored")
     func duplicateCallbackIgnored() async throws {
         let harness = Harness()
@@ -698,11 +826,15 @@ private final class Harness {
     let clock = TestClock()
     let pauses = PauseLog()
     let logs = LogLines()
+    /// Runs inside every pause, after it is recorded: a test's way to act during a wait.
+    let onPause = PauseHook()
 
     init(
         gate: NativeBrowserOAuthGate = NativeBrowserOAuthGate(),
         sheetStarts: Bool = true,
         registrationFails: Bool = false,
+        transientRegistrationFailures: Int = 0,
+        registrationError: any Error = URLError(.notConnectedToInternet),
         registrationLatch: Latch? = nil,
         exchangeLatch: Latch? = nil,
         randomSecret: @escaping @MainActor () -> String = OAuthPKCE.randomVerifier,
@@ -711,7 +843,8 @@ private final class Harness {
     ) {
         let vault = InMemoryTokenVault()
         let network = NetworkSpy(
-            registrationFails: registrationFails,
+            failures: registrationFails ? Int.max : transientRegistrationFailures,
+            failure: registrationError,
             registrationLatch: registrationLatch,
             exchangeLatch: exchangeLatch
         )
@@ -739,14 +872,20 @@ private final class Harness {
             randomSecret: randomSecret,
             uptime: { [clock] in clock.now },
             earlyCancelWindow: earlyCancelWindow,
-            pause: { [pauses] duration in
+            pause: { [pauses, onPause] duration in
                 pauses.record(duration)
                 await pauseLatch?.reach()
+                await onPause.action()
             },
             log: { [logs] in logs.lines.append($0) },
             makeSession: sheets.make
         )
     }
+}
+
+@MainActor
+private final class PauseHook {
+    var action: @MainActor () async -> Void = {}
 }
 
 @MainActor
@@ -800,14 +939,16 @@ private struct Exchange: Equatable, Sendable {
 }
 
 private actor NetworkSpy {
-    private let registrationFails: Bool
+    private var failures: Int
+    private let failure: any Error
     private let registrationLatch: Latch?
     private let exchangeLatch: Latch?
     private(set) var registrations = 0
     private(set) var exchanges: [Exchange] = []
 
-    init(registrationFails: Bool, registrationLatch: Latch?, exchangeLatch: Latch?) {
-        self.registrationFails = registrationFails
+    init(failures: Int, failure: any Error, registrationLatch: Latch?, exchangeLatch: Latch?) {
+        self.failures = failures
+        self.failure = failure
         self.registrationLatch = registrationLatch
         self.exchangeLatch = exchangeLatch
     }
@@ -817,8 +958,9 @@ private actor NetworkSpy {
         #expect(name == "Spoonjoy Apple")
         #expect(redirectURI.absoluteString == "https://spoonjoy.app/oauth/callback")
         await registrationLatch?.reach()
-        if registrationFails {
-            throw URLError(.notConnectedToInternet)
+        if failures > 0 {
+            failures -= 1
+            throw failure
         }
         return Harness.clientID
     }

@@ -28,6 +28,10 @@ public enum NativeBrowserOAuthStart: Equatable, Sendable {
     /// This sign-in already has an attempt open (a double tap): nothing new was started.
     case alreadyInProgress
     case couldNotOpen
+    /// The start was cancelled (`cancelStart()`, `cancel()`) before its sheet opened. Nothing opened.
+    case canceled
+    /// A newer sign-in claimed the gate while this start waited to retry its request. Nothing opened.
+    case superseded
 }
 
 /// Why a start returned `.couldNotOpen`, for the app's log.
@@ -57,6 +61,9 @@ public final class NativeBrowserOAuthGate {
     public static let shared = NativeBrowserOAuthGate()
 
     private var holder: (id: UUID, supersede: @MainActor () -> Void)?
+    /// How many attempts have claimed the gate. A start waiting to retry its request stops when this moves, since a
+    /// newer sign-in has opened meanwhile.
+    public private(set) var claims = 0
 
     public init() {}
 
@@ -67,6 +74,7 @@ public final class NativeBrowserOAuthGate {
     func claim(_ id: UUID, supersede: @escaping @MainActor () -> Void) {
         let previous = holder
         holder = (id, supersede)
+        claims += 1
         previous?.supersede()
     }
 
@@ -107,6 +115,8 @@ public final class NativeBrowserOAuthSignIn {
     private var onFinish: (@MainActor (NativeBrowserOAuthFinish) -> Void)?
     private var onReturn: (@MainActor () -> Void)?
     private var isStarting = false
+    private var startCancelled = false
+    private let startRetryDelays: [Duration]
     private var isFinishing = false
     private var redirectURI: URL?
     private var sessionStartedAt: TimeInterval?
@@ -126,9 +136,11 @@ public final class NativeBrowserOAuthSignIn {
         uptime: @escaping @MainActor () -> TimeInterval = { NativeBrowserOAuthEarlyCancel.monotonicSeconds() },
         earlyCancelWindow: TimeInterval? = NativeBrowserOAuthEarlyCancel.platformWindow,
         pause: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) },
+        startRetryDelays: [Duration] = NativeBrowserOAuthStartRetry.delays,
         log: @escaping @MainActor (String) -> Void = { _ in },
         makeSession: @escaping NativeBrowserOAuthWebSessionFactory
     ) {
+        self.startRetryDelays = startRetryDelays
         self.repository = repository
         self.gate = gate
         self.randomSecret = randomSecret
@@ -147,8 +159,9 @@ public final class NativeBrowserOAuthSignIn {
 
     /// Starts a new attempt with its own state and verifier, unless one is already in progress. `onReturn` is called
     /// when the sheet comes back with a callback, before the code exchange; `onFinish` is called once, when the
-    /// attempt ends after it opened. A `cancel()` while the client registration is still in flight is not recorded:
-    /// the app never cancels then. With `sendsProviderHint` false, /oauth/authorize gets no provider
+    /// attempt ends after it opened. A transient failure of the client registration is retried
+    /// (`NativeBrowserOAuthStartRetry`). A `cancelStart()` before the sheet opens ends the start with `.canceled`, and a
+    /// newer attempt claiming the gate during a retry wait ends it with `.superseded`. With `sendsProviderHint` false, /oauth/authorize gets no provider
     /// hint and shows spoonjoy.app/login (BrowserSignInCallbackUITests, Debug builds only).
     public func begin(
         provider: OAuthProviderHint,
@@ -161,7 +174,9 @@ public final class NativeBrowserOAuthSignIn {
             return .alreadyInProgress
         }
         isStarting = true
+        startCancelled = false
         defer { isStarting = false }
+        let claimsAtTap = gate.claims
 
         let codeVerifier = randomSecret()
         guard let state = OAuthState(rawValue: randomSecret()),
@@ -171,14 +186,32 @@ public final class NativeBrowserOAuthSignIn {
         }
         let start: NativeAuthSignInStart
         do {
-            start = try await repository.startSignIn(
-                state: state,
-                codeChallenge: codeChallenge,
-                providerHint: sendsProviderHint ? provider : nil
+            start = try await NativeBrowserOAuthStartRetry.run(
+                delays: startRetryDelays,
+                pause: { [pause] duration in await pause(duration) },
+                now: uptime,
+                isCurrent: { !self.startCancelled && self.gate.claims == claimsAtTap },
+                log: log,
+                operation: {
+                    try await self.repository.startSignIn(
+                        state: state,
+                        codeChallenge: codeChallenge,
+                        providerHint: sendsProviderHint ? provider : nil
+                    )
+                }
             )
+        } catch is CancellationError {
+            return startCancelled ? .canceled : .superseded
         } catch {
+            if startCancelled {
+                return .canceled
+            }
             startFailure = error
             return .couldNotOpen
+        }
+        // A cancel while the request was in flight: open nothing and show no error.
+        guard !startCancelled else {
+            return .canceled
         }
 
         let id = UUID()
@@ -223,8 +256,18 @@ public final class NativeBrowserOAuthSignIn {
         NativeBrowserOAuthEarlyCancel.diagnosticReason(error)
     }
 
+    /// Stops a start that has not opened its sheet yet, during its request or a retry wait, so it ends `.canceled`
+    /// with nothing opened. An open sheet is left alone. The view calls this when it goes away: the caller's own call
+    /// keeps this object alive through `begin`, so a weak hold could not stop a start whose window closed.
+    public func cancelStart() {
+        if isStarting {
+            startCancelled = true
+        }
+    }
+
     /// Closes the open sheet, if any, and ends its attempt as canceled.
     public func cancel() {
+        cancelStart()
         guard let attempt else {
             return
         }
