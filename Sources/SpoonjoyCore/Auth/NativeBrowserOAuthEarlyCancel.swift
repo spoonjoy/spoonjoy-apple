@@ -3,7 +3,9 @@ import Foundation
 /// Right after the app is installed or updated, iOS can end a browser sign-in session by itself: the session
 /// finishes with ASWebAuthenticationSessionError.canceledLogin (code 1) before any prompt, while swcd re-fetches
 /// spoonjoy.app's association because the app's install identity changed (spoonjoy-apple#320). The person sees
-/// nothing happen. The app then starts one fresh session.
+/// nothing happen. The app then starts a fresh session, backing off between attempts (`retryDelays`): swcd's re-sync
+/// can take about 10 s, and a retry during it is cancelled the same way (spoonjoy-apple#344, CI run 43353272527:
+/// the first retry, 750 ms later, ended after 246 ms with nothing shown).
 ///
 /// A Cancel by the person reports the same error, so a retry needs proof that the system showed nothing for the
 /// session. The primary signals, any one of which blocks the retry:
@@ -18,9 +20,9 @@ import Foundation
 /// rarely fires, but it can only block a retry.
 ///
 /// On iOS there is no time limit. The cancel can come seconds after `start()`: in CI run 43312729950 it came 5242 ms
-/// after, 13 ms after swcd logged "app PI changed". If the resign signal ever failed to fire, a person's Cancel would
-/// reopen the sheet once, which is bounded. On macOS and visionOS, where the signals are not guaranteed, the cancel
-/// must also come within `window` of `start()`.
+/// after, 13 ms after swcd logged "app PI changed". If the resign signal ever failed to fire, a person's Cancel could
+/// reopen the sheet up to `retryDelays.count` times, which is bounded. On macOS and visionOS, where the signals are
+/// not guaranteed, each cancel must also come within `window` of its session's `start()`.
 public enum NativeBrowserOAuthEarlyCancel {
     /// The time limit outside iOS. See `platformWindow`.
     public static let window: TimeInterval = 1.5
@@ -33,8 +35,20 @@ public enum NativeBrowserOAuthEarlyCancel {
         window
         #endif
     }
-    /// How long to wait before the one retry, so the fetch the cancel came from can finish.
-    public static let retryDelay: Duration = .milliseconds(750)
+    /// The wait before each retry, so the fetch the cancel came from can finish. Together they span about 15 s, past
+    /// the roughly 10 s re-sync in CI run 43353272527 (spoonjoy-apple#344). Their count is the most retries.
+    public static let retryDelays: [Duration] = [.milliseconds(750), .seconds(2), .seconds(4), .seconds(8)]
+
+    /// The wait before the next retry, after `retriesSoFar` retries; nil once they are used up.
+    public static func retryDelay(afterRetries retriesSoFar: Int) -> Duration? {
+        retryDelays.indices.contains(retriesSoFar) ? retryDelays[retriesSoFar] : nil
+    }
+
+    /// Reported to the sign-in's cancellation handler when every retry was cancelled by the system with nothing shown.
+    /// The person never saw a sheet, so the app tells them sign-in could not open, not that it was canceled.
+    public struct RetriesExhausted: Error, Equatable, Sendable {
+        public init() {}
+    }
 
     /// Seconds since an arbitrary fixed point, on a clock that never jumps. The timing source for `window`.
     /// It avoids the uptime APIs, which Apple lists as required-reason APIs (system boot time).
@@ -52,16 +66,16 @@ public enum NativeBrowserOAuthEarlyCancel {
         return nsError.domain == "com.apple.AuthenticationServices.WebAuthenticationSession" && nsError.code == 1
     }
 
+    /// Whether this end is the system's own cancel with nothing shown, which earns a retry while `retryDelays` lasts.
     /// `window` nil means no time limit (iOS).
     public static func shouldRetry(
         error: (any Error)?,
         secondsSinceStart: TimeInterval?,
         systemUIAppeared: Bool,
         presentedViewController: Bool,
-        alreadyRetried: Bool,
         window: TimeInterval?
     ) -> Bool {
-        guard !alreadyRetried, !systemUIAppeared, !presentedViewController, isSystemCancel(error),
+        guard !systemUIAppeared, !presentedViewController, isSystemCancel(error),
               let secondsSinceStart, secondsSinceStart >= 0 else {
             return false
         }
@@ -89,8 +103,12 @@ public enum NativeBrowserOAuthEarlyCancel {
     public static let retryDidNotStartMessage = "Browser sign-in retry did not start"
     public static let callbackMessage = "Browser sign-in callback received"
 
-    public static func earlyCancelMessage(error: (any Error)?, secondsSinceStart: TimeInterval?) -> String {
-        "Browser sign-in early cancel: \(error.map(diagnosticReason) ?? "no error") after \(milliseconds(secondsSinceStart)) ms, systemUIAppeared=false, presentedVC=false; retrying once"
+    public static func earlyCancelMessage(error: (any Error)?, secondsSinceStart: TimeInterval?, retry: Int) -> String {
+        "Browser sign-in early cancel: \(error.map(diagnosticReason) ?? "no error") after \(milliseconds(secondsSinceStart)) ms, systemUIAppeared=false, presentedVC=false; retry \(retry) of \(retryDelays.count)"
+    }
+
+    public static func exhaustedMessage(error: (any Error)?, secondsSinceStart: TimeInterval?) -> String {
+        "Browser sign-in early cancel: \(error.map(diagnosticReason) ?? "no error") after \(milliseconds(secondsSinceStart)) ms, systemUIAppeared=false, presentedVC=false; all \(retryDelays.count) retries used"
     }
 
     public static func endedMessage(

@@ -546,8 +546,15 @@ struct SignedOutSetupView: View {
         pendingOAuthProvider = nil
         webAuthenticationSession = nil
         isSigningIn = false
-        statusTone = .neutral
-        authStatus = "Browser sign-in canceled."
+        if error is NativeBrowserOAuthEarlyCancel.RetriesExhausted {
+            // The system cancelled every attempt before showing anything (spoonjoy-apple#344): nothing was canceled
+            // by the person, so say what they can do.
+            statusTone = .error
+            authStatus = "Could not open sign-in. Try again."
+        } else {
+            statusTone = .neutral
+            authStatus = "Browser sign-in canceled."
+        }
         // SpoonjoyWebAuthenticationSession logs the cancel's domain, code and timing.
         _ = error
     }

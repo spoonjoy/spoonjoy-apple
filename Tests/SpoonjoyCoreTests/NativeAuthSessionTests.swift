@@ -630,6 +630,24 @@ struct NativeAuthSessionTests {
         )
     }
 
+    @Test("the browser sign-in stays busy through early-cancel backoff, and running out says sign-in could not open")
+    func browserSignInEarlyCancelBackoffInTheView() throws {
+        let path = "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift"
+        let content = try readRepoFile(path)
+        // The adapter calls the cancellation handler only when the sign-in ends, so `isSigningIn` holds the gate
+        // through every retry pause (spoonjoy-apple#344).
+        expectContent(
+            content,
+            in: path,
+            contains: [
+                "private func handleBrowserOAuthSignIn(provider: OAuthProviderHint) async {\n        guard !isSigningIn else {\n            return\n        }\n\n        isSigningIn = true",
+                "if error is NativeBrowserOAuthEarlyCancel.RetriesExhausted {",
+                "authStatus = \"Could not open sign-in. Try again.\""
+            ],
+            forbids: []
+        )
+    }
+
     @Test("the browser sign-in start retries a transient failure, stays busy, and stops quietly when replaced")
     func browserSignInStartRetriesTransientFailures() throws {
         let path = "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift"
@@ -2117,7 +2135,7 @@ struct WebAuthenticationSessionAdapterContract {
         probe.factory.complete(with: nil, error: Self.systemCancel)
         #expect(probe.cancellations.isEmpty)
         await probe.adapter.retryTask?.value
-        #expect(probe.pauses == [NativeBrowserOAuthEarlyCancel.retryDelay])
+        #expect(probe.pauses == [NativeBrowserOAuthEarlyCancel.retryDelays[0]])
         #expect(probe.factory.sessions.map(\.startCount) == [1, 1])
         #expect(probe.factory.requests.count == 2)
         #expect(probe.factory.requests[0] == probe.factory.requests[1])
@@ -2128,17 +2146,97 @@ struct WebAuthenticationSessionAdapterContract {
         #expect(probe.cancellations.isEmpty)
     }
 
-    @Test("a second early cancel is reported as a cancel")
-    func secondEarlyCancelIsReported() async throws {
-        let probe = Probe()
-        try probe.start()
-        probe.now += 0.2
+    /// Ends the current session with the system's cancel, nothing shown, and waits out the retry pause.
+    @MainActor
+    private func systemCancelAndWait(_ probe: Probe, after seconds: TimeInterval = 0.2) async {
+        probe.now += seconds
         probe.factory.complete(with: nil, error: Self.systemCancel)
         await probe.adapter.retryTask?.value
-        probe.now += 0.2
-        probe.factory.complete(with: nil, error: Self.systemCancel)
-        #expect(probe.cancellations.count == 1)
-        #expect(probe.factory.sessions.count == 2)
+    }
+
+    @Test("an early cancel during a retry backs off longer and retries again, and any retry can still sign in", arguments: [1, 2, 4])
+    func earlyCancelBacksOffUntilSignIn(retries: Int) async throws {
+        // CI run 43353272527 (#344): the retry 750 ms after the first cancel was cancelled after 246 ms too.
+        let probe = Probe(window: nil)
+        try probe.start()
+        for _ in 0..<retries {
+            await systemCancelAndWait(probe, after: 0.246)
+        }
+        #expect(probe.pauses == Array(NativeBrowserOAuthEarlyCancel.retryDelays.prefix(retries)))
+        #expect(probe.factory.sessions.map(\.startCount) == Array(repeating: 1, count: retries + 1))
+        #expect(Set(probe.factory.requests.map(\.authorizationURL)).count == 1)
+        #expect(probe.cancellations.isEmpty)
+
+        let callbackURL = URL(string: "https://spoonjoy.app/oauth/callback?code=oac_code&state=state_123")!
+        probe.factory.complete(with: callbackURL)
+        #expect(probe.callbacks == [callbackURL])
+        #expect(probe.cancellations.isEmpty)
+    }
+
+    @Test("after the last retry is cancelled too, the sign-in ends as could-not-open, not as the person's cancel")
+    func earlyCancelRetriesRunOut() async throws {
+        for window in [nil, NativeBrowserOAuthEarlyCancel.window] {
+            let probe = Probe(window: window)
+            try probe.start()
+            for _ in NativeBrowserOAuthEarlyCancel.retryDelays {
+                await systemCancelAndWait(probe)
+            }
+            #expect(probe.cancellations.isEmpty)
+            let lastRetry = probe.adapter.retryTask
+            probe.now += 0.2
+            probe.factory.complete(with: nil, error: Self.systemCancel)
+            #expect(probe.pauses == NativeBrowserOAuthEarlyCancel.retryDelays)
+            #expect(probe.factory.sessions.count == NativeBrowserOAuthEarlyCancel.retryDelays.count + 1)
+            #expect(probe.cancellations.count == 1)
+            #expect(probe.cancellations.first.flatMap { $0 } is NativeBrowserOAuthEarlyCancel.RetriesExhausted)
+            // No further retry was scheduled.
+            #expect(probe.adapter.retryTask == lastRetry)
+        }
+    }
+
+    @Test("the person's Cancel on a retried sheet is never retried and is reported as their cancel")
+    func personCancelOnRetriedSheet() async throws {
+        for window in [nil, NativeBrowserOAuthEarlyCancel.window] {
+            let probe = Probe(window: window)
+            try probe.start()
+            await systemCancelAndWait(probe)
+            await systemCancelAndWait(probe)
+            let retry = probe.adapter.retryTask
+            // The third session shows the prompt, and the person cancels it.
+            NotificationCenter.default.post(name: NSApplication.willResignActiveNotification, object: nil)
+            await Task.yield()
+            probe.now += 0.3
+            probe.factory.complete(with: nil, error: Self.systemCancel)
+            #expect(probe.factory.sessions.count == 3)
+            #expect(probe.cancellations.count == 1)
+            #expect(probe.cancellations.first.flatMap { $0 } as NSError? == Self.systemCancel)
+            #expect(probe.adapter.retryTask == retry)
+        }
+    }
+
+    @Test("during a backoff the sign-in is still in progress: nothing reaches the cancellation handler")
+    func backoffKeepsSignInInProgress() async throws {
+        let probe = Probe(window: nil)
+        probe.holdsPause = true
+        try probe.start()
+        for index in NativeBrowserOAuthEarlyCancel.retryDelays.indices {
+            probe.now += 0.2
+            probe.factory.complete(with: nil, error: Self.systemCancel)
+            // A sign-in that ended instead of pausing fails here rather than waiting forever for the pause.
+            try #require(probe.cancellations.isEmpty, "retry \(index + 1) ended the sign-in instead of pausing")
+            let retry = try #require(probe.adapter.retryTask)
+            while probe.heldPause == nil {
+                await Task.yield()
+            }
+            // The view keeps its buttons disabled until the handler runs, so a tap here starts nothing.
+            #expect(probe.cancellations.isEmpty)
+            #expect(probe.factory.sessions.count == index + 1)
+            let held = probe.heldPause
+            probe.heldPause = nil
+            held?.resume()
+            await retry.value
+        }
+        #expect(probe.factory.sessions.count == NativeBrowserOAuthEarlyCancel.retryDelays.count + 1)
     }
 
     @Test("the person's cancel is never retried: after the window, or once the system prompt made the app resign active")
@@ -2209,11 +2307,10 @@ struct WebAuthenticationSessionAdapterContract {
         await probe.adapter.retryTask?.value
         #expect(probe.factory.sessions.map(\.startCount) == [1, 1])
 
-        // A second cancel with nothing shown finishes as canceled.
-        probe.now += 5
-        probe.factory.complete(with: nil, error: Self.systemCancel)
-        #expect(probe.cancellations.count == 1)
-        #expect(probe.factory.sessions.count == 2)
+        // A second late cancel with nothing shown gets the next retry.
+        await systemCancelAndWait(probe, after: 5)
+        #expect(probe.cancellations.isEmpty)
+        #expect(probe.factory.sessions.count == 3)
     }
 
     @Test("macOS: the same 5 s cancel is outside the window and is not retried")
