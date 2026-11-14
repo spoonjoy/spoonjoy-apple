@@ -57,8 +57,8 @@ struct TestFlightAutomationContractTests {
                 "name: Upload verified candidate note",
                 "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
                 "node-version: 22.17.1",
-                "ref: c296021af0e7eacb424dc9c7f924c9cda8df9d64",
-                "EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: 09e0dded99208496bd96cecc6edc067188ec49bae4486b83f90b85e57db954b9",
+                "ref: f19c6ebd6937e853a4e7410c98b8622801697840",
+                "EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: 3aacf6bc382ac8ffbc816faf52ed86951f411fad5cad259ab189cdad4889c332",
                 "actual_dist_sha256",
                 "apple-distribution-kit dist checksum mismatch",
                 "SPOONJOY_TESTFLIGHT_SOURCE_SHA",
@@ -123,7 +123,7 @@ struct TestFlightAutomationContractTests {
         }
 
         let testFlightWorkflow = try readTestFlightAutomationRepoFile(".github/workflows/testflight.yml")
-        let expectedToolkitRevision = "c296021af0e7eacb424dc9c7f924c9cda8df9d64"
+        let expectedToolkitRevision = "f19c6ebd6937e853a4e7410c98b8622801697840"
         let toolkitRepositoryPattern = /repository:\s+ourostack\/apple-distribution-kit/
         let toolkitRefPattern = /repository:\s+ourostack\/apple-distribution-kit\n\s+ref:\s+([0-9a-f]{40})/
         let toolkitCheckoutCount = testFlightWorkflow.matches(of: toolkitRepositoryPattern).count
@@ -682,8 +682,10 @@ struct TestFlightAutomationContractTests {
         let importStep = try #require(workflow.range(of: "signing import"))
         let profilesStep = try #require(workflow.range(of: "signing profiles"))
         let publishStep = try #require(workflow.range(of: "../scripts/ci-publish-testflight.sh"))
-        let safetyNet = try #require(workflow.range(of: "signing revoke-api-certificates --best-effort"))
+        let snapshot = try #require(workflow.range(of: "signing snapshot-certificates --out"))
+        let safetyNet = try #require(workflow.range(of: "signing revoke-api-certificates --best-effort --baseline"))
         let deleteKeychain = try #require(workflow.range(of: "signing delete-keychain"))
+        #expect(snapshot.lowerBound < importStep.lowerBound, "the certificate baseline is recorded before anything can create a certificate")
         #expect(importStep.lowerBound < profilesStep.lowerBound, "the identity must be imported before profiles are fetched")
         #expect(profilesStep.lowerBound < publishStep.lowerBound, "profiles and signing settings must exist before the archive")
         #expect(publishStep.lowerBound < safetyNet.lowerBound, "the revoke safety net runs after publish")
@@ -700,7 +702,8 @@ struct TestFlightAutomationContractTests {
             ],
             forbids: [
                 "-allowProvisioningUpdates",
-                "revoke-ci-signing-certificates.rb"
+                "revoke-ci-signing-certificates.rb",
+                "signing revoke-api-certificates --best-effort\n"
             ]
         )
     }
@@ -837,53 +840,6 @@ struct TestFlightAutomationContractTests {
         #expect(exportOptions.contains("<string>app-store-connect</string>"))
     }
 
-    @Test("certificate cleanup revokes only API-created development certificates")
-    func certificateCleanupFilterIsNarrow() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("cert-cleanup-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        func cert(_ id: String, _ type: String, _ name: String) -> [String: Any] {
-            ["id": id, "type": "certificates",
-             "attributes": ["certificateType": type, "name": name, "displayName": name, "expirationDate": "2027-01-01T00:00:00.000+0000"]]
-        }
-        let fixture = directory.appendingPathComponent("certs.json")
-        try writeJSON([
-            "data": [
-                cert("dev-api", "DEVELOPMENT", "Created via API"),
-                cert("ios-dev-api", "IOS_DEVELOPMENT", "created via API"),
-                cert("mac-dev-api", "MAC_APP_DEVELOPMENT", "Created via API"),
-                cert("dev-person", "IOS_DEVELOPMENT", "Ari Mendelow"),
-                cert("dist-api", "DISTRIBUTION", "Created via API"),
-                cert("ios-dist-api", "IOS_DISTRIBUTION", "Created via API"),
-                cert("dev-id", "DEVELOPER_ID_APPLICATION", "Created via API")
-            ]
-        ], to: fixture)
-
-        let process = Process()
-        let output = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/ruby")
-        process.arguments = [
-            testFlightAutomationRepoURL.appendingPathComponent("scripts/revoke-ci-signing-certificates.rb").path,
-            "--dry-run", "--fixture", fixture.path
-        ]
-        process.standardOutput = output
-        process.standardError = output
-        try process.run()
-        process.waitUntilExit()
-        let text = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-
-        #expect(process.terminationStatus == 0, "\(text)")
-        for id in ["dev-api", "ios-dev-api", "mac-dev-api"] {
-            #expect(text.contains("would revoke: id=\(id) "), "\(text)")
-        }
-        for id in ["dev-person", "dist-api", "ios-dist-api", "dev-id"] {
-            #expect(text.contains("keep: id=\(id) "), "\(text)")
-            #expect(!text.contains("would revoke: id=\(id) "), "\(text)")
-        }
-        #expect(text.contains("Revoked 0 certificate(s) (dry run)."))
-    }
-
     @Test("distribution docs describe exact-SHA release and rollback")
     func distributionDocsDescribeContainedReleaseAndRollback() throws {
         let docs = try readTestFlightAutomationRepoFile("docs/apple-distribution.md")
@@ -900,7 +856,7 @@ struct TestFlightAutomationContractTests {
                 "allow_rollback",
                 "rollback_reason",
                 "rollback_notes",
-                "09e0dded99208496bd96cecc6edc067188ec49bae4486b83f90b85e57db954b9",
+                "3aacf6bc382ac8ffbc816faf52ed86951f411fad5cad259ab189cdad4889c332",
                 "GitHub-hosted runner trust boundary",
                 "runner-provided `gh`",
                 "last known-good main commit",
@@ -910,7 +866,8 @@ struct TestFlightAutomationContractTests {
                 "APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64",
                 "testflight-signing-dry-run.yml",
                 "Nothing to revoke",
-                "Created via API"
+                "Created via API",
+                "signing snapshot-certificates"
             ],
             forbids: [
                 "publishes internal TestFlight builds automatically"
@@ -936,7 +893,8 @@ private let signingWorkflowContract = [
     "--bundle-id app.spoonjoy.cook-timer-widget \\",
     "SPOONJOY_SIGNING_XCCONFIG=$ADK_SIGNING_DIR/signing.xcconfig",
     "SPOONJOY_EXPORT_OPTIONS_PLIST=$ADK_SIGNING_DIR/ExportOptions.plist",
-    "signing revoke-api-certificates --best-effort",
+    "signing snapshot-certificates --out \"$RUNNER_TEMP/adk-signing/certificates-before.json\"",
+    "signing revoke-api-certificates --best-effort --baseline \"$RUNNER_TEMP/adk-signing/certificates-before.json\"",
     "signing delete-keychain"
 ]
 
