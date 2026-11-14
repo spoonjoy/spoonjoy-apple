@@ -89,7 +89,7 @@ public enum AddShoppingListItemAction {
 }
 
 public struct AddShoppingListItemIntent: AppIntent {
-    public static let title: LocalizedStringResource = "Add to list"
+    public static let title: LocalizedStringResource = "Add item"
     public static let description = IntentDescription("Add or restore one item on the person's shopping list. It adds to the quantity of a matching item still on the list (same ingredient and unit); a removed or cleared matching item comes back at the added quantity, not on top of its old one.")
 
     @Parameter(title: "Item", description: "What to buy, such as eggs or flour.", requestValueDialog: "What should I add to your shopping list?")
