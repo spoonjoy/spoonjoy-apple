@@ -8,7 +8,7 @@ The Actions workflow (`.github/workflows/actions.yml`, `scripts/check-actions-dr
 
 - declaration-repo: spoonjoy/spoonjoy-v2
 - declaration-path: actions/spoonjoy.actions.mts
-- declaration-commit: PENDING
+- declaration-commit: fded0c835ba1cdb417c365d0a3778c009a39971f
 - declaration-sha256: 19e838cda218a83f55eae7aaadf632941523e75378b0de6d622c2768b41c55d9
 - generator: ourostack/ouro-ui-core v0.6.0, tools/ouro-actions/ouro-actions.mts
 - generator-sha256: 128a284d575a27f47d4e0ccfbe6c241eeaf2c0b0a4f09000564a2e8f8f9bc827
