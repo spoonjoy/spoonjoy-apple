@@ -144,7 +144,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "shopping-list" => {
-    "voiceOverLabels" => ["Shopping", "Kitchen", "Receipt actions", "Add item", "Add from recipe", "Clear checked"],
+    "voiceOverLabels" => ["Shopping", "Kitchen", "Receipt actions", "Add to list", "Add from recipe", "Clear checked"],
     "keyboardNavigationTargets" => ["shopping receipt composer", "receipt actions menu", "native tab bar"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass label on bone", "destructive action role"],

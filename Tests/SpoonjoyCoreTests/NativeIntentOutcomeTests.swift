@@ -54,7 +54,7 @@ struct NativeIntentOutcomeTests {
         let queuedWrites = [
             "ForkRecipeIntent", "SaveRecipeToCookbookIntent", "CreateCookbookIntent", "RenameCookbookIntent",
             "DeleteCookbookIntent", "AddRecipeToCookbookIntent", "RemoveRecipeFromCookbookIntent", "DeleteRecipeIntent",
-            "AddShoppingListItemIntent", "SetShoppingListItemCheckedIntent", "RemoveShoppingListItemIntent",
+            "SetShoppingListItemCheckedIntent", "RemoveShoppingListItemIntent",
             "AddRecipeIngredientsToShoppingListIntent", "ClearCompletedShoppingItemsIntent", "ClearShoppingListIntent",
             "LogCookIntent", "EditCookLogIntent", "DeleteCookLogIntent", "CreateCoverFromSpoonIntent",
             "CaptureRecipeIntent", "SubmitCaptureImportIntent", "DiscardCaptureDraftIntent"
@@ -227,8 +227,27 @@ struct NativeIntentOutcomeTests {
     }
 
     /// Each `struct <Name>: AppIntent` in the intents file, with its source up to the next declaration.
+    @Test("the generated add intent finishes in place through the app's one handler")
+    func generatedAddIntentFinishesInPlace() throws {
+        // AddShoppingListItemIntent is generated from actions/spoonjoy.actions.mts: its perform() runs the handler the
+        // app binds in SpoonjoyAddShoppingListItemBinding and says what that handler's dialog returns.
+        let body = try #require(Self.intentBodies()["AddShoppingListItemIntent"])
+        #expect(NativeIntentResultCatalog.modes["AddShoppingListItemIntent"] == .finishesInPlace)
+        #expect(body.contains("AddShoppingListItemAction.run(input)"))
+        #expect(body.contains("return .result(dialog:"))
+        let binding = try Self.readRepoFile(Self.appIntentsPath)
+        #expect(binding.contains("let queued = try await writer.apply(action, savedAt: createdAt)"), "queues through the shared store")
+        #expect(binding.contains("return await writer.syncQueued(queued)"), "syncs the edit it queued")
+        #expect(binding.contains("NativeIntentDialog.confirmation(NativeIntentDialog.addedShoppingItem(name: input.name), sync: sync)"), "confirms in place")
+        #expect(binding.contains("NativeIntentDialog.failureMessage(for: error)"), "answers a failure with a dialog")
+    }
+
     private static func intentBodies() throws -> [String: String] {
-        let source = try readRepoFile(appIntentsPath)
+        try intentBodies(in: readRepoFile(appIntentsPath))
+            .merging(intentBodies(in: readRepoFile("actions/generated/OuroActions.swift"))) { first, _ in first }
+    }
+
+    private static func intentBodies(in source: String) throws -> [String: String] {
         let pattern = try NSRegularExpression(pattern: #"struct\s+(\w+)\s*:\s*AppIntent\s*\{"#)
         let range = NSRange(source.startIndex..., in: source)
         let matches = pattern.matches(in: source, range: range)

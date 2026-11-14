@@ -1050,49 +1050,66 @@ struct DeleteRecipeIntent: AppIntent {
     }
 }
 
+// AddShoppingListItemIntent, its input and its button are generated from Spoonjoy's one declaration of
+// add_shopping_list_item (actions/spoonjoy.actions.mts, vendored from spoonjoy-v2) into actions/generated/OuroActions.swift.
+// Here the app binds the one handler every door calls (Siri, Shortcuts, the shopping list's button) and what Siri says.
 @available(iOS 27.0, macOS 27.0, *)
-struct AddShoppingListItemIntent: AppIntent {
-    static let title: LocalizedStringResource = "Add Shopping Item"
-    static let description = IntentDescription("Add an item to the Spoonjoy shopping list.")
+@MainActor
+enum SpoonjoyAddShoppingListItemBinding {
+    /// The sync result of the add just made, for the dialog that follows it in the same perform().
+    private static var lastSync: NativeIntentSyncOutcome?
 
-    @Parameter(title: "Name", description: "What to buy, such as eggs or flour.", requestValueDialog: "What should I add to your shopping list?")
-    var name: String
-
-    @Parameter(title: "Quantity", description: "How many or how much, as a number. Leave empty if it doesn't matter.")
-    var quantity: Double?
-
-    @Parameter(title: "Unit", description: "The unit for the quantity, such as grams, cups or cans. Leave empty for a plain count.")
-    var unit: String?
-
-    init() {
-        name = ""
-        quantity = nil
-        unit = nil
-    }
-
-    init(name: String, quantity: Double? = nil, unit: String? = nil) {
-        self.name = name
-        self.quantity = quantity
-        self.unit = unit
-    }
-
-    func perform() async throws -> some IntentResult & ProvidesDialog {
-        do {
-            let createdAt = SpoonjoyIntentClock.timestamp()
-            let action = try NativeIntentActionResolver().addShoppingListItem(
-                name: name,
-                quantity: quantity,
-                unit: unit,
-                createdAt: createdAt
-            )
-            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-            await SpoonjoyInteractionDonor().donateBestEffort(self)
-            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.addedShoppingItem(name: name), queued: queued)
-            return .result(dialog: dialog)
-        } catch {
-            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+    static func bind() {
+        AddShoppingListItemAction.perform = { input in
+            lastSync = nil
+            if let live = ShoppingLiveAdd.host {
+                // The shopping list is on screen: add through its own view model and queue, so it updates in place.
+                lastSync = try await live(input).intentSync
+            } else {
+                lastSync = try await addThroughIntentState(input)
+            }
+            return AddShoppingListItemOutput()
+        }
+        AddShoppingListItemAction.dialog = { input, result in
+            switch result {
+            case .success:
+                let sync = lastSync ?? .pending
+                lastSync = nil
+                return IntentDialog(stringLiteral: NativeIntentDialog.confirmation(NativeIntentDialog.addedShoppingItem(name: input.name), sync: sync))
+            case .failure(let error):
+                guard let message = NativeIntentDialog.failureMessage(for: error) else { throw error }
+                return IntentDialog(stringLiteral: message)
+            }
         }
     }
+
+    /// The add with the app's list off screen: queue it in the shared sync store, update the snapshot, donate, send it.
+    private static func addThroughIntentState(_ input: AddShoppingListItemInput) async throws -> NativeIntentSyncOutcome {
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().addShoppingListItem(
+            name: input.name,
+            quantity: input.quantity,
+            unit: input.unit,
+            createdAt: createdAt
+        )
+        let writer = try SpoonjoyIntentStateWriter()
+        let queued = try await writer.apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(AddShoppingListItemIntent(input))
+        return await writer.syncQueued(queued)
+    }
+}
+
+extension ShoppingSurfaceMutationOutcome {
+    /// The shopping list's outcome in the words Siri uses for an intent's sync.
+    var intentSync: NativeIntentSyncOutcome {
+        self == .synced ? .synced : .pending
+    }
+}
+
+/// The on-screen shopping list's add, registered while the list shows, so every door's add updates it in place.
+@MainActor
+enum ShoppingLiveAdd {
+    static var host: (@MainActor (AddShoppingListItemInput) async throws -> ShoppingSurfaceMutationOutcome)?
 }
 
 @available(iOS 27.0, macOS 27.0, *)

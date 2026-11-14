@@ -812,6 +812,8 @@ struct NativeScenarioTests {
     @Test("app integration sources typecheck and declare expected native types")
     func appIntegrationSourcesTypecheckAndDeclareExpectedNativeTypes() throws {
         let appIntentsPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift"
+        // AddShoppingListItemIntent and its input, generated from actions/spoonjoy.actions.mts; both apps compile it.
+        let generatedActionsPath = "actions/generated/OuroActions.swift"
         let cookSessionPath = "Apps/Spoonjoy/Shared/Native/CookModeSessionCenter.swift"
         let cookStepEntityPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyCookStepEntity.swift"
         let appEntitiesPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyRecipeCookbookEntities.swift"
@@ -852,7 +854,6 @@ struct NativeScenarioTests {
             "struct EditCookLogIntent: AppIntent",
             "struct DeleteCookLogIntent: AppIntent",
             "struct CreateCoverFromSpoonIntent: AppIntent",
-            "struct AddShoppingListItemIntent: AppIntent",
             "struct SetShoppingListItemCheckedIntent: AppIntent",
             "struct RemoveShoppingListItemIntent: AppIntent",
             "struct AddRecipeIngredientsToShoppingListIntent: AppIntent",
@@ -879,6 +880,9 @@ struct NativeScenarioTests {
         ] {
             #expect(appIntentsSource.contains(declaration))
         }
+        // Generated from actions/spoonjoy.actions.mts; the app binds its handler in SpoonjoyAddShoppingListItemBinding.
+        #expect(try readRepoFile("actions/generated/OuroActions.swift").contains("public struct AddShoppingListItemIntent: AppIntent"))
+        #expect(appIntentsSource.contains("enum SpoonjoyAddShoppingListItemBinding"))
         #expect(appIntentsSource.contains("#if canImport(AppIntents)"))
         #expect(appIntentsSource.contains("import AppIntents"))
         #expect(appIntentsSource.contains("import SpoonjoyCore"))
@@ -1050,7 +1054,7 @@ struct NativeScenarioTests {
         #expect(platformNavigationSource.contains("indexer.replaceAll("))
         #expect(platformNavigationSource.contains("spotlightIndexIdentity"))
 
-        try assertSwiftSourcesTypecheck([appEntitiesPath, shoppingEntitiesPath, spoonEntitiesPath, captureDraftEntitiesPath, chefProfileEntitiesPath, settingsEntitiesPath, cookSessionPath, cookStepEntityPath, appIntentsPath, spotlightPath, appTokenVaultPath])
+        try assertSwiftSourcesTypecheck([appEntitiesPath, shoppingEntitiesPath, spoonEntitiesPath, captureDraftEntitiesPath, chefProfileEntitiesPath, settingsEntitiesPath, cookSessionPath, cookStepEntityPath, appIntentsPath, generatedActionsPath, spotlightPath, appTokenVaultPath])
         try assertSwiftSourcesTypecheck([
             appEntitiesPath,
             shoppingEntitiesPath,
@@ -1061,6 +1065,7 @@ struct NativeScenarioTests {
             cookSessionPath,
             cookStepEntityPath,
             appIntentsPath,
+            generatedActionsPath,
             spotlightPath,
             appTokenVaultPath
         ])

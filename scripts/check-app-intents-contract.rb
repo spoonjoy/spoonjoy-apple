@@ -1807,7 +1807,6 @@ if domain == "shopping-intents"
     [
       "#if canImport(AppIntents)",
       "import AppIntents",
-      "struct AddShoppingListItemIntent: AppIntent",
       "struct SetShoppingListItemCheckedIntent: AppIntent",
       "struct RemoveShoppingListItemIntent: AppIntent",
       "struct ClearCompletedShoppingItemsIntent: AppIntent",
@@ -1825,17 +1824,6 @@ if domain == "shopping-intents"
   )
 
   {
-    "AddShoppingListItemIntent" => {
-      required: [
-        "@Parameter(title: \"Name\", requestValueDialog: \"What should I add to your shopping list?\")",
-        "@Parameter(title: \"Quantity\")",
-        "@Parameter(title: \"Unit\")",
-        "NativeIntentActionResolver().addShoppingListItem(",
-        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
-        "return .result(dialog:"
-      ],
-      forbidden: ["var itemID: String", "@Parameter(title: \"Item ID\")"]
-    },
     "SetShoppingListItemCheckedIntent" => {
       required: [
         "@Parameter(title: \"Shopping Item\", requestValueDialog:",
@@ -1890,6 +1878,33 @@ if domain == "shopping-intents"
     require_body_tokens(app_intents, intent_name, pattern, contract.fetch(:required), failures)
     forbid_body_tokens(app_intents, intent_name, pattern, contract.fetch(:forbidden), failures)
   end
+
+  # AddShoppingListItemIntent is generated from actions/spoonjoy.actions.mts; the app binds its one handler.
+  generated_actions = ROOT.join("actions/generated/OuroActions.swift")
+  require_file(generated_actions, failures)
+  require_tokens(
+    generated_actions,
+    [
+      "public struct AddShoppingListItemIntent: AppIntent",
+      "requestValueDialog: \"What should I add to your shopping list?\")",
+      "public var quantity: Double?",
+      "public var unit: String?"
+    ],
+    failures
+  )
+  require_body_tokens(
+    app_intents,
+    "SpoonjoyAddShoppingListItemBinding",
+    /\benum\s+SpoonjoyAddShoppingListItemBinding\b/,
+    [
+      "AddShoppingListItemAction.perform = {",
+      "AddShoppingListItemAction.dialog = {",
+      "NativeIntentActionResolver().addShoppingListItem(",
+      "try await writer.apply(action, savedAt: createdAt)",
+      "donateBestEffort(AddShoppingListItemIntent(input))"
+    ],
+    failures
+  )
 
   require_tokens(
     intent_action,

@@ -13,6 +13,10 @@ struct SpoonjoyiOSApp: App {
     init() {
         SpoonjoyFonts.registerBundled()
         SpoonjoyFonts.styleNavigationBarLargeTitles()
+        // One handler behind Siri, Shortcuts and the shopping list's button (actions/generated/OuroActions.swift).
+        if #available(iOS 27.0, macOS 27.0, *) {
+            SpoonjoyAddShoppingListItemBinding.bind()
+        }
         #if DEBUG
         if NativeJourneyAnimations.isRequested(arguments: ProcessInfo.processInfo.arguments) {
             UIView.setAnimationsEnabled(false)
