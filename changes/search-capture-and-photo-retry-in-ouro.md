@@ -1,5 +1,5 @@
 ---
-testflight: Search's empty and error states, the photo-upload retry banner and Capture's two import ways now use Ouro UI's shared empty state, banner, button and row, in Spoonjoy's brass.
+testflight: Search's empty state, the photo retry banner and Capture's import rows use Ouro UI's shared components, in Spoonjoy's brass.
 platforms: [ios, mac]
 order: 60
 ---
