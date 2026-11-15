@@ -168,6 +168,8 @@ public struct NativeLiveAppStoreDependencies {
     public let cookSessionClient: @Sendable (APIClientConfiguration) -> any CookSessionClient
     /// How long a change to cook progress waits for more changes before a sync is requested.
     public let cookSessionPushDelay: Duration
+    /// The features the server has switched off (`NativeKillSwitchCenter.current`), read each time a feature starts.
+    public let killSwitches: @Sendable () -> NativeKillSwitches
     public let now: @Sendable () -> Date
 
     public init(
@@ -197,6 +199,7 @@ public struct NativeLiveAppStoreDependencies {
             URLSessionCookSessionClient(configuration: configuration)
         },
         cookSessionPushDelay: Duration = .milliseconds(800),
+        killSwitches: @escaping @Sendable () -> NativeKillSwitches = { .allOn },
         now: @escaping @Sendable () -> Date
     ) {
         self.authSessionRepository = authSessionRepository
@@ -221,6 +224,7 @@ public struct NativeLiveAppStoreDependencies {
         self.bootstrapMode = bootstrapMode
         self.cookSessionClient = cookSessionClient
         self.cookSessionPushDelay = cookSessionPushDelay
+        self.killSwitches = killSwitches
         self.now = now
     }
 }
@@ -3137,7 +3141,10 @@ public final class NativeLiveAppStore: ObservableObject {
     /// recipes just opened. Runs as part of the store's full sync and on its own through `requestCookSync`. Nothing here shows an error: when the server will
     /// not take progress (sync off, 403) or cannot be reached, progress stays on the device and goes later.
     private func syncCookSessions(session: AuthSession) async {
+        // Switched off by the server (NativeFeature.cookSessionSync): progress stays on the device, as when the
+        // server will not take it, and goes once the switch is back on.
         guard dependencies.bootstrapMode == .liveFirst,
+              dependencies.killSwitches().allows(.cookSessionSync),
               let appStateStore = dependencies.appStateStoreProvider() else {
             return
         }
