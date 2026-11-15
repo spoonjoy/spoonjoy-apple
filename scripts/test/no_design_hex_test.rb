@@ -4,8 +4,9 @@
 #
 # Spoonjoy's colours have one source, ouro-ui-core's cookbook theme, which reaches the app through OuroHX. A hex
 # literal in the app's design folder is a value copied by hand that drifts when web changes, so none is allowed. Nor is
-# an opacity applied to a palette colour in the theme: web's translucent colours (`--sj-border`, `--sj-on-photo-muted`)
-# are tokens of their own.
+# an opacity applied to a palette colour, or to black or white, in the theme: web's translucent colours (`--sj-border`,
+# `--sj-on-photo-muted`, the soft shadow's colour) are tokens of their own. A definition that runs over several lines
+# is read whole.
 require "minitest/autorun"
 
 class NoDesignHexTest < Minitest::Test
@@ -15,7 +16,6 @@ class NoDesignHexTest < Minitest::Test
   THEME = File.join(DESIGN, "KitchenTableTheme.swift")
   # Native-only shading web has no token for. Adding one here is a deliberate choice, not a copied web value.
   NATIVE_ONLY = {
-    "foldShadow" => "the crease shade at a spread's fold",
     "selectionWash" => "the brass wash behind a selected row",
     "ruleSoft" => "a fainter rule inside a panel"
   }.freeze
@@ -28,12 +28,31 @@ class NoDesignHexTest < Minitest::Test
     members.flat_map { |name| ["Day.#{name}", "Night.#{name}"] } + themed
   end
 
+  # Each `static let` with the line it starts on, joined with the lines it runs on to while its brackets are open.
+  def self.definitions(source)
+    lines = source.lines
+    lines.each_index.select { |index| lines[index].match?(/\A\s*static let /) }.map do |start|
+      text = +""
+      depth = 0
+      index = start
+      loop do
+        line = lines[index]
+        text << " " unless text.empty?
+        text << line.strip
+        depth += line.count("([{") - line.count(")]}")
+        index += 1
+        break if depth <= 0 || index >= lines.length
+      end
+      [start + 1, text]
+    end
+  end
+
   def self.opacity_offenders(source)
     names = palette_names(source).sort_by { |name| -name.length }.map { |name| Regexp.escape(name) }
-    pattern = /(?<![\w.])(?:#{names.join("|")})\.opacity\(/
-    source.lines.each_with_index.select { |line, _| line.match?(/\A\s*static let /) && line.match?(pattern) }.reject do |line, _|
-      NATIVE_ONLY.keys.any? { |name| line.match?(/static let #{name} =/) }
-    end.map { |line, index| "#{index + 1}: #{line.strip}" }
+    pattern = /(?<![\w.])(?:#{names.join("|")}|Color\.(?:black|white))\.opacity\(/
+    definitions(source).select { |_, text| text.match?(pattern) }.reject do |_, text|
+      NATIVE_ONLY.keys.any? { |name| text.match?(/\Astatic let #{name} =/) }
+    end.map { |number, text| "#{number}: #{text}" }
   end
 
   def test_design_folder_has_no_hex_colour_literals
@@ -58,9 +77,18 @@ class NoDesignHexTest < Minitest::Test
       static let wash = brass.opacity(0.09)
       static let selectionWash = brass.opacity(0.09)
       static let overlay = Color.black.opacity(0.28)
+      static let crease = dynamic(
+          Day.charcoal,
+          Color.black.opacity(0.32)
+      )
+      static let ruleSoft = hairline.opacity(0.42)
+      static let fold = dynamic(liftShadow.light.color, liftShadow.dark.color)
     SWIFT
     assert_equal ["3: static let hairline = dynamic(Day.charcoal.opacity(0.18), Night.boneNight.opacity(0.16))",
-                  "4: static let wash = brass.opacity(0.09)"], self.class.opacity_offenders(source)
+                  "4: static let wash = brass.opacity(0.09)",
+                  "6: static let overlay = Color.black.opacity(0.28)",
+                  "7: static let crease = dynamic( Day.charcoal, Color.black.opacity(0.32) )"],
+                 self.class.opacity_offenders(source)
   end
 
   def test_the_pattern_catches_both_spellings
