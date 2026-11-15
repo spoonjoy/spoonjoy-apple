@@ -77,10 +77,9 @@ enum KitchenTableTheme {
     static let onPhoto = dynamic(Day.bone, Night.onPhotoNight) // --sj-on-photo
     static let onPhotoMuted = dynamic(Day.onPhotoMuted, Night.onPhotoMutedNight)
     static let photoCharcoal = dynamic(Day.photoCharcoal, Night.photoCharcoalNight)
-    /// The soft shade at a spread's fold, in the colour of the cookbook's soft shadow (`sj-shadow-soft`, the same
-    /// token as `liftShadow`): 8% ink by day. At night ink is light, so the token darkens the paper with 42% of the
-    /// photo charcoal instead, the way a real crease shades in low light.
-    static let foldShadow = dynamic(liftShadow.light.color, liftShadow.dark.color)
+    /// The soft shadow at a spread's fold: 10% ink by day. At night ink is light, so the fold darkens the paper with
+    /// black instead, the same way a real crease shades in low light.
+    static let foldShadow = dynamic(Day.charcoal.opacity(0.10), Color.black.opacity(0.32))
 
     /// Corners from the cookbook tokens, as web draws them. Controls keep the platform's capsule.
     enum Radius {

@@ -16,6 +16,9 @@ class NoDesignHexTest < Minitest::Test
   THEME = File.join(DESIGN, "KitchenTableTheme.swift")
   # Native-only shading web has no token for. Adding one here is a deliberate choice, not a copied web value.
   NATIVE_ONLY = {
+    # Web's spreads have no fold, and the cookbook's only shadow colour at night (#1d1915) is nearly the night page,
+    # so the crease would vanish. It stays black until ouro-ui-core has a fold token (ourostack/ouro-ui-core#71).
+    "foldShadow" => "the crease shade at a spread's fold",
     "selectionWash" => "the brass wash behind a selected row",
     "ruleSoft" => "a fainter rule inside a panel"
   }.freeze
@@ -28,28 +31,42 @@ class NoDesignHexTest < Minitest::Test
     members.flat_map { |name| ["Day.#{name}", "Night.#{name}"] } + themed
   end
 
-  # Each `static let` with the line it starts on, joined with the lines it runs on to while its brackets are open.
+  DECLARATION = /\A\s*(?:(?:private|fileprivate|internal|public)\s+)?static (?:let|var) /
+
+  # A line without its `//` comment and with its string literals emptied, so brackets in either can't mislead.
+  def self.code(line)
+    line.gsub(/"(?:[^"\\]|\\.)*"/, '""').sub(%r{//.*}, "")
+  end
+
+  # Each static colour definition with the line it starts on, joined with the lines it runs on to while its brackets
+  # are open and with the chained calls (`.opacity(...)`) on the lines after it.
   def self.definitions(source)
-    lines = source.lines
-    lines.each_index.select { |index| lines[index].match?(/\A\s*static let /) }.map do |start|
+    lines = source.lines.map { |line| code(line) }
+    lines.each_index.select { |index| lines[index].match?(DECLARATION) }.map do |start|
       text = +""
       depth = 0
       index = start
       loop do
         line = lines[index]
-        text << " " unless text.empty?
+        text << " " unless text.empty? || line.lstrip.start_with?(".")
         text << line.strip
         depth += line.count("([{") - line.count(")]}")
         index += 1
-        break if depth <= 0 || index >= lines.length
+        break if index >= lines.length
+        next if depth.positive?
+
+        following = lines[index..].find { |candidate| !candidate.strip.empty? }
+        break unless following&.lstrip&.start_with?(".")
       end
-      [start + 1, text]
+      [start + 1, text.sub(DECLARATION, "static let ")]
     end
   end
 
   def self.opacity_offenders(source)
     names = palette_names(source).sort_by { |name| -name.length }.map { |name| Regexp.escape(name) }
-    pattern = /(?<![\w.])(?:#{names.join("|")}|Color\.(?:black|white))\.opacity\(/
+    named = /(?<![\w.])(?:#{names.join("|")}|Color\.(?:black|white))\.opacity\(/
+    shorthand = /(?<!\w)\.(?:black|white)\.opacity\(|Color\(white:[^)]*opacity:/
+    pattern = Regexp.union(named, shorthand)
     definitions(source).select { |_, text| text.match?(pattern) }.reject do |_, text|
       NATIVE_ONLY.keys.any? { |name| text.match?(/\Astatic let #{name} =/) }
     end.map { |number, text| "#{number}: #{text}" }
@@ -83,11 +100,20 @@ class NoDesignHexTest < Minitest::Test
       )
       static let ruleSoft = hairline.opacity(0.42)
       static let fold = dynamic(liftShadow.light.color, liftShadow.dark.color)
+      static let chained = Color.black
+          .opacity(0.3)
+      static let noted = Day.charcoal // see (web
+      private static let scrim = .white.opacity(0.2)
+      static var grey = Color(white: 0, opacity: 0.4)
+      static let label = Text("(").opacity(1)
     SWIFT
     assert_equal ["3: static let hairline = dynamic(Day.charcoal.opacity(0.18), Night.boneNight.opacity(0.16))",
                   "4: static let wash = brass.opacity(0.09)",
                   "6: static let overlay = Color.black.opacity(0.28)",
-                  "7: static let crease = dynamic( Day.charcoal, Color.black.opacity(0.32) )"],
+                  "7: static let crease = dynamic( Day.charcoal, Color.black.opacity(0.32) )",
+                  "13: static let chained = Color.black.opacity(0.3)",
+                  "16: static let scrim = .white.opacity(0.2)",
+                  "17: static let grey = Color(white: 0, opacity: 0.4)"],
                  self.class.opacity_offenders(source)
   end
 
