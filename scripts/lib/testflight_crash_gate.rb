@@ -31,6 +31,9 @@ module TestflightCrashGate
     refusals = []
     notes = []
     build = "build #{facts['buildNumber']}"
+    if facts["readError"]
+      return { "pass" => false, "notes" => [], "refusals" => ["App Store Connect could not be read for #{build}: #{facts['readError']}"] }
+    end
     usage = facts["usage"]
     if usage.nil?
       refusals << "TestFlight has no usage metrics for #{build}, so nothing shows it ran on a device"
@@ -45,9 +48,11 @@ module TestflightCrashGate
     feedback = facts["crashFeedback"].to_i
     refusals << "Testers sent #{feedback} TestFlight crash report(s) for #{build}" if feedback.positive?
 
-    uploaded = Time.iso8601(facts.fetch("uploadedDate"))
-    hours = ((now - uploaded) / 3600.0).floor(1)
-    if hours < soak_hours
+    uploaded = facts["uploadedDate"] && Time.iso8601(facts["uploadedDate"])
+    hours = uploaded && ((now - uploaded) / 3600.0).floor(1)
+    if uploaded.nil?
+      refusals << "App Store Connect gives no upload date for #{build}, so its soak can't be timed"
+    elsif hours < soak_hours
       ready = (uploaded + (soak_hours * 3600)).utc.iso8601
       refusals << "#{build} was uploaded #{hours} hour(s) ago; the soak window is #{soak_hours} hours (ready at #{ready})"
     end
@@ -64,11 +69,15 @@ module TestflightCrashGate
       @app_id = app_id
     end
 
+    # An App Store Connect error becomes "readError", which evaluate refuses, so the summary shows it and an override
+    # can still submit.
     def facts(build_id)
       build = @client.get("/v1/builds/#{build_id}")["data"]
       { "buildId" => build_id, "buildNumber" => build.dig("attributes", "version"),
         "uploadedDate" => build.dig("attributes", "uploadedDate"), "usage" => usage(build_id),
         "crashFeedback" => crash_feedback(build_id), "signatures" => signatures(build_id) }
+    rescue AppStoreListing::Error => e
+      { "buildId" => build_id, "buildNumber" => build&.dig("attributes", "version") || build_id, "readError" => e.message[0, 300] }
     end
 
     private
@@ -100,7 +109,7 @@ module TestflightCrashGate
   # The launch-on-device-size check: Launch smoke (launch-smoke.yml) installs the Release app on a simulator, which
   # since #355 links with the iPhone's 1 MB main-thread stack, and launches it three times. A submission's iOS source
   # commit must have a run where every device family's Launch smoke job passed. runs: [{"id", "jobs" => [...]}] from
-  # the Actions API for that commit, any workflow (Native on a pull request, After TestFlight on main, or a dispatch).
+  # the Actions API for that commit (After TestFlight on main, or a dispatch of launch-smoke.yml).
   FAMILY_JOB = /(\A|\/ )Launch smoke \((?!build)[^)]+\)\z/.freeze
 
   def self.launch_smoke(runs, sha:)
@@ -113,15 +122,18 @@ module TestflightCrashGate
                "notes" => [] }
     end
 
+    green = with_smoke.find { |_, jobs| jobs.all? { |job| job["status"] == "completed" && job["conclusion"] == "success" } }
+    if green
+      run, jobs = green
+      names = jobs.map { |job| job["name"].sub(%r{\A.*/ }, "") }
+      return { "pass" => true, "refusals" => [], "notes" => ["Launch smoke passed for #{sha} in run #{run['id']}: #{names.join(', ')}"] }
+    end
+
+    # No run passed in full: report the newest one's unfinished or failed jobs.
     run, jobs = with_smoke.max_by { |r, _| r["id"].to_i }
     failed = jobs.reject { |job| job["status"] == "completed" && job["conclusion"] == "success" }
-    names = jobs.map { |job| job["name"].sub(%r{\A.*/ }, "") }
-    if failed.empty?
-      { "pass" => true, "refusals" => [], "notes" => ["Launch smoke passed for #{sha} in run #{run['id']}: #{names.join(', ')}"] }
-    else
-      { "pass" => false, "notes" => [],
-        "refusals" => failed.map { |job| "#{job['name']} is #{job['conclusion'] || job['status']} in run #{run['id']} for #{sha}" } }
-    end
+    { "pass" => false, "notes" => [],
+      "refusals" => failed.map { |job| "#{job['name']} is #{job['conclusion'] || job['status']} in run #{run['id']} for #{sha}" } }
   end
 
   # Markdown for the run summary: the verdict, every finding, and the override when one was used.

@@ -117,14 +117,34 @@ class TestflightCrashGateTest < Minitest::Test
     assert_includes result["notes"], "Organizer diagnostic for build 156: HANGS weight 0.5: main hang"
   end
 
-  def test_other_app_store_connect_errors_still_raise
+  def test_an_app_store_connect_error_is_a_refusal_the_override_can_pass
     client = RecordedClient.new(self)
     def client.get(path, _query = {})
       raise AppStoreListing::Error, "GET #{path} answered HTTP 500: boom" if path.end_with?("/diagnosticSignatures")
 
       answer(path)
     end
-    assert_raises(AppStoreListing::Error) { TestflightCrashGate::Reader.new(client, app_id: "A").facts(BUILDS["156"]) }
+    found = TestflightCrashGate::Reader.new(client, app_id: "A").facts(BUILDS["156"])
+    result = TestflightCrashGate.evaluate(found, now: a_day_after("156"))
+    refute result["pass"]
+    assert_match(/\AApp Store Connect could not be read for build 156: GET .* answered HTTP 500: boom\z/, result["refusals"].first)
+  end
+
+  def test_an_empty_usage_response_reads_as_no_metrics_and_refuses
+    client = RecordedClient.new(self)
+    def client.get(path, _query = {})
+      return { "data" => [] } if path.end_with?("/betaBuildUsages")
+
+      answer(path)
+    end
+    found = TestflightCrashGate::Reader.new(client, app_id: "A").facts(BUILDS["156"])
+    assert_nil found["usage"]
+    refute TestflightCrashGate.evaluate(found, now: a_day_after("156"))["pass"]
+  end
+
+  def test_a_build_without_an_upload_date_is_refused_not_crashed_on
+    result = TestflightCrashGate.evaluate(facts("156").merge("uploadedDate" => nil), now: Time.now)
+    assert_equal ["App Store Connect gives no upload date for build 156, so its soak can't be timed"], result["refusals"]
   end
 
   def test_summary_records_the_override_beside_what_the_gate_found
@@ -157,16 +177,20 @@ class TestflightCrashGateTest < Minitest::Test
     assert_match(/no Launch smoke run; dispatch launch-smoke.yml/, none["refusals"].first)
   end
 
-  def test_launch_smoke_reads_the_newest_run_so_a_green_rerun_counts
+  def test_launch_smoke_passes_on_any_fully_green_run_even_beside_a_newer_pending_one
     pending = fixture("runs-after-testflight-pending")
-    green = fixture("runs-after-testflight-green").merge("id" => pending["id"] + 1)
+    green = fixture("runs-after-testflight-green").merge("id" => pending["id"] - 1)
     assert TestflightCrashGate.launch_smoke([pending, green], sha: "x")["pass"]
+    assert TestflightCrashGate.launch_smoke([green.merge("id" => pending["id"] + 1), pending], sha: "x")["pass"]
   end
 
   def test_submit_workflow_runs_the_gate_and_records_the_override
     workflow = File.read(File.join(ROOT, ".github/workflows/submit-app-store-review.yml"))
     assert_includes workflow, "crash_gate_override:"
     assert_includes workflow, "ruby scripts/require-launch-smoke.rb"
+    assert_includes workflow, '--platform "$PLATFORM" --github-output', "an iOS-only submission pins its build to the source commit"
+    assert_includes workflow, 'if [ "$PLATFORM" = "IOS" ]; then builds=(--build-id "IOS=$IOS_BUILD_ID"); fi'
+    assert_includes workflow, 'if [ "$SMOKE_REFUSED" = "true" ]; then apply=; fi', "a smoke refusal plans and never submits"
     assert_includes workflow, '--crash-gate-override "$OVERRIDE"'
     uses = workflow.lines.grep(/inputs\.crash_gate_override/)
     assert_equal 2, uses.size

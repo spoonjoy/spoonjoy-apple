@@ -80,20 +80,24 @@ jobs:
           path: release-source
           persist-credentials: false
       # The release train: both versions must carry the builds TestFlight published from this one source commit.
-      - name: Find both platforms' builds from the source commit
+      # iOS alone pins its build to the source commit too, so the Launch smoke checked on that commit is the build's own.
+      - name: Find the builds TestFlight published from the source commit
         id: train
-        if: inputs.platform == 'BOTH'
+        if: inputs.platform != 'MAC_OS'
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_SHA: ${{ steps.green.outputs.sha }}
-        run: ruby scripts/release-train-builds.rb --repository "$GITHUB_REPOSITORY" --sha "$SOURCE_SHA" --github-output "$GITHUB_OUTPUT"
-      - name: Require Launch smoke at the iPhone's stack size
+          PLATFORM: ${{ inputs.platform }}
+        run: ruby scripts/release-train-builds.rb --repository "$GITHUB_REPOSITORY" --sha "$SOURCE_SHA" --platform "$PLATFORM" --github-output "$GITHUB_OUTPUT"
+      # Reports and never stops the job itself, so a refusal still shows the TestFlight gate's findings in the plan below.
+      - name: Check Launch smoke at the iPhone's stack size
+        id: smoke
         if: inputs.platform != 'MAC_OS'
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_SHA: ${{ steps.green.outputs.sha }}
           OVERRIDE: ${{ inputs.crash_gate_override }}
-        run: ruby scripts/require-launch-smoke.rb --repository "$GITHUB_REPOSITORY" --sha "$SOURCE_SHA" --override "$OVERRIDE"
+        run: ruby scripts/require-launch-smoke.rb --repository "$GITHUB_REPOSITORY" --sha "$SOURCE_SHA" --override "$OVERRIDE" --github-output "$GITHUB_OUTPUT"
       - name: Submit
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
@@ -105,16 +109,24 @@ jobs:
           IOS_BUILD_ID: ${{ steps.train.outputs.ios_build_id }}
           MAC_BUILD_ID: ${{ steps.train.outputs.mac_build_id }}
           OVERRIDE: ${{ inputs.crash_gate_override }}
+          SMOKE_REFUSED: ${{ steps.smoke.outputs.refused }}
         run: |
           set -euo pipefail
           apply=
           builds=()
           if [ "$PLATFORM" = "BOTH" ]; then builds=(--build-id "IOS=$IOS_BUILD_ID" --build-id "MAC_OS=$MAC_BUILD_ID"); fi
+          if [ "$PLATFORM" = "IOS" ]; then builds=(--build-id "IOS=$IOS_BUILD_ID"); fi
           if [ "$CONFIRM" = "submit $PLATFORM $VERSION" ]; then
             apply=--apply
           elif [ -n "$CONFIRM" ]; then
             echo "::error::confirm must read exactly \"submit $PLATFORM $VERSION\" (or be empty for a dry run)"
             exit 1
           fi
+          # A Launch smoke refusal without an override still plans (so the TestFlight gate's findings show), never submits.
+          if [ "$SMOKE_REFUSED" = "true" ]; then apply=; fi
           ruby scripts/submit-app-store-review.rb --platform "$PLATFORM" --version "$VERSION" \
             --listing release-source/distribution/app-store/listing.json "${builds[@]}" --crash-gate-override "$OVERRIDE" $apply
+          if [ "$SMOKE_REFUSED" = "true" ]; then
+            echo "::error::Not submitting: Launch smoke did not pass for the source commit (see the run summary)."
+            exit 1
+          fi
