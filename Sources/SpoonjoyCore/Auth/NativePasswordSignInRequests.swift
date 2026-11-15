@@ -51,11 +51,19 @@ extension NativePasswordSignInCredential: CustomStringConvertible, CustomDebugSt
 }
 
 public enum NativePasswordSignInRequests {
-    public static func exchangeCredential(_ credential: NativePasswordSignInCredential) throws -> APIRequestBuilder {
+    /// `client` as for `NativeAppleSignInRequests.exchangeCredential`: platform, version and install ID, when known.
+    public static func exchangeCredential(
+        _ credential: NativePasswordSignInCredential,
+        client: NativeTelemetryAppMetadata = .unknown
+    ) throws -> APIRequestBuilder {
+        let fields = NativeSignInClientFields(client)
         let body = NativePasswordSignInRequestBody(
             emailOrUsername: credential.emailOrUsername,
             password: credential.password,
-            pendingAppleLinkToken: credential.pendingAppleLinkToken
+            pendingAppleLinkToken: credential.pendingAppleLinkToken,
+            platform: fields.platform,
+            appVersion: fields.appVersion,
+            installId: fields.installID
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
@@ -75,4 +83,7 @@ private struct NativePasswordSignInRequestBody: Encodable {
     let password: String
     /// Left out of the body when nil (synthesized `encodeIfPresent`), so a plain sign-in sends what it always did.
     let pendingAppleLinkToken: String?
+    let platform: String?
+    let appVersion: String?
+    let installId: String?
 }

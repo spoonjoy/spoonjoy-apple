@@ -165,6 +165,10 @@ struct SpoonjoyRootView: View {
                     applyURL(url)
                 }
 #endif
+                // The shell is up, so this is off the launch path: crash and hang reports waiting from an earlier
+                // launch go out now, with the token the store just restored.
+                Task { await SpoonjoyDiagnosticsReporter.shared.attach(liveStore) }
+                await reportLaunchCompletedWhenSettled()
             }
             .task {
 #if DEBUG
@@ -246,6 +250,14 @@ struct SpoonjoyRootView: View {
         }
     }
 #endif
+
+    /// `launch_completed`, once per process, after the shell has stayed up for `NativeLaunchSettlement.settleDelay`.
+    /// Launch safe mode (spoonjoy-apple#365) can count a launch as finished from the same `NativeLaunchSettlement`.
+    private func reportLaunchCompletedWhenSettled() async {
+        try? await Task.sleep(for: NativeLaunchSettlement.settleDelay)
+        guard !Task.isCancelled, NativeLaunchSettlement.process.markSettled() else { return }
+        await liveStore.reportLaunchCompleted()
+    }
 
     /// The sign-in banner and sheet sit at the root, so they work in every state that shows the saved kitchen
     /// (offline, queued work, a conflict, a failed sync), not only one of them.
@@ -903,7 +915,7 @@ struct SpoonjoyRootView: View {
                 )
                 do {
                     let response: OAuthTokenResponse = try await OAuthURLSessionSupport.sendDecoded(
-                        try NativeAppleSignInRequests.exchangeCredential(credential),
+                        try NativeAppleSignInRequests.exchangeCredential(credential, client: Self.nativeTelemetryMetadata()),
                         configuration: configuration
                     )
                     NativeAppleSignInTelemetry.logPhase("backend_request_succeeded")
@@ -932,7 +944,7 @@ struct SpoonjoyRootView: View {
             },
             exchangePasswordCredential: { credential in
                 try await OAuthURLSessionSupport.sendDecoded(
-                    try NativePasswordSignInRequests.exchangeCredential(credential),
+                    try NativePasswordSignInRequests.exchangeCredential(credential, client: Self.nativeTelemetryMetadata()),
                     configuration: configuration
                 )
             },
@@ -1031,12 +1043,13 @@ struct SpoonjoyRootView: View {
         )
     }
 
-    private static func nativeTelemetryMetadata() -> NativeTelemetryAppMetadata {
+    static func nativeTelemetryMetadata() -> NativeTelemetryAppMetadata {
         let info = Bundle.main.infoDictionary
         return NativeTelemetryAppMetadata(
             platform: nativeTelemetryPlatform(),
             appVersion: nonblankInfoString(info?["CFBundleShortVersionString"]) ?? "0.0.0",
-            buildNumber: nonblankInfoString(info?["CFBundleVersion"]) ?? "0"
+            buildNumber: nonblankInfoString(info?["CFBundleVersion"]) ?? "0",
+            installID: NativeInstallID.current()
         )
     }
 
@@ -1071,6 +1084,11 @@ struct SpoonjoyRootView: View {
 #else
         return NativeAuthSession.redirectURI
 #endif
+    }
+
+    /// The environment the app talks to, for reports made before the shell's store is up.
+    static func appCacheEnvironment() -> NativeCacheEnvironment {
+        defaultCacheEnvironment(configuration: SpoonjoyAppServer.configuration())
     }
 
     private static func defaultCacheEnvironment(configuration: APIClientConfiguration) -> NativeCacheEnvironment {

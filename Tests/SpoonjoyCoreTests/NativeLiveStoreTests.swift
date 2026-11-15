@@ -2171,6 +2171,44 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("launch_completed goes out with the store's environment, metadata and signed-in token")
+    func launchCompletedGoesOutWithTheStoresSignedInToken() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_launch_completed", title: "Launch Day Pasta")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_ari")
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let telemetryRecorder = NativeTelemetryRecorder()
+            let metadata = NativeTelemetryAppMetadata(platform: "ios", appVersion: "1.3", buildNumber: "7", installID: "install-launch")
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+                nativeTelemetryReport: { event, configuration in
+                    await telemetryRecorder.record(event, configuration: configuration)
+                },
+                nativeTelemetryMetadata: metadata
+            )
+
+            #expect(liveStore.telemetryConfiguration.bearerToken == nil)
+            #expect(liveStore.telemetryEnvironment == .production)
+
+            await liveStore.bootstrap()
+            #expect(liveStore.telemetryConfiguration.bearerToken == "sj_access_current")
+            await liveStore.reportLaunchCompleted()
+
+            let event = try #require(await telemetryRecorder.recordedEvents().last)
+            #expect(event.name == .launchCompleted)
+            #expect(event.stage == "launch")
+            #expect(event.environment == "production")
+            #expect(event.metadata == metadata)
+            #expect(event.accountBound == true)
+            #expect(await telemetryRecorder.recordedConfigurations().last?.bearerToken == "sj_access_current")
+        }
+    }
+
+    @MainActor
     @Test("settings token-scope failure keeps kitchen content but marks sync failed and reports telemetry")
     func settingsTokenScopeFailureKeepsKitchenContentButMarksSyncFailedAndReportsTelemetry() async throws {
         try await withTemporaryLiveStoreDirectory { directory in

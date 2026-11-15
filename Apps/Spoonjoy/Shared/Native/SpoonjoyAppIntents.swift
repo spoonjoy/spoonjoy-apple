@@ -1791,7 +1791,8 @@ struct SpoonjoyIntentTelemetry {
         return NativeTelemetryAppMetadata(
             platform: platform(),
             appVersion: nonblankInfoString(info?["CFBundleShortVersionString"]) ?? "0.0.0",
-            buildNumber: nonblankInfoString(info?["CFBundleVersion"]) ?? "0"
+            buildNumber: nonblankInfoString(info?["CFBundleVersion"]) ?? "0",
+            installID: NativeInstallID.current()
         )
     }
 

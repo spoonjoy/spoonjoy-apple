@@ -20,12 +20,21 @@ public struct NativeAppleSignInCredential: Equatable, Sendable {
 }
 
 public enum NativeAppleSignInRequests {
-    public static func exchangeCredential(_ credential: NativeAppleSignInCredential) throws -> APIRequestBuilder {
+    /// `client` says which app and install is signing in (platform, version, install ID), so the server can tie the
+    /// sign-in, and the install's earlier anonymous telemetry, to the account. Unknown values are left out.
+    public static func exchangeCredential(
+        _ credential: NativeAppleSignInCredential,
+        client: NativeTelemetryAppMetadata = .unknown
+    ) throws -> APIRequestBuilder {
+        let fields = NativeSignInClientFields(client)
         let body = NativeAppleSignInRequestBody(
             identityToken: credential.identityToken,
             rawNonce: credential.rawNonce,
             email: credential.email,
-            fullName: credential.fullName
+            fullName: credential.fullName,
+            platform: fields.platform,
+            appVersion: fields.appVersion,
+            installId: fields.installID
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
@@ -45,4 +54,20 @@ private struct NativeAppleSignInRequestBody: Encodable {
     let rawNonce: String
     let email: String?
     let fullName: String?
+    let platform: String?
+    let appVersion: String?
+    let installId: String?
+}
+
+/// The client fields both native sign-in requests carry, each only when the server would accept it.
+struct NativeSignInClientFields: Equatable {
+    let platform: String?
+    let appVersion: String?
+    let installID: String?
+
+    init(_ metadata: NativeTelemetryAppMetadata) {
+        platform = ["ios", "macos"].contains(metadata.platform ?? "") ? metadata.platform : nil
+        appVersion = NativeDiagnosticMapper.clipped(metadata.appVersion, to: 40)
+        installID = metadata.installID.flatMap { NativeInstallID.isValid($0) ? $0 : nil }
+    }
 }
