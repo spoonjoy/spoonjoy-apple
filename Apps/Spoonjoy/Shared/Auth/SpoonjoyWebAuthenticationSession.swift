@@ -184,8 +184,8 @@ final class SpoonjoyWebAuthenticationSession {
         )
     }
 
-    @discardableResult
     /// `willStart` runs with the session just before its `start()`.
+    @discardableResult
     func start(
         authorizationURL: URL,
         willStart: @MainActor (any SpoonjoyWebAuthenticationSessionProtocol) -> Void = { _ in }

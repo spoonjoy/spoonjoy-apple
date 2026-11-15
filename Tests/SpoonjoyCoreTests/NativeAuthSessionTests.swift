@@ -616,11 +616,21 @@ struct NativeAuthSessionTests {
         // NativeBrowserOAuthEarlyCancel retries a canceledLogin on iOS only when the app never resigned active. That
         // proves nothing was shown only because a non-ephemeral session always shows the "wants to use spoonjoy.app to
         // sign in" prompt first. An ephemeral session skips the prompt, so a person's Cancel would look like the system's.
-        // Any assignment or initialiser other than a literal `false` (`= true`, `: Bool = true`, `= someFlag`), or a
-        // key-value write, is an offender. The one exception is the system wrapper's pass-through setter.
+        // Any assignment or initialiser other than a literal `false` (`= true`, `: Bool = true`, `= someFlag`), even
+        // split across lines, a key-value write, or a key path to it (`\.prefersEphemeralWebBrowserSession`, which only
+        // a key-path write would need) is an offender. The one exception is the system wrapper's pass-through setter.
+        // Whole files are scanned, so an assignment split over lines is caught.
         let assignment = #"prefersEphemeralWebBrowserSession\s*(:\s*Bool\s*)?=(?!=)(?!\s*false\b)"#
         let keyValue = #""prefersEphemeralWebBrowserSession""#
+        let keyPath = #"\\[A-Za-z0-9_.]*\.prefersEphemeralWebBrowserSession\b"#
         let passThrough = "set { session.prefersEphemeralWebBrowserSession = newValue }"
+        func offences(in source: String) -> Int {
+            let scanned = source.replacingOccurrences(of: passThrough, with: "")
+            return [assignment, keyPath].reduce(scanned.components(separatedBy: keyValue).count - 1) { count, pattern in
+                count + ((try? NSRegularExpression(pattern: pattern))?
+                    .numberOfMatches(in: scanned, range: NSRange(scanned.startIndex..., in: scanned)) ?? 0)
+            }
+        }
         let fileManager = FileManager.default
         var offenders: [String] = []
         for root in ["Apps", "Sources"] {
@@ -628,24 +638,22 @@ struct NativeAuthSessionTests {
             let files = fileManager.enumerator(at: base, includingPropertiesForKeys: nil)?
                 .compactMap { $0 as? URL }
                 .filter { $0.pathExtension == "swift" } ?? []
-            for file in files {
-                let lines = try String(contentsOf: file, encoding: .utf8).components(separatedBy: .newlines)
-                for (index, line) in lines.enumerated() where line.contains("prefersEphemeralWebBrowserSession") {
-                    let trimmed = line.trimmingCharacters(in: .whitespaces)
-                    if trimmed == passThrough { continue }
-                    if line.range(of: assignment, options: .regularExpression) != nil || line.contains(keyValue) {
-                        offenders.append("\(file.path):\(index + 1)")
-                    }
-                }
+            for file in files where offences(in: try String(contentsOf: file, encoding: .utf8)) > 0 {
+                offenders.append(file.path)
             }
         }
         for caught in ["x.prefersEphemeralWebBrowserSession = true", "var prefersEphemeralWebBrowserSession: Bool = true",
-                       "s.prefersEphemeralWebBrowserSession = flag", "s.prefersEphemeralWebBrowserSession=true"] {
-            #expect(caught.range(of: assignment, options: .regularExpression) != nil, Comment(rawValue: caught))
+                       "s.prefersEphemeralWebBrowserSession = flag", "s.prefersEphemeralWebBrowserSession=true",
+                       "s.prefersEphemeralWebBrowserSession\n    = true", "s.prefersEphemeralWebBrowserSession =\n        true",
+                       "s[keyPath: \\.prefersEphemeralWebBrowserSession] = true",
+                       "let path = \\ASWebAuthenticationSession.prefersEphemeralWebBrowserSession",
+                       "s.setValue(true, forKey: \"prefersEphemeralWebBrowserSession\")"] {
+            #expect(offences(in: caught) > 0, Comment(rawValue: caught))
         }
         for allowed in ["s.prefersEphemeralWebBrowserSession = false", "var prefersEphemeralWebBrowserSession = false",
-                        "s.prefersEphemeralWebBrowserSession == false", "var prefersEphemeralWebBrowserSession: Bool {"] {
-            #expect(allowed.range(of: assignment, options: .regularExpression) == nil, Comment(rawValue: allowed))
+                        "s.prefersEphemeralWebBrowserSession == false", "var prefersEphemeralWebBrowserSession: Bool {",
+                        "s.prefersEphemeralWebBrowserSession\n    = false", passThrough] {
+            #expect(offences(in: allowed) == 0, Comment(rawValue: allowed))
         }
         #expect(offenders.isEmpty, "Ephemeral sign-in sessions break the iOS early-cancel retry gate: \(offenders)")
         let path = "Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift"
@@ -654,6 +662,34 @@ struct NativeAuthSessionTests {
             in: path,
             contains: ["prefersEphemeralWebBrowserSession = false"],
             forbids: []
+        )
+    }
+
+    @Test("the sign-in view wires the early-cancel backoff: status from each phase, Cancel during a pause, could-not-open")
+    func browserSignInEarlyCancelBackoffInTheView() throws {
+        let path = "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift"
+        let content = try readRepoFile(path)
+        // The behaviour is tested where it lives: NativeBrowserOAuthSignIn's phases and ends in BrowserSignInTests, the
+        // status text in NativeBrowserOAuthEarlyCancelTests. This pins only the view's use of them (spoonjoy-apple#344).
+        expectContent(
+            content,
+            in: path,
+            contains: [
+                "}, onRetry: { phase in",
+                "browserSignInRetryPending = phase != .started",
+                "authStatus = NativeBrowserOAuthEarlyCancel.status(for: phase, providerName: provider.displayName)",
+                "}) { finish in\n            // The sign-in has ended: no Cancel for a pending retry from here on.\n            browserSignInRetryPending = false\n            Task {",
+                "let ended = NativeBrowserOAuthEarlyCancel.endedStatus(error: error, providerName: provider.displayName)",
+                "authStatus = ended.text",
+                "AccessibilityNotification.Announcement(ended.text).post()",
+                "if browserSignInRetryPending {\n                Button(\"Cancel\", action: cancelBrowserSignInRetry)",
+                "guard browserSignInRetryPending else { return }\n        browserSignInRetryPending = false\n        browserSignIn?.cancel()"
+            ],
+            forbids: [
+                // The could-not-open text after an early cancel comes from endedStatus; the start failure keeps its own line.
+                "authStatus = \"Could not open sign-in. Try again.\"",
+                "authStatus = \"Could not open \\(provider.displayName) sign-in. Try again.\""
+            ]
         )
     }
 
