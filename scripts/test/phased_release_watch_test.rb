@@ -101,15 +101,26 @@ class PhasedReleaseWatchTest < Minitest::Test
   end
 
   # iOS 1.2.1 on the crashing build 174's recordings, as if TestFlight saw it crash during the rollout.
+  # The recorded phased release carries its version's id; a distinct one here proves the PATCH uses the phased
+  # release's own id.
+  PHASED_121 = "phased-release-of-1.2.1"
+
   def crashing_121
+    phased = self.class.fixture("phased-release-1.2.1")
+    phased["data"]["id"] = PHASED_121
     { "/v1/appStoreVersions/#{ROLLOUT_121}/build" => { "data" => { "id" => "86c842c6-17a6-4185-a03a-66f7b303d7de",
-                                                                     "attributes" => { "version" => "174" } } } }
+                                                                     "attributes" => { "version" => "174" } } },
+      "/v1/appStoreVersions/#{ROLLOUT_121}/appStoreVersionPhasedRelease" => phased }
   end
 
-  def watched(platform_version, baseline, paused = "false")
+  def watched(platform_version, crashes, feedback, state = "watching")
     platform, version = platform_version.split
     { "number" => 7, "title" => PhasedReleaseWatch.title(platform, version),
-      "body" => PhasedReleaseWatch.body(platform, version, baseline, paused) }
+      "body" => PhasedReleaseWatch.body(platform, version, { "crashes" => crashes, "feedback" => feedback, "state" => state }) }
+  end
+
+  def mark(issues)
+    PhasedReleaseWatch.read_marker(issues.issues.first["body"])
   end
 
   def test_first_sight_of_each_active_rollout_records_a_baseline_and_writes_nothing
@@ -119,34 +130,27 @@ class PhasedReleaseWatchTest < Minitest::Test
     assert_equal [["IOS", "1.2.1", "baseline"], ["MAC_OS", "1.1", "baseline"]], acted
     assert_empty client.writes
     assert_equal ["Phased release: IOS 1.2.1", "Phased release: MAC_OS 1.1"], issues.issues.map { |i| i["title"] }
-    assert_equal [0, "false"], PhasedReleaseWatch.read_marker(issues.issues.first["body"])
+    assert_equal({ "crashes" => 0, "feedback" => 0, "state" => "watching" }, mark(issues))
   end
 
   def test_pauses_an_active_rollout_when_testflight_crashes_rise
     client = RecordedClient.new(crashing_121)
-    issues = FakeIssues.new([watched("IOS 1.2.1", 0)])
+    issues = FakeIssues.new([watched("IOS 1.2.1", 0, 0)])
     acted = run_watch(client, issues)
     assert_includes acted, ["IOS", "1.2.1", "paused"]
-    assert_equal [[:patch, "/v1/appStoreVersionPhasedReleases/#{ROLLOUT_121}",
-                   { "data" => { "type" => "appStoreVersionPhasedReleases", "id" => ROLLOUT_121,
+    assert_equal [[:patch, "/v1/appStoreVersionPhasedReleases/#{PHASED_121}",
+                   { "data" => { "type" => "appStoreVersionPhasedReleases", "id" => PHASED_121,
                                  "attributes" => { "phasedReleaseState" => "PAUSED" } } }]], client.writes
     text = issues.comments.map(&:last).join
     assert_includes text, "**Paused** the IOS 1.2.1 phased release"
     assert_includes text, "TestFlight crashes on the build rose from 0 to 3"
-    assert_includes text, "TestFlight crash feedback since the rollout began: 2"
-    assert_equal [0, "true"], PhasedReleaseWatch.read_marker(issues.issues.first["body"])
+    assert_includes text, "TestFlight crash reports on the build rose from 0 to 2"
+    assert_equal({ "crashes" => 3, "feedback" => 2, "state" => "paused" }, mark(issues))
   end
 
-  def test_a_crash_count_at_the_baseline_is_no_spike
-    client = RecordedClient.new(crashing_121.merge(
-                                  "/v1/apps/6787505444/betaFeedbackCrashSubmissions" => nil
-                                ))
-    def client.get_all(path, query = {})
-      return [] if path.end_with?("betaFeedbackCrashSubmissions")
-
-      super
-    end
-    issues = FakeIssues.new([watched("IOS 1.2.1", 3)])
+  def test_counts_at_the_mark_are_no_spike
+    client = RecordedClient.new(crashing_121)
+    issues = FakeIssues.new([watched("IOS 1.2.1", 3, 2)])
     assert_includes run_watch(client, issues), ["IOS", "1.2.1", "none"]
     assert_empty client.writes
   end
@@ -156,7 +160,7 @@ class PhasedReleaseWatchTest < Minitest::Test
     complete["data"]["id"] = ROLLOUT_121
     path = "/v1/appStoreVersions/#{ROLLOUT_121}/appStoreVersionPhasedRelease"
     client = RecordedClient.new(crashing_121.merge(path => [self.class.fixture("phased-release-1.2.1"), complete]))
-    issues = FakeIssues.new([watched("IOS 1.2.1", 0)])
+    issues = FakeIssues.new([watched("IOS 1.2.1", 0, 0)])
     assert_includes run_watch(client, issues), ["IOS", "1.2.1", "none"]
     assert_empty client.writes
   end
@@ -166,14 +170,17 @@ class PhasedReleaseWatchTest < Minitest::Test
     issues = FakeIssues.new
     acted = run_watch(client, issues)
     refute(acted.any? { |_, version, _| %w[1.2 1.2.2 1.0].include?(version) })
+    assert_equal ["/v1/appStoreVersionPhasedReleases/#{PHASED_121}"], client.writes.map { |w| w[1] },
+                 "only the crashing ACTIVE 1.2.1 is written to"
+    m = { "crashes" => 0, "feedback" => 0, "state" => "watching" }
     assert_equal({ "action" => "none", "reasons" => ["phased release is COMPLETE"] },
-                 PhasedReleaseWatch.decide(phased: { "state" => "COMPLETE" }, signals: { "crashCount" => 9 }, baseline: 0))
-    assert_equal "none", PhasedReleaseWatch.decide(phased: { "state" => "PAUSED" }, signals: { "crashCount" => 9 }, baseline: 0)["action"]
+                 PhasedReleaseWatch.decide(phased: { "state" => "COMPLETE" }, signals: { "crashCount" => 9 }, mark: m))
+    assert_equal "none", PhasedReleaseWatch.decide(phased: { "state" => "PAUSED" }, signals: { "crashCount" => 9 }, mark: m)["action"]
   end
 
   def test_dry_run_says_it_would_pause_once_and_writes_nothing_to_app_store_connect
     client = RecordedClient.new(crashing_121)
-    issues = FakeIssues.new([watched("IOS 1.2.1", 0)])
+    issues = FakeIssues.new([watched("IOS 1.2.1", 0, 0)])
     assert_includes run_watch(client, issues, apply: false), ["IOS", "1.2.1", "would-pause"]
     assert_includes run_watch(client, issues, apply: false), ["IOS", "1.2.1", "none"]
     assert_empty client.writes
@@ -188,18 +195,46 @@ class PhasedReleaseWatchTest < Minitest::Test
     assert_equal 1, client.writes.size
   end
 
-  def test_a_resumed_rollout_is_watched_again_from_its_current_count
+  def test_a_resumed_rollout_is_watched_again_from_its_current_counts_and_not_paused_again
     client = RecordedClient.new(crashing_121)
-    issues = FakeIssues.new([watched("IOS 1.2.1", 0, "true")])
+    issues = FakeIssues.new([watched("IOS 1.2.1", 0, 0, "paused")])
     assert_includes run_watch(client, issues), ["IOS", "1.2.1", "rebaseline"]
+    assert_equal({ "crashes" => 3, "feedback" => 2, "state" => "watching" }, mark(issues))
+    assert_includes run_watch(client, issues), ["IOS", "1.2.1", "none"], "the next run after a resume must not pause again"
     assert_empty client.writes
-    assert_equal [3, "false"], PhasedReleaseWatch.read_marker(issues.issues.first["body"])
+  end
+
+  def test_an_open_issue_without_a_marker_gets_one_and_is_then_watched
+    issues = FakeIssues.new([{ "number" => 7, "title" => "Phased release: IOS 1.2.1", "body" => "opened by hand" }])
+    client = RecordedClient.new
+    assert_includes run_watch(client, issues), ["IOS", "1.2.1", "baseline"]
+    assert_equal({ "crashes" => 0, "feedback" => 0, "state" => "watching" }, mark(issues))
+    assert_includes run_watch(RecordedClient.new(crashing_121), issues), ["IOS", "1.2.1", "paused"]
+  end
+
+  def test_the_issue_closes_when_the_rollout_is_complete
+    issues = FakeIssues.new([watched("IOS 1.2", 0, 0)])
+    assert_includes run_watch(RecordedClient.new, issues), ["IOS", "1.2", "closed"]
+    assert_equal "closed", issues.issues.first["state"]
+  end
+
+  def test_one_rollouts_error_does_not_stop_the_others
+    client = RecordedClient.new
+    def client.get(path, query = {})
+      raise AppStoreListing::Error, "GET #{path} answered HTTP 500: boom" if path == "/v1/appStoreVersions/f3b68147-651a-4e98-854a-0d2835b09b31/build"
+
+      super
+    end
+    issues = FakeIssues.new
+    error = assert_raises(AppStoreListing::Error) { run_watch(client, issues) }
+    assert_match(/IOS 1\.2\.1: GET .* HTTP 500/, error.message)
+    assert_includes issues.issues.map { |i| i["title"] }, "Phased release: MAC_OS 1.1", "the Mac rollout was still watched"
   end
 
   def test_feedback_from_before_the_rollout_does_not_count
     found = PhasedReleaseWatch::Runner.new(RecordedClient.new(crashing_121), FakeIssues.new, bundle_id: "x", apply: false)
                                       .signals(ROLLOUT_121, "2026-11-16T00:00:00Z")
-    assert_equal({ "crashCount" => 3, "feedbackSince" => 0, "build" => "174" }, found)
+    assert_equal({ "crashCount" => 3, "feedbackTotal" => 2, "feedbackSince" => 0, "build" => "174" }, found)
   end
 
   def test_workflow_only_writes_when_the_repository_variable_is_on
