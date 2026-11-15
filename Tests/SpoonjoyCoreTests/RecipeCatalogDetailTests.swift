@@ -457,6 +457,20 @@ struct RecipeCatalogDetailTests {
         #expect(RecipeQuantityFormatter.amountText(quantity: 0, unit: "cup") == "0 cup")
         #expect(RecipeQuantityFormatter.quantityText(quantity: 4.0 / 3.0, unit: nil) == "1 ⅓")
         #expect(RecipeQuantityFormatter.quantityText(quantity: 5.0 / 6.0, unit: nil) == "⅚")
+        // The fiddly rows of web's own table (app/lib/quantity.test.ts).
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 1.01, unit: "cup") == "1 cup")
+        #expect(RecipeQuantityFormatter.amountText(quantity: 2.0000000001, unit: "clove", roundCountsUp: true) == "2 cloves")
+        #expect(RecipeQuantityFormatter.amountText(quantity: 0, unit: "whole", roundCountsUp: true) == "0")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 2, unit: "  cup  ") == "2 cups")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 2, unit: "Whole") == "2")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 1.25, unit: "whole") == "1 ¼")
+        #expect(RecipeQuantityFormatter.amountText(quantity: nil, unit: "whole") == "")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 0.333, unit: nil) == "⅓")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 8.0 / 3.0, unit: nil) == "2 ⅔")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 0.01, unit: nil) == "0")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 1e18, unit: nil) == "1000000000000000000")
+        #expect(RecipeQuantityFormatter.isCountUnit("Cloves") && RecipeQuantityFormatter.isCountUnit("whole"))
+        #expect(!RecipeQuantityFormatter.isCountUnit("cup"))
     }
 
     @Test("a shopping item's amount reads as web's shopping list writes it")

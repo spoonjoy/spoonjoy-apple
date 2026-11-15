@@ -49,6 +49,15 @@ struct RecipeServesTests {
         #expect(RecipeServes(servings: "2,5").baseCount == 2.5)
     }
 
+    @Test("a recipe that already wrote a phrase keeps it, as web's formatServingsLabel does")
+    func statedPhrase() {
+        #expect(RecipeServes(servings: "Serves 4").label(scale: 1) == "Serves 4")
+        #expect(RecipeServes(servings: "Makes 12 cookies").label(scale: 1) == "Makes 12 cookies")
+        #expect(RecipeServes(servings: "Makes 12 cookies").label(scale: 2) == "Makes 12 cookies ×2")
+        #expect(RecipeServes(servings: "4 servings").label(scale: 1) == "4 servings")
+        #expect(RecipeServes(servings: "4 servings").label(scale: 1.5) == "6 servings")
+    }
+
     @Test("a range or unparseable servings scale by the factor and keep the recipe's words")
     func statedRange() {
         let serves = RecipeServes(servings: "4-6")

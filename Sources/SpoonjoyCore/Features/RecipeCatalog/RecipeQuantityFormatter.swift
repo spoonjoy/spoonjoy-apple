@@ -69,6 +69,10 @@ public enum RecipeQuantityFormatter {
         guard quantity.isFinite else {
             return ""
         }
+        // Past any real amount, eighths would overflow an Int; such a number is written whole.
+        guard abs(quantity) < 1e15 else {
+            return String(format: "%.0f", quantity)
+        }
         let (numerator, denominator) = nearestCookingFraction(abs(quantity))
         let whole = numerator / denominator
         let remainder = numerator % denominator
