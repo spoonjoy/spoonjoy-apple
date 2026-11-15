@@ -5,8 +5,7 @@
 # Spoonjoy's colours have one source, ouro-ui-core's cookbook theme, which reaches the app through OuroHX. A hex
 # literal in the app's design folder is a value copied by hand that drifts when web changes, so none is allowed. Nor is
 # an opacity applied to a palette colour, or to black or white, in the theme: web's translucent colours (`--sj-border`,
-# `--sj-on-photo-muted`, the soft shadow's colour) are tokens of their own. A definition that runs over several lines
-# is read whole.
+# `--sj-on-photo-muted`) are tokens of their own. A definition that runs over several lines is read whole.
 require "minitest/autorun"
 
 class NoDesignHexTest < Minitest::Test
