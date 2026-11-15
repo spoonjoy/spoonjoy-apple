@@ -1,3 +1,4 @@
+import OuroHX
 import SwiftUI
 
 /// Shown above a recipe page when the photo chosen while creating the recipe did not upload.
@@ -9,38 +10,24 @@ struct PendingCoverUploadBanner: View {
     let dismiss: @MainActor () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(message, systemImage: "exclamationmark.triangle")
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.tomato)
-                .accessibilityIdentifier("recipe.coverUpload.status")
+        OuroBanner(message, tone: .destructive, icon: .system("exclamationmark.triangle")) {
             HStack(spacing: 12) {
-                Button {
+                OuroButton("Retry Upload", systemImage: "arrow.clockwise", size: .sm, loading: isRetrying, loadingLabel: "Retrying upload") {
                     Task { @MainActor in
                         await retry()
                     }
-                } label: {
-                    if isRetrying {
-                        ProgressView()
-                    } else {
-                        Label("Retry Upload", systemImage: "arrow.clockwise")
-                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(isRetrying)
                 .accessibilityIdentifier("recipe.coverUpload.retry")
-                Button("Dismiss") {
+                OuroButton("Dismiss", tone: .secondary, variant: .outline, size: .sm) {
                     dismiss()
                 }
-                .buttonStyle(.bordered)
                 .disabled(isRetrying)
                 .accessibilityIdentifier("recipe.coverUpload.dismiss")
             }
-            .font(KitchenTableTheme.uiLabel)
         }
+        .accessibilityIdentifier("recipe.coverUpload.status")
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(KitchenTableTheme.page)
-        .accessibilityElement(children: .contain)
     }
 }
