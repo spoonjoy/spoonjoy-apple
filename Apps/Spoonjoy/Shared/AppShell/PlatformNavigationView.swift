@@ -1338,7 +1338,8 @@ struct PlatformNavigationView: View {
                 sidebarLink(section: .settings, title: "Settings", systemImage: "gearshape")
             }
         }
-        // The selected row is brass, the Spoonjoy selection color, not the system blue.
+        // The selected row is brass, the Spoonjoy selection color, not the system blue. `.tint` covers iPad; the Mac
+        // draws sidebar selection in the app accent, which the Mac target sets to the brass `AccentColor`.
         .tint(KitchenTableTheme.brass)
     }
 

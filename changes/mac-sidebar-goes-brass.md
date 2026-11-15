@@ -1,6 +1,6 @@
 ---
-testflight: On the Mac, the sidebar's selected row and Add a recipe are brass, Spoonjoy's accent, instead of system blue and red.
-platforms: [mac]
+testflight: The sidebar's Add a recipe is brass instead of red, and on the Mac the selected row is brass instead of blue.
+platforms: [ios, mac]
 order: 45
 ---
-The sidebar used to borrow the Mac's blue for whatever you had picked, and painted Add a recipe a warning red, as if a new recipe were an emergency. Both now wear Spoonjoy's brass, like the rest of the kitchen.
+The sidebar painted Add a recipe a warning red, and on the Mac it marked your pick in system blue. Both now wear Spoonjoy's brass.

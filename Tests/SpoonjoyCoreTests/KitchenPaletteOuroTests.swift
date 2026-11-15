@@ -118,6 +118,12 @@ struct KitchenPaletteOuroTests {
         }
         let generator = try String(contentsOf: root.appendingPathComponent("scripts/generate-xcode-project.rb"), encoding: .utf8)
         #expect(generator.contains(#"accent_color: "AccentColor""#))
+        // Only the Mac app's three configurations set the accent; iOS keeps its own tint.
+        let project = try String(contentsOf: root.appendingPathComponent("Spoonjoy.xcodeproj/project.pbxproj"), encoding: .utf8)
+        let configurations = project.components(separatedBy: "isa = XCBuildConfiguration;").dropFirst()
+        let accented = configurations.filter { $0.contains("ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;") }
+        #expect(accented.count == 3)
+        #expect(accented.allSatisfy { $0.contains("SDKROOT = macosx;") })
     }
 
     @Test("Spoonjoy's night page is not OuroHX's cookbook dark background")
