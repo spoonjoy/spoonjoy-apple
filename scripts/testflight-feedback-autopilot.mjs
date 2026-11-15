@@ -6,6 +6,13 @@ import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, readdir
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  DEFAULT_MAX_LAUNCH_ATTEMPTS,
+  classifyCodexExit,
+  normalizeOuroTimeoutMs,
+  reconcileEventId,
+  shouldRelaunchFeedback,
+} from "./testflight-feedback-autopilot-policy.mjs";
 
 const APP_ID = process.env.SPOONJOY_ASC_APP_ID || "6787505444";
 const APP_BUNDLE_ID = process.env.SPOONJOY_BUNDLE_ID || "app.spoonjoy";
@@ -325,10 +332,16 @@ function submitOuroExternalEvent(event, eventDir, imagePaths, promptPath) {
 function runOuro(args) {
   const command = DEFAULT_OURO_ENTRY ? process.execPath : DEFAULT_OURO;
   const commandArgs = DEFAULT_OURO_ENTRY ? [DEFAULT_OURO_ENTRY, ...args] : args;
+  // `ouro event submit` and `ouro msg` block until the managed private-runtime
+  // child acknowledges the dispatch, and the daemon's own budget for that
+  // acknowledgement is 8 minutes. A shorter timeout here killed dispatches
+  // that were about to succeed, and the autopilot then misread the timeout as
+  // a dispatch failure and needlessly fell back to a direct Codex run.
+  const timeout = normalizeOuroTimeoutMs(args);
   return spawnSync(command, commandArgs, {
     cwd: DEFAULT_REPO,
     encoding: "utf8",
-    timeout: 60_000,
+    timeout,
     env: process.env,
   });
 }
@@ -640,20 +653,34 @@ async function reconcileUnhandledFeedback() {
   const statusById = new Map(feedbackStatuses.map((item) => [item.id, item]));
   const unhandled = feedback.filter((item) => {
     const report = statusById.get(item.id);
-    return !state.handledInstanceIds.includes(item.id) || ["failed", "stalled", "unknown"].includes(report?.status);
+    return !state.handledInstanceIds.includes(item.id) || ["failed", "stalled", "unknown", "failed_quota"].includes(report?.status);
   });
   const results = [];
 
   for (const item of unhandled) {
     const report = statusById.get(item.id);
-    const event = feedbackItemToEvent(item, `reconcile:${item.type}:${item.id}:${randomUUID()}`);
+    const run = state.feedbackRuns?.[item.id] || {};
+    const status = report?.status || "new";
+    const launchAttempts = Number(run.launchAttempts || 0);
+    // A poisoned instance must not be re-queued on every reconcile pass. The
+    // quota wall and the retry budget both park an instance visibly instead.
+    if (!shouldRelaunchFeedback({ status, launchAttempts, maxLaunchAttempts: DEFAULT_MAX_LAUNCH_ATTEMPTS })) {
+      results.push({ id: item.id, type: item.type, status, action: "parked", reason: status });
+      continue;
+    }
+    // A stable id per instance and attempt, so launchedEventIds can actually
+    // dedup a repeat. The old id embedded a fresh randomUUID() every pass,
+    // which made dedup impossible and re-queued the instance every cycle.
+    const attempt = launchAttempts + 1;
+    const event = feedbackItemToEvent(item, reconcileEventId({ type: item.type, instanceId: item.id, attempt }));
     if (dryRun) {
-      results.push({ id: item.id, type: item.type, status: report?.status || "new", action: "would_queue" });
+      results.push({ id: item.id, type: item.type, status, action: "would_queue", attempt });
       continue;
     }
     resetFeedbackForRelaunch(item.id);
     await enqueueFeedbackEvent(event, eventToPayload(event));
-    results.push({ id: item.id, type: item.type, status: report?.status || "new", action: "queued" });
+    updateFeedbackRun(item.id, { launchAttempts: attempt });
+    results.push({ id: item.id, type: item.type, status, action: "queued", attempt });
   }
 
   console.log(JSON.stringify({
@@ -810,6 +837,22 @@ function launchAgentDefinitions({
   ];
 }
 
+function readCodexOutput(eventDir) {
+  // Codex writes its transcript to codex-exec.jsonl and its final message to
+  // codex-last-message.md. The quota wall only shows up in prose, so both have
+  // to be read before the exit code can be interpreted.
+  const parts = [];
+  for (const file of ["codex-exec.jsonl", "codex-last-message.md"]) {
+    const filePath = path.join(eventDir, file);
+    try {
+      if (existsSync(filePath)) parts.push(readFileSync(filePath, "utf8"));
+    } catch {
+      // A missing or unreadable transcript is not a quota signal.
+    }
+  }
+  return parts.join("\n");
+}
+
 function recordCodexExit() {
   ensureRuntime();
   const instanceId = requiredArg("--instance-id");
@@ -821,6 +864,21 @@ function recordCodexExit() {
   appendRuntimeLog(`codex event ${instanceId} exited code=${code}`);
   recordActivity("codex_exit", { eventId, instanceId, eventDir, code });
   if (code !== 0) {
+    // An account-level quota wall exits non-zero with a prose error. Treating
+    // it as an ordinary failure made the reconcile loop relaunch the same
+    // instance forever against a wall that will not move.
+    const output = readCodexOutput(eventDir);
+    const classification = classifyCodexExit({ code, output });
+    if (classification.status === "failed_quota") {
+      markEventFailed({
+        eventId,
+        instance: { id: instanceId },
+      }, new Error(`codex quota exhausted (exit ${code})${classification.resetHint ? `: ${classification.resetHint}` : ""}`), {
+        status: "failed_quota",
+        quotaResetHint: classification.resetHint || null,
+      });
+      return;
+    }
     markEventFailed({
       eventId,
       instance: { id: instanceId },
@@ -1300,27 +1358,37 @@ function saveState(state) {
   chmodSync(DEFAULT_STATE_PATH, 0o600);
 }
 
-function markEventFailed(event, error) {
+function markEventFailed(event, error, options = {}) {
   const state = loadState();
-  state.handledInstanceIds = state.handledInstanceIds.filter((id) => id !== event.instance.id);
-  state.launchedEventIds = state.launchedEventIds.filter((id) => id !== event.eventId);
+  // A failure must not clear the dedup entries. Clearing them re-opened the
+  // event for the very next webhook delivery, which is how one instance could
+  // be re-queued over and over. Only an explicit reset may un-dedup.
+  const status = options.status || "failed";
+  const quota = status === "failed_quota";
   state.lastFailure = {
     at: new Date().toISOString(),
     eventId: event.eventId,
     instanceId: event.instance.id,
+    status,
     message: error?.message || String(error),
   };
+  const previousRun = state.feedbackRuns[event.instance.id] || {};
   state.feedbackRuns[event.instance.id] = {
-    ...(state.feedbackRuns[event.instance.id] || {}),
+    ...previousRun,
     eventId: event.eventId,
     instanceId: event.instance.id,
-    status: "failed",
+    status,
     failedAt: state.lastFailure.at,
     message: state.lastFailure.message,
+    launchAttempts: Number(previousRun.launchAttempts || 0),
+    ...(quota ? { quotaBlocked: true, quotaResetHint: options.quotaResetHint || null } : {}),
   };
   saveState(state);
-  recordActivity("failed", state.lastFailure);
-  notify("Spoonjoy TestFlight feedback failed", `${event.instance.id}: ${state.lastFailure.message}`);
+  recordActivity(status === "failed_quota" ? "failed_quota" : "failed", state.lastFailure);
+  notify(
+    quota ? "Spoonjoy TestFlight feedback quota-blocked" : "Spoonjoy TestFlight feedback failed",
+    `${event.instance.id}: ${state.lastFailure.message}`
+  );
 }
 
 function resetFeedbackForRelaunch(instanceId) {
@@ -1342,6 +1410,10 @@ function resetFeedbackForRelaunch(instanceId) {
     delete state.feedbackRuns[instanceId].delegatedTo;
     delete state.feedbackRuns[instanceId].dispatcher;
     delete state.feedbackRuns[instanceId].dispatchOutput;
+    // A fresh launch has not hit the quota wall yet. Leaving the old flag
+    // behind would mislabel the new run as quota-blocked.
+    delete state.feedbackRuns[instanceId].quotaBlocked;
+    delete state.feedbackRuns[instanceId].quotaResetHint;
   }
   saveState(state);
 }
@@ -1416,6 +1488,7 @@ function feedbackStatusReport(feedback, state) {
       "ignored",
       "seeded",
       "failed",
+      "failed_quota",
       "fixed_unconfirmed",
       "confirmed",
       "succeeded",
