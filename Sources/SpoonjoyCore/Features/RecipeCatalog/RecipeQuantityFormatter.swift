@@ -80,14 +80,22 @@ public enum RecipeQuantityFormatter {
         if remainder == 0 {
             text = "\(whole)"
         } else {
-            let fraction = "\(remainder)/\(denominator)"
-            let glyph = unicodeFractions[fraction] ?? fraction
+            let glyph = fractionText(remainder, denominator)
             text = whole == 0 ? glyph : "\(whole) \(glyph)"
         }
         if quantity < 0, text != "0" {
             text = "-\(text)"
         }
         return text
+    }
+
+    /// A fraction as its Unicode glyph ("¼"), or written out where Unicode has none ("1/7").
+    static func fractionText(_ numerator: Int, _ denominator: Int) -> String {
+        let fraction = "\(numerator)/\(denominator)"
+        guard let glyph = unicodeFractions[fraction] else {
+            return fraction
+        }
+        return glyph
     }
 
     /// The nearest common cooking fraction, in lowest terms: a clean eighth first, then thirds and sixths, then the

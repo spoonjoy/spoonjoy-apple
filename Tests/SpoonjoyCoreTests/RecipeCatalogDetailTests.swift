@@ -457,6 +457,9 @@ struct RecipeCatalogDetailTests {
         #expect(RecipeQuantityFormatter.amountText(quantity: 0, unit: "cup") == "0 cup")
         #expect(RecipeQuantityFormatter.quantityText(quantity: 4.0 / 3.0, unit: nil) == "1 ⅓")
         #expect(RecipeQuantityFormatter.quantityText(quantity: 5.0 / 6.0, unit: nil) == "⅚")
+        #expect(RecipeQuantityFormatter.formattedQuantity(.infinity) == "")
+        #expect(RecipeQuantityFormatter.fractionText(3, 4) == "¾")
+        #expect(RecipeQuantityFormatter.fractionText(1, 7) == "1/7")
         // The fiddly rows of web's own table (app/lib/quantity.test.ts).
         #expect(RecipeQuantityFormatter.quantityText(quantity: 1.01, unit: "cup") == "1 cup")
         #expect(RecipeQuantityFormatter.amountText(quantity: 2.0000000001, unit: "clove", roundCountsUp: true) == "2 cloves")
