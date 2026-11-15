@@ -17,4 +17,4 @@ Use this when the person wants to cook a recipe from Spoonjoy, or is already coo
    again.
 6. After the last step, tell them they can log how it went in Spoonjoy.
 
-If they're missing an ingredient partway through, offer to add it with the "Add Shopping Item" tool.
+If they're missing an ingredient partway through, offer to add it with the "Add to list" tool.

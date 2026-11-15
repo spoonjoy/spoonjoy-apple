@@ -13,11 +13,11 @@ struct ShoppingIntentTests {
                 "Apps/Spoonjoy/Shared/Native/SpoonjoyRecipeCookbookEntities.swift",
                 "Sources/SpoonjoyCore/Native/NativeIntentAction.swift",
                 "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift",
-                "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift"
+                "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift",
+                "actions/generated/OuroActions.swift"
             ],
             requiredTokens: [
                 "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift": [
-                    "struct AddShoppingListItemIntent: AppIntent",
                     "struct SetShoppingListItemCheckedIntent: AppIntent",
                     "struct RemoveShoppingListItemIntent: AppIntent",
                     "struct ClearCompletedShoppingItemsIntent: AppIntent",
@@ -29,6 +29,13 @@ struct ShoppingIntentTests {
                     "SpoonjoyIntentClock.timestamp()",
                     "SpoonjoyInteractionDonor",
                     "throw NativeIntentActionError.authRequired"
+                ],
+                // Generated from actions/spoonjoy.actions.mts, Spoonjoy's one declaration of add_shopping_list_item.
+                "actions/generated/OuroActions.swift": [
+                    "public struct AddShoppingListItemIntent: AppIntent",
+                    "requestValueDialog: \"What should I add to your shopping list?\")",
+                    "public var quantity: Double?",
+                    "public var unit: String?"
                 ],
                 "Apps/Spoonjoy/Shared/Native/SpoonjoyShoppingEntities.swift": [
                     "struct SpoonjoyShoppingItemEntity: AppEntity",
@@ -89,15 +96,13 @@ struct ShoppingIntentTests {
             contracts: [
                 (
                     relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
-                    label: "AddShoppingListItemIntent",
-                    pattern: #"struct\s+AddShoppingListItemIntent\s*:\s*AppIntent"#,
+                    label: "SpoonjoyAddShoppingListItemBinding",
+                    pattern: #"enum\s+SpoonjoyAddShoppingListItemBinding\b"#,
                     requiredTokens: [
-                        "@Parameter(title: \"Name\", requestValueDialog: \"What should I add to your shopping list?\")",
-                        "@Parameter(title: \"Quantity\")",
-                        "@Parameter(title: \"Unit\")",
+                        "AddShoppingListItemAction.perform = {",
+                        "AddShoppingListItemAction.dialog = {",
                         "NativeIntentActionResolver().addShoppingListItem(",
-                        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
-                        "return .result(dialog:"
+                        "try await writer.apply(action, savedAt: createdAt)"
                     ],
                     forbiddenTokens: [
                         "var itemID: String",

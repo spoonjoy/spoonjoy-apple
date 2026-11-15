@@ -178,7 +178,7 @@ The workflow pins every external action to a full commit SHA. Its checkout of
 then built with pinned Node `22.17.1` from its lockfile under
 `.ci/apple-distribution-kit`. The complete generated `dist/` tree must match the
 audited aggregate SHA-256
-`09e0dded99208496bd96cecc6edc067188ec49bae4486b83f90b85e57db954b9`.
+`3aacf6bc382ac8ffbc816faf52ed86951f411fad5cad259ab189cdad4889c332`.
 Only after the
 candidate verifier succeeds does the job prepare App Store Connect credentials,
 compute the next dynamic build number, archive the exact source, upload the IPA,
@@ -298,7 +298,7 @@ The signing steps come from `ourostack/apple-distribution-kit` (README section "
 1. `signing import` reads the repository secrets `APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64` and `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD` and imports the identity into a temporary keychain.
 2. `signing profiles` finds or creates the App Store profiles `ADK CI app.spoonjoy <certificate id>` and `ADK CI app.spoonjoy.cook-timer-widget <certificate id>` through the App Store Connect API, retrying GET requests on network loss. It installs them and writes a manual-signing xcconfig and export options on top of `distribution/ExportOptions.testflight.plist`.
 3. `scripts/package-testflight-ios.sh` archives with `-xcconfig "$SPOONJOY_SIGNING_XCCONFIG"` and exports with `SPOONJOY_EXPORT_OPTIONS_PLIST`, without `-allowProvisioningUpdates`. In CI (`CI=true`) it refuses to run without that setup. Local runs without it keep Xcode automatic signing.
-4. After publish, `signing revoke-api-certificates --best-effort` runs as a safety net in an `if: always()` step with `continue-on-error`. It revokes only development certificates named exactly `Created via API` (case-insensitive) and never touches distribution, Developer ID or Mac certificates. A normal run logs `Nothing to revoke`.
+4. Before signing, `signing snapshot-certificates` records every certificate id on the account. After publish, `signing revoke-api-certificates --best-effort --baseline <that file>` runs as a safety net in an `if: always()` step with `continue-on-error`. It revokes only development certificates named `Created via API` whose id was not in the baseline, so it removes only what this run created. Revoking by name alone once revoked ouro-ui-apple's long-lived X-ray development certificate, which has the same name ([ourostack/ouro-ui-apple#124](https://github.com/ourostack/ouro-ui-apple/issues/124)). It never touches distribution, Developer ID or Mac certificates. A normal run logs `Nothing to revoke`.
 5. `signing delete-keychain` removes the temporary keychain.
 
 When you add a signed target such as a new app extension, add its bundle ID to the `signing profiles` step in both `.github/workflows/testflight.yml` and `.github/workflows/testflight-signing-dry-run.yml`.
@@ -307,7 +307,6 @@ When you add a signed target such as a new app extension, add its bundle ID to t
 
 The certificate secrets `APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64` and `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD` are repository secrets. They cannot upload anything without the environment-scoped App Store Connect key. When you renew the certificate, store the new secrets in the `internal-testflight` environment instead. The certificate (`47335ARZMR`) expires on 2027-10-09. To renew it, run `signing create-certificate` as the kit README describes, then replace both secrets. The next run creates fresh profiles for the new certificate.
 
-`scripts/revoke-ci-signing-certificates.rb` is the earlier version of the safety net. CI no longer calls it.
 
 ### Store art without the website
 

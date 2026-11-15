@@ -570,7 +570,8 @@ jobs:
           # is tested from a copy of its manifest, sources and tests.
           package="$RUNNER_TEMP/package"
           mkdir -p "$package"
-          cp -R Package.swift Sources Tests "$package/"
+          # actions/ holds the generated OuroActions.swift, the SpoonjoyActions target's path (Package.swift).
+          cp -R Package.swift Sources Tests actions "$package/"
           log="$RUNNER_TEMP/browser-sign-in.log"
           (cd "$package" && xcodebuild test -scheme SpoonjoyApple-Package -destination "${{ steps.sim.outputs.destination }}" \
             -only-testing:SpoonjoyBrowserSignInTests -derivedDataPath "$RUNNER_TEMP/browser-sign-in-dd" \

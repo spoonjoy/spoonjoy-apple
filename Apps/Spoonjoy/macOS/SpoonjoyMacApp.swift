@@ -10,6 +10,10 @@ struct SpoonjoyMacApp: App {
     init() {
         SpoonjoyFonts.registerBundled()
         SpoonjoyMacLaunchProof.record("app-init")
+        // One handler behind Siri, Shortcuts and the shopping list's button (actions/generated/OuroActions.swift).
+        if #available(iOS 27.0, macOS 27.0, *) {
+            SpoonjoyAddShoppingListItemBinding.bind()
+        }
         DispatchQueue.main.async {
             MainActor.assumeIsolated {
                 SpoonjoyMacMainWindowCoordinator.shared.scheduleLaunchWindowCheck()

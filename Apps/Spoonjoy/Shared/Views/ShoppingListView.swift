@@ -135,6 +135,10 @@ struct ShoppingListView: View {
         .navigationSubtitle(usesCompactNavigation ? viewModel.shoppingRunSummary : "")
 #endif
         .sensoryFeedback(.selection, trigger: checkHapticTick)
+        // Every door's add (this list's button, Siri, Shortcuts) runs one handler; while the list shows, it adds here,
+        // through this view model and its queue, so the list updates in place and the form gives its feedback.
+        .onChange(of: viewModel.shoppingList, initial: true) { registerLiveAdd() }
+        .onDisappear { ShoppingLiveAdd.host = nil }
         .task(id: viewModel.activeCountLabel) {
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                 route: "shopping-list",
@@ -392,15 +396,46 @@ struct ShoppingListView: View {
             .frame(maxWidth: .infinity)
     }
 
+    /// The declaration's label for add_shopping_list_item (actions/spoonjoy.actions.mts), the App Intent's title.
+    private static let addItemLabel = String(localized: AddShoppingListItemIntent.title)
+
+    /// The form as the action's input, or nil while it can't be one (no item, or an amount that isn't a number above 0).
+    private var addItemInput: AddShoppingListItemInput? {
+        let name = addItemForm.itemName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let quantityText = addItemForm.itemQuantity.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Unbound (an OS before the app binds its actions), the form adds the old way.
+        guard !name.isEmpty, AddShoppingListItemAction.perform != nil else { return nil }
+        let quantity: Double?
+        if quantityText.isEmpty {
+            quantity = nil
+        } else if let parsed = Double(quantityText), parsed.isFinite, parsed > 0 {
+            quantity = parsed
+        } else {
+            return nil
+        }
+        return AddShoppingListItemInput(name: name, quantity: quantity, unit: addItemForm.itemUnit.isEmpty ? nil : addItemForm.itemUnit)
+    }
+
+    /// Button(intent:) through the generated AddShoppingListItemButton when the form is an input; otherwise the plain
+    /// button, whose press says what to fix ("Enter an item before adding it to your shopping list.").
+    @ViewBuilder
+    private func addItemControl<Content: View>(@ViewBuilder label: () -> Content) -> some View {
+        if let input = addItemInput {
+            AddShoppingListItemButton(input, label: label)
+        } else {
+            Button(action: addItem, label: label)
+        }
+    }
+
     private var addItemButton: some View {
-        Button(action: addItem) {
-            Label("Add item", systemImage: "plus.circle")
+        addItemControl {
+            Label(Self.addItemLabel, systemImage: "plus.circle")
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
     }
 
     private var compactAddItemButton: some View {
-        Button(action: addItem) {
+        addItemControl {
             Image(systemName: "plus")
                 .font(.headline.weight(.bold))
                 .frame(width: 48, height: 48)
@@ -409,7 +444,7 @@ struct ShoppingListView: View {
                 .glassEffect(.regular.interactive(), in: Circle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Add item")
+        .accessibilityLabel(Self.addItemLabel)
     }
 
     private var addFromRecipeButton: some View {
@@ -613,7 +648,13 @@ struct ShoppingListView: View {
 #endif
     }
 
+    /// Return in the item field, or a press while the form isn't an input yet. A valid form runs the action's one
+    /// handler, as the button does; an invalid one gets the form's own message.
     private func addItem() {
+        if let input = addItemInput {
+            Task { @MainActor in _ = try? await AddShoppingListItemAction.run(input) }
+            return
+        }
         Task { @MainActor in
             actionStatusMessage = nil
             actionErrorMessage = nil
@@ -624,6 +665,38 @@ struct ShoppingListView: View {
                 actionDidPlan: actionDidPlan
             )
             addItemForm = submittedForm
+        }
+    }
+
+    /// Registers this list's add as the action's live path: plan it on the current view model, send it with the
+    /// list's own queue, and clear the form when the add came from it.
+    private func registerLiveAdd() {
+        ShoppingLiveAdd.host = { input in
+            actionStatusMessage = nil
+            actionErrorMessage = nil
+            do {
+                let plan = try viewModel.plan(.addItem(
+                    name: input.name,
+                    quantity: input.quantity,
+                    unit: input.unit ?? "",
+                    categoryKey: nil,
+                    iconKey: nil,
+                    clientMutationID: clientMutationID(prefix: "shopping-add")
+                ))
+                let outcome = try await actionDidPlan(plan)
+                if addItemForm.itemName.trimmingCharacters(in: .whitespacesAndNewlines) == input.name {
+                    addItemForm.itemName = ""
+                    addItemForm.itemQuantity = ""
+                    addItemForm.itemUnit = ""
+                }
+                addItemForm.actionStatusMessage = outcome == .queuedForSync ? "Saved for sync" : "Shopping list updated"
+                addItemForm.actionErrorMessage = nil
+                return outcome
+            } catch {
+                addItemForm.actionErrorMessage = "Shopping action failed."
+                addItemForm.actionStatusMessage = nil
+                throw error
+            }
         }
     }
 

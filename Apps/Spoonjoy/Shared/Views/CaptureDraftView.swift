@@ -1,4 +1,5 @@
 import Foundation
+import OuroHX
 import SpoonjoyCore
 import SwiftUI
 
@@ -307,23 +308,7 @@ private struct CaptureImportEntryPointRow: View {
     let entryPoint: CaptureImportEntryPoint
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Image(systemName: entryPoint.symbolName)
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.herb)
-                .frame(width: 24)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(entryPoint.title)
-                    .font(KitchenTableTheme.objectTitle)
-                    .foregroundStyle(KitchenTableTheme.ink)
-                Text(entryPoint.detail)
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.ink2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(.vertical, 14)
+        OuroItem(entryPoint.title, description: entryPoint.detail, systemImage: entryPoint.symbolName)
     }
 }
 

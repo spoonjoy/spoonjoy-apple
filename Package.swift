@@ -24,7 +24,7 @@ let package = Package(
         // 0.4.0: the cookbook theme's own tokens (every sj-* colour, radius, shadow and text role) and the font helper;
         // Ouro Reins; and Ouro Feel for the UI tests' feel checks, with its recorder loaded into the app by the UI tests
         // (no build of the app links it).
-        .package(url: "https://github.com/ourostack/ouro-ui-apple.git", exact: "0.4.0")
+        .package(url: "https://github.com/ourostack/ouro-ui-apple.git", exact: "0.6.0")
     ],
     targets: [
         .target(
@@ -52,6 +52,15 @@ let package = Package(
             name: "SpoonjoyBrowserSignInTests",
             dependencies: ["SpoonjoyCore"]
         ),
+        // Spoonjoy's actions as Ouro UI core generates them from actions/spoonjoy.actions.mts; the apps compile the same
+        // file. A target here so its refusal and intent parameters are tested as code, not as text.
+        .target(
+            name: "SpoonjoyActions",
+            path: "actions/generated",
+            exclude: ["OuroActionsReins.swift", "actions.json", "commands.json", "mcp.json", "web.ts", "webmcp.json"],
+            sources: ["OuroActions.swift"]
+        ),
+        .testTarget(name: "SpoonjoyActionsTests", dependencies: ["SpoonjoyActions"]),
         .testTarget(
             name: "SpoonjoyCoreTests",
             dependencies: [

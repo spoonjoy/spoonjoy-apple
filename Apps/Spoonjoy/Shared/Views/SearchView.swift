@@ -1,5 +1,6 @@
 import SpoonjoyCore
 import Foundation
+import OuroHX
 import SwiftUI
 
 struct SearchView: View {
@@ -54,27 +55,26 @@ struct SearchView: View {
             }
 
             if let errorState = viewModel.errorState {
-                SearchSurfaceMessageView(
-                    title: errorState.title,
-                    message: errorState.message,
-                    systemImage: errorState.systemImage
+                OuroEmptyState(
+                    errorState.title,
+                    systemImage: errorState.systemImage,
+                    description: errorState.message,
+                    alignment: .leading
                 )
             }
 
             if viewModel.sections.isEmpty, let emptyState = viewModel.emptyState {
-                KitchenTableEmptyTile(
+                OuroEmptyState(
+                    emptyState.title,
                     systemImage: emptyState.systemImage,
-                    title: emptyState.title,
-                    message: emptyState.message
+                    description: emptyState.message,
+                    alignment: .leading
                 ) {
                     // A narrowed search that finds nothing offers the whole of Spoonjoy as its one way on.
                     if !search.query.isEmpty, search.scope != .all {
-                        Button {
+                        OuroButton("Search everything", systemImage: "magnifyingglass", variant: .soft) {
                             searchScopeBinding.wrappedValue = .all
-                        } label: {
-                            Label("Search everything", systemImage: "magnifyingglass")
                         }
-                        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
                         .accessibilityIdentifier("search.empty.searchEverything")
                     }
                 }
@@ -467,15 +467,5 @@ private struct KitchenTableImagePhaseView<Placeholder: View>: View {
         case .failure:
             placeholder()
         }
-    }
-}
-
-private struct SearchSurfaceMessageView: View {
-    let title: String
-    let message: String
-    let systemImage: String
-
-    var body: some View {
-        KitchenTableEmptyTile(systemImage: systemImage, title: title, message: message)
     }
 }

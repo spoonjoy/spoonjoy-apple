@@ -51,6 +51,9 @@ struct SiriToolIntentTests {
             let path = String(url.standardizedFileURL.path.dropFirst(root.standardizedFileURL.path.count + 1))
             found.append((path, try String(contentsOf: url, encoding: .utf8)))
         }
+        // The actions generated from actions/spoonjoy.actions.mts, which both apps compile (AddShoppingListItemIntent).
+        let generated = "actions/generated/OuroActions.swift"
+        found.append((generated, try String(contentsOf: root.appendingPathComponent(generated), encoding: .utf8)))
         return found.sorted { $0.0 < $1.0 }
     }
 
@@ -146,7 +149,7 @@ struct SiriToolIntentTests {
     static func toolTitles() throws -> [String: String] {
         var titles: [String: String] = [:]
         for (_, text) in try appSources() {
-            for match in text.matches(of: /struct\s+([A-Za-z0-9_]+Intent)\s*:[^{]*\{\s*static let title: LocalizedStringResource = "([^"]+)"/) {
+            for match in text.matches(of: /struct\s+([A-Za-z0-9_]+Intent)\s*:[^{]*\{\s*(?:public\s+)?static let title: LocalizedStringResource = "([^"]+)"/) {
                 let name = String(match.output.1)
                 if tools.contains(name) { titles[name] = String(match.output.2) }
             }
