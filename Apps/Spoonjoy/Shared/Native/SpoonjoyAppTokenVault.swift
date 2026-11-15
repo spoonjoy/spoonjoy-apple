@@ -101,6 +101,17 @@ private actor SpoonjoyScreenshotValidationTokenVault: TokenVault {
 /// A Release build always talks to spoonjoy.app. A debug build may be pointed elsewhere by `SPOONJOY_API_BASE_URL`
 /// (the journeys point it at QA), and Siri has to follow: with spoonjoy.app of their own, the intents sent QA's session
 /// to production, and a shopping item Siri added never reached QA's list (Journeys run 43201022926).
+/// The server's kill switches for this process (`GET /api/v1/native/config`, NativeFeature). Made on first use from
+/// the switches saved at the last refresh, without the network, so launch never waits for it.
+enum SpoonjoyKillSwitches {
+    static let center: NativeKillSwitchCenter = {
+        let baseURL = SpoonjoyAppServer.configuration().baseURL
+        return NativeKillSwitchCenter(store: NativeKillSwitchStore()) {
+            try await NativeConfigRequests.fetch(baseURL: baseURL)
+        }
+    }()
+}
+
 enum SpoonjoyAppServer {
     static func configuration(environment: [String: String] = ProcessInfo.processInfo.environment) -> APIClientConfiguration {
 #if DEBUG

@@ -2853,6 +2853,10 @@ struct PlatformNavigationView: View {
 
     private static func indexSpotlightIfAvailable(payload: SpotlightIndexPayload) async {
 #if canImport(CoreSpotlight)
+        // Switched off by the server (NativeFeature.spotlightIndexing): the index keeps what it already holds.
+        guard SpoonjoyKillSwitches.center.current.allows(.spotlightIndexing) else {
+            return
+        }
         if #available(iOS 27.0, macOS 27.0, *) {
             let indexer = SpoonjoySpotlightIndexer()
             try? await indexer.replaceAll(payload.documents, scope: payload.scope)
