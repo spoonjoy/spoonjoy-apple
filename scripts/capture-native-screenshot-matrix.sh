@@ -528,6 +528,31 @@ summarize_routes() {
   ' "$results_path" "$summary_path" "$shared_build_blocker" "$expected_route_names" "$build_identity" "$artifact_root" "$checkpoint_path"
 }
 
+# Simulators this matrix booted, by UDID. A reset shuts down only these, never every simulator on the Mac,
+# because other agents on the same Mac run their own simulators.
+matrix_booted_udids=""
+
+remember_route_simulators() {
+  local route_root="$1"
+  local route_slug="$2"
+  local smoke_log=""
+  local udid=""
+  for smoke_log in "$route_root/apple/${route_slug}-screenshots-smoke-ios.log" "$route_root/apple/${route_slug}-screenshots-smoke-ipad.log"; do
+    [[ -f "$smoke_log" ]] || continue
+    udid="$(sed -n 's/.*Booting simulator: xcrun simctl boot \([A-F0-9-]*\).*/\1/p' "$smoke_log" | head -n 1)"
+    [[ -n "$udid" && " $matrix_booted_udids " != *" $udid "* ]] || continue
+    matrix_booted_udids="${matrix_booted_udids:+$matrix_booted_udids }$udid"
+  done
+}
+
+shutdown_matrix_simulators() {
+  local log_path="$1"
+  local udid=""
+  for udid in $matrix_booted_udids ${SPOONJOY_SCREENSHOT_IPHONE_SIMULATOR_UDID:-} ${SPOONJOY_SCREENSHOT_IPAD_SIMULATOR_UDID:-}; do
+    xcrun simctl shutdown "$udid" >> "$log_path" 2>&1 || true
+  done
+}
+
 capture_route() {
   local name="$1"
   local route="$2"
@@ -541,7 +566,7 @@ capture_route() {
   mkdir -p "$route_root/apple"
   if [[ "$reset_simulator_between_routes" == "1" ]]; then
     printf 'resetting iOS simulator before route %s\n' "$name"
-    xcrun simctl shutdown all >> "$route_output" 2>&1 || true
+    shutdown_matrix_simulators "$route_output"
   fi
   printf 'capturing native route %s (%s)\n' "$name" "$route"
   run_route_capture_with_timeout "$route_output" \
@@ -558,6 +583,7 @@ capture_route() {
     status="fail"
   fi
 
+  remember_route_simulators "$route_root" "$route_slug"
   record_route "$name" "$route" "$route_root" "$status" "$command"
   update_checkpoint_progress "$name"
   find "$route_root" -maxdepth 1 -type d -name 'DerivedData-*' -prune -exec rm -rf {} +
