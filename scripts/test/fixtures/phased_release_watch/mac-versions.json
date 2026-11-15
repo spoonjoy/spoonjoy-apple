@@ -1,0 +1,19 @@
+{
+  "data": [
+    {
+      "type": "appStoreVersions",
+      "id": "751bdce9-e832-48b2-86f4-1f4d8cec5450",
+      "attributes": {
+        "versionString": "1.1",
+        "appStoreState": "READY_FOR_SALE",
+        "appVersionState": "READY_FOR_DISTRIBUTION"
+      }
+    }
+  ],
+  "meta": {
+    "paging": {
+      "total": 1,
+      "limit": 50
+    }
+  }
+}

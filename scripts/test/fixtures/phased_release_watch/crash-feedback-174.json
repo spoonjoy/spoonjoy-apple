@@ -1,0 +1,30 @@
+{
+  "data": [
+    {
+      "type": "betaFeedbackCrashSubmissions",
+      "id": "AG87hGPjylj51anljyMskzg",
+      "attributes": {
+        "createdDate": "2026-11-15T01:09:34.432Z",
+        "deviceModel": "iPhone19_4",
+        "osVersion": "27.2.1",
+        "appPlatform": "IOS"
+      }
+    },
+    {
+      "type": "betaFeedbackCrashSubmissions",
+      "id": "AKhew2jV5vXu5vxpq55rhd0",
+      "attributes": {
+        "createdDate": "2026-11-15T01:09:34.431Z",
+        "deviceModel": "iPhone19_4",
+        "osVersion": "27.2.1",
+        "appPlatform": "IOS"
+      }
+    }
+  ],
+  "meta": {
+    "paging": {
+      "total": 2,
+      "limit": 50
+    }
+  }
+}

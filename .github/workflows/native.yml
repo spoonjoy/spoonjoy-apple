@@ -128,6 +128,7 @@ jobs:
           ruby scripts/test/app_store_crash_diagnostics_test.rb
           ruby scripts/test/app_store_submission_diagnostics_test.rb
           ruby scripts/test/app_review_watch_test.rb
+          ruby scripts/test/phased_release_watch_test.rb
           ruby scripts/test/layout_audit_gate_test.rb
           ruby scripts/test/xray_expectations_test.rb
           ruby scripts/test/ouro_ui_pin_test.rb

@@ -1,0 +1,12 @@
+{
+  "data": {
+    "type": "appStoreVersionPhasedReleases",
+    "id": "26a676af-d6ae-4391-86e1-d6334de91a49",
+    "attributes": {
+      "phasedReleaseState": "COMPLETE",
+      "startDate": "2026-11-11T22:25:58Z",
+      "totalPauseDuration": 0,
+      "currentDayNumber": 2
+    }
+  }
+}
