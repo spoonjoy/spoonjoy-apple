@@ -320,6 +320,10 @@ struct PlatformNavigationView: View {
                 await runForegroundSync()
             }
             .onChange(of: scenePhase) { oldPhase, newPhase in
+                if oldPhase != .active, newPhase == .active {
+                    // At most once every 15 minutes; a feature switched off stops from its next start.
+                    SpoonjoyKillSwitches.center.refreshInBackgroundIfDue()
+                }
                 if NativeSceneSyncPolicy.shouldSync(wasActive: oldPhase == .active, isActive: newPhase == .active) {
                     Task { @MainActor in
                         await runForegroundSync()

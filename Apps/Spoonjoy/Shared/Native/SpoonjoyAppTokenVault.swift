@@ -95,12 +95,6 @@ private actor SpoonjoyScreenshotValidationTokenVault: TokenVault {
 }
 #endif
 
-/// The server the app signs in to, for the app and for every App Intent in its process; it sits beside the vault
-/// because a session only works on the server that issued it.
-///
-/// A Release build always talks to spoonjoy.app. A debug build may be pointed elsewhere by `SPOONJOY_API_BASE_URL`
-/// (the journeys point it at QA), and Siri has to follow: with spoonjoy.app of their own, the intents sent QA's session
-/// to production, and a shopping item Siri added never reached QA's list (Journeys run 43201022926).
 /// The server's kill switches for this process (`GET /api/v1/native/config`, NativeFeature). Made on first use from
 /// the switches saved at the last refresh, without the network, so launch never waits for it.
 enum SpoonjoyKillSwitches {
@@ -112,6 +106,12 @@ enum SpoonjoyKillSwitches {
     }()
 }
 
+/// The server the app signs in to, for the app and for every App Intent in its process; it sits beside the vault
+/// because a session only works on the server that issued it.
+///
+/// A Release build always talks to spoonjoy.app. A debug build may be pointed elsewhere by `SPOONJOY_API_BASE_URL`
+/// (the journeys point it at QA), and Siri has to follow: with spoonjoy.app of their own, the intents sent QA's session
+/// to production, and a shopping item Siri added never reached QA's list (Journeys run 43201022926).
 enum SpoonjoyAppServer {
     static func configuration(environment: [String: String] = ProcessInfo.processInfo.environment) -> APIClientConfiguration {
 #if DEBUG
