@@ -509,6 +509,25 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("SpoonDock's stacked accessibility rows stay apart from each other's glass (#276)")
+    func spoonDockAccessibilityRowsDoNotMergeGlass() throws {
+        let dockPath = "Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift"
+        let dock = uncommentedSwift(try readRepoFile(dockPath))
+
+        expectContent(
+            dock,
+            in: dockPath,
+            contains: [
+                "static let accessibilitySpacing: CGFloat = glassMergeSpacing + 4",
+                "VStack(alignment: .leading, spacing: SpoonDockMetrics.accessibilitySpacing)",
+                "HStack(spacing: SpoonDockMetrics.accessibilitySpacing)"
+            ],
+            forbids: [
+                "VStack(alignment: .leading, spacing: SpoonDockMetrics.itemSpacing)"
+            ]
+        )
+    }
+
     @Test("SpoonDock is registered in both app targets")
     func spoonDockIsRegisteredInBothAppTargets() throws {
         let projectPath = "Spoonjoy.xcodeproj/project.pbxproj"
