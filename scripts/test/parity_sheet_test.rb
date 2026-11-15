@@ -8,7 +8,7 @@ require_relative "../lib/parity_sheet"
 class ParitySheetTest < Minitest::Test
   def test_canonical_keys_cover_every_screen_device_and_scheme
     keys = ParitySheet.canonical_keys
-    assert_equal 10 * 5 * 2, keys.size
+    assert_equal 13 * 5 * 2, keys.size
     assert_equal "kitchen-iphone-light", keys.first
     assert_includes keys, "sheet-add-to-list-duo-open-dark"
     assert_includes keys, "kitchen-empty-desktop-light"
@@ -105,6 +105,8 @@ class ParitySheetTest < Minitest::Test
     assert_equal "native: not captured", ParitySheet.gap_label("native", "recipe")
     assert_equal "web: Add to list is one tap, no sheet", ParitySheet.gap_label("web", "sheet-add-to-list", "iphone")
     assert_equal "native: Mac capture comes with the Mac store frames (Task 10)", ParitySheet.gap_label("native", "kitchen", "desktop")
+    assert_equal "native: An iPhone shows one window", ParitySheet.gap_label("native", "second-window", "iphone")
+    assert_equal "native: Mac capture comes with the Mac store frames (Task 10)", ParitySheet.gap_label("native", "second-window", "desktop")
   end
   
   def test_index_html_lists_every_pair_and_labels_each_gap
@@ -113,7 +115,7 @@ class ParitySheetTest < Minitest::Test
     assert_includes html, "<title>Baseline</title>"
     assert_includes html, %(src="kitchen-iphone-light.jpg")
     assert_equal ParitySheet.canonical_keys.size, html.scan("<figure").size
-    assert_includes html, "1 of 100 pairs complete"
+    assert_includes html, "1 of 130 pairs complete"
     assert_includes html, "web: Add to list is one tap, no sheet"
     assert_includes html, "native: not captured"
     assert_includes html, "web: Web has no landscape iPad viewport"

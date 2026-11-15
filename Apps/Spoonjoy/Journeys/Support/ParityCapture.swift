@@ -68,6 +68,11 @@ struct ParityCapture {
         Self.turn(.portrait)
     }
 
+    /// Shoots the screen in light and dark as it stands, without turning an iPad on its side.
+    func shootPortraitSchemes(_ screen: String) throws {
+        try shootSchemes(screen, device: device)
+    }
+
     private func shootSchemes(_ screen: String, device: String) throws {
         Self.setAppearance(.light)
         try shoot(Self.shotName(screen, device: device, scheme: "light"))
@@ -131,6 +136,25 @@ struct ParityCapture {
         try shootBothSchemes("recipe")
     }
 
+    /// The recipe page with jasmine rice checked: the checked row web and native both draw. Clear progress puts the
+    /// page back, so the cook-mode shots start unchecked.
+    func recipeChecked(_ kitchen: Kitchen) throws {
+        journey.openLink(try link("recipes/\(kitchen.recipeID)"))
+        let rice = journey.element(JourneyID.recipeDetailIngredient, labelContainingIgnoringCase: Self.shoppingItem)
+        wait(rice, "The recipe page does not list \(Self.shoppingItem).")
+        journey.swipeUpUntilHittable(rice)
+        rice.tap()
+        wait(journey.element(JourneyID.recipeDetailClearProgress), "Checking \(Self.shoppingItem) did not show Clear progress.")
+        try shootBothSchemes("recipe-checked")
+        let clear = journey.element(JourneyID.recipeDetailClearProgress)
+        journey.swipeUpUntilHittable(clear)
+        clear.tap()
+        XCTAssertTrue(
+            clear.waitForNonExistence(timeout: JourneyApp.interactionTimeout),
+            "Clear progress did not clear the check. Screen: \(journey.screen)"
+        )
+    }
+
     func shopping() throws {
         journey.openLink(try link("shopping-list"))
         wait(label(containing: Self.shoppingItem), "The shopping list does not show \(Self.shoppingItem).")
@@ -185,6 +209,51 @@ struct ParityCapture {
         )).firstMatch
         wait(step, "Cook mode did not open on a step.")
         try shootBothSchemes("cook-step")
+    }
+
+    /// Cook mode's last step with its Finish control in view (#276): the dock's Mark step on a regular-width screen,
+    /// and on a compact iPhone, which has no dock, Finish cooking at the end of the last page. Run after `cookStep`.
+    func cookFinish() throws {
+        // Only the page on screen carries the step-text identifier; a neighbouring page's preview does not.
+        let lastStep = journey.element(JourneyID.cookStepText, labelContaining: Self.riceSteps.last?.description ?? "")
+        for _ in 0..<2 where !lastStep.exists {
+            let dockNext = journey.element(JourneyID.cookDockNext)
+            let spreadNext = journey.element(JourneyID.cookSpreadNext)
+            if dockNext.exists {
+                dockNext.tap()
+            } else if spreadNext.exists {
+                spreadNext.tap()
+            } else {
+                journey.app.swipeLeft()
+            }
+            _ = lastStep.waitForExistence(timeout: JourneyApp.interactionTimeout)
+        }
+        wait(lastStep, "Cook mode did not turn to the last step.")
+        let finish = journey.element(JourneyID.cookFinish)
+        wait(finish, "The last step has no Finish cooking.")
+        journey.swipeUpUntilHittable(finish)
+        XCTAssertTrue(finish.isHittable, "Finish cooking cannot be reached on the last step. Screen: \(journey.screen)")
+        try shootBothSchemes("cook-finish")
+    }
+
+    /// On the iPad, the recipe opened in a window of its own from the Kitchen row's menu: the second scene. Shot of the
+    /// whole screen, upright only. Other devices have no such menu item here, so this does nothing there.
+    func secondWindow() throws {
+        guard device == "ipad" else { return }
+        journey.openLink(try link("kitchen"))
+        let row = journey.element(JourneyID.kitchenRecipe, labelContaining: Self.recipeTitle)
+        wait(row, "The kitchen does not list \(Self.recipeTitle).")
+        row.press(forDuration: 1.2)
+        let openInNewWindow = journey.copy(JourneyCopy.openInNewWindow)
+        XCTAssertTrue(
+            openInNewWindow.waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "The Kitchen row's menu has no Open in New Window on the iPad. Screen: \(journey.screen)"
+        )
+        openInNewWindow.tap()
+        let windows = journey.waitForWindows(2)
+        wait(journey.element(JourneyID.recipeDetailTitle, labelContaining: Self.recipeTitle), "The new window is not the recipe.")
+        try shootPortraitSchemes("second-window")
+        XCTAssertGreaterThanOrEqual(windows.count, 2, "Open in New Window did not open a second window: \(windows). Screen: \(journey.screen)")
     }
 
     private func link(_ path: String) throws -> URL {
