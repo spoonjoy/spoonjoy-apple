@@ -270,11 +270,20 @@ HINGE_SDK_CONDITION = "SPOONJOY_IOS_27_1_SDK"
 HINGE_SDK_PATTERNS = %w[iphoneos iphonesimulator].flat_map do |sdk|
   (%w[27.1 27.2 27.3 27.4 27.5] + %w[28 29 30]).map { |version| "#{sdk}#{version}*" }
 end.freeze
+# The iPhone's main-thread stack size, for simulator builds (see below).
+IPHONE_MAIN_THREAD_STACK_FLAG = "-Wl,-stack_size,0x100000"
 CONFIGURATIONS.each do |configuration|
   settings = ios_target.build_configuration_list[configuration].build_settings
   HINGE_SDK_PATTERNS.each do |pattern|
     settings["SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=#{pattern}]"] = "$(inherited) #{HINGE_SDK_CONDITION}"
   end
+  # An iPhone gives the app's main thread 1 MB of stack; the simulator borrows the Mac's 8 MB. Building SwiftUI's
+  # type for a deep view tree once overflowed that 1 MB at launch on every iPhone while every simulator run passed
+  # (1.2 to 1.3, TestFlight crash reports of 2026-11-10 to 11-14). Simulator builds take the iPhone's size, so tests
+  # and CI crash where an iPhone would.
+  # The flag needs the app linked as one executable, so Debug's split-out debug dylib is off in the simulator.
+  settings["ENABLE_DEBUG_DYLIB[sdk=iphonesimulator*]"] = "NO"
+  settings["OTHER_LDFLAGS[sdk=iphonesimulator*]"] = "$(inherited) #{IPHONE_MAIN_THREAD_STACK_FLAG}"
 end
 
 
