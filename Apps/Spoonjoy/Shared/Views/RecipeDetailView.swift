@@ -1075,7 +1075,8 @@ struct RecipeDetailView: View {
     }
 
     private func stepEyebrow(_ section: RecipeDetailStepSection) -> some View {
-        // Web's recipe page sets "STEP 1" in `--sj-ink-soft`; brass is kept for the step you are on in cook mode.
+        // Web's recipe page sets "STEP 1" in `--sj-ink-soft` (brass only for a current step). Native's recipe page has
+        // no current step, so it is always ink-soft.
         Text("Step \(section.stepNumber)")
             .kitchenEyebrow(KitchenTableTheme.ink2)
             .accessibilityLabel("Step \(section.stepNumber)")

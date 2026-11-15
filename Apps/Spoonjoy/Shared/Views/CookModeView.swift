@@ -740,7 +740,7 @@ struct CookModeView: View {
         turnPage(to: currentIndex + 1 < recipe.steps.count ? currentIndex + 1 : currentIndex - 1)
     }
 
-    /// One step's page, top to bottom: where you are, the step title in brass, the step in large serif, its timer
+    /// One step's page, top to bottom: where you are, the step title in ink, the step in large serif, its timer
     /// ring, then the step's checks in the thumb zone. A neighbouring page is a dimmed, inert preview. On a big page
     /// (an iPad's, `CookCanvas`) the step is set larger, and on a wide one its checklist stands beside it.
     private func cookPage(_ step: RecipeStep, isCurrent: Bool, height: CGFloat, width: CGFloat) -> some View {
@@ -843,7 +843,7 @@ struct CookModeView: View {
 #endif
     }
 
-    /// The step's title in brass and the step itself in large serif, both set `canvas.scale` times larger on a big page.
+    /// The step's title in ink and the step itself in large serif, both set `canvas.scale` times larger on a big page.
     private func stepInstruction(_ step: RecipeStep, isCurrent: Bool, canvas: CookCanvas) -> some View {
         VStack(alignment: .leading, spacing: canvas.interpolate(10, 16)) {
             stepHeading(step, scale: canvas.scale)
