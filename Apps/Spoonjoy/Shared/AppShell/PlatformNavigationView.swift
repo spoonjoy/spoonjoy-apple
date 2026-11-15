@@ -1299,10 +1299,11 @@ struct PlatformNavigationView: View {
         List(selection: librarySidebarSelection) {
             Section {
                 sidebarLink(section: .kitchen, title: "Kitchen", systemImage: "house")
-                // Add sits with the recipe drawers, always one tap away, and never takes the selection.
+                // Add sits with the recipe drawers, always one tap away, and never takes the selection. It is brass,
+                // the app's accent; tomato is kept for warnings.
                 Button(action: createRecipe) {
                     Label("Add a recipe", systemImage: "plus.circle.fill")
-                        .foregroundStyle(KitchenTableTheme.tomato)
+                        .foregroundStyle(KitchenTableTheme.brass)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("sidebar.addRecipe")

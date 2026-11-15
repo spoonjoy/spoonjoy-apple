@@ -95,6 +95,31 @@ struct KitchenPaletteOuroTests {
         }
     }
 
+    /// The Mac app's accent (its sidebar selection) is an asset catalog colour, which can't read a token, so this holds
+    /// it to the cookbook's brass in both appearances.
+    @Test("the Mac accent colour is the cookbook's brass, day and night")
+    func accentColourIsBrass() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let data = try Data(contentsOf: root.appendingPathComponent("Apps/Spoonjoy/Shared/Assets.xcassets/AccentColor.colorset/Contents.json"))
+        let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let colors = try #require(json["colors"] as? [[String: Any]])
+        func hex(dark: Bool) throws -> UInt32 {
+            let entry = try #require(colors.first { (($0["appearances"] as? [[String: String]])?.isEmpty == false) == dark })
+            let components = try #require((entry["color"] as? [String: Any])?["components"] as? [String: String])
+            func byte(_ key: String) throws -> UInt32 {
+                let text = try #require(components[key])
+                return try #require(UInt32(text.dropFirst(2), radix: 16))
+            }
+            return try byte("red") << 16 | byte("green") << 8 | byte("blue")
+        }
+        for (scheme, dark) in [(ColorScheme.light, false), (.dark, true)] {
+            let brass = try #require(OuroTokens.cookbook.extras.color(.sjBrass, scheme))
+            #expect(try hex(dark: dark) == Self.hex(brass.resolve(in: EnvironmentValues())), "\(scheme)")
+        }
+        let generator = try String(contentsOf: root.appendingPathComponent("scripts/generate-xcode-project.rb"), encoding: .utf8)
+        #expect(generator.contains(#"accent_color: "AccentColor""#))
+    }
+
     @Test("Spoonjoy's night page is not OuroHX's cookbook dark background")
     func nightPageDiffersFromOuroHX() throws {
         // Upstream question: https://github.com/ourostack/ouro-ui-apple/issues/15

@@ -127,7 +127,8 @@ project = Xcodeproj::Project.new(project_path.to_s)
 project.build_configuration_list.build_configurations.each(&:remove_from_project)
 CONFIGURATIONS.each { |name| project.add_build_configuration(name, name == "Release" ? :release : :debug) }
 
-def apply_common_settings(target, bundle_id:, product_name:, deployment_key:, deployment_targets:, entitlements: ENTITLEMENTS)
+def apply_common_settings(target, bundle_id:, product_name:, deployment_key:, deployment_targets:, entitlements: ENTITLEMENTS,
+                          accent_color: nil)
   CONFIGURATIONS.each do |configuration|
     build_configuration = target.build_configuration_list[configuration]
     build_configuration.build_settings["PRODUCT_BUNDLE_IDENTIFIER"] = bundle_id
@@ -152,7 +153,11 @@ def apply_common_settings(target, bundle_id:, product_name:, deployment_key:, de
     build_configuration.build_settings["CURRENT_PROJECT_VERSION"] = "32"
     build_configuration.build_settings[deployment_key] = deployment_targets.fetch(configuration)
     build_configuration.build_settings["ASSETCATALOG_COMPILER_APPICON_NAME"] = "AppIcon"
-    build_configuration.build_settings.delete("ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME")
+    if accent_color
+      build_configuration.build_settings["ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME"] = accent_color
+    else
+      build_configuration.build_settings.delete("ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME")
+    end
   end
 end
 
@@ -348,7 +353,11 @@ apply_common_settings(
     "Release" => "27.0",
     "BootstrapDebug" => "26.2"
   },
-  entitlements: MAC_ENTITLEMENTS
+  entitlements: MAC_ENTITLEMENTS,
+  # The Mac's sidebar selection and other system-drawn accents are brass, the app's accent, not the system blue.
+  # A person who chose their own accent colour in System Settings keeps it; the Mac shows an app's accent only
+  # under the Multicolor setting.
+  accent_color: "AccentColor"
 )
 CONFIGURATIONS.each do |configuration|
   mac_target.build_configuration_list[configuration].build_settings["ENABLE_HARDENED_RUNTIME"] = "YES"
