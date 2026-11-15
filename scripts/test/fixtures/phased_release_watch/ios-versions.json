@@ -1,0 +1,50 @@
+{
+  "data": [
+    {
+      "type": "appStoreVersions",
+      "id": "89c36f06-6a67-4a24-b8b5-7076fe1d5999",
+      "attributes": {
+        "versionString": "1.2.2",
+        "appStoreState": "WAITING_FOR_REVIEW",
+        "appVersionState": "WAITING_FOR_REVIEW",
+        "releaseType": "AFTER_APPROVAL"
+      }
+    },
+    {
+      "type": "appStoreVersions",
+      "id": "f3b68147-651a-4e98-854a-0d2835b09b31",
+      "attributes": {
+        "versionString": "1.2.1",
+        "appStoreState": "READY_FOR_SALE",
+        "appVersionState": "READY_FOR_DISTRIBUTION",
+        "releaseType": "AFTER_APPROVAL"
+      }
+    },
+    {
+      "type": "appStoreVersions",
+      "id": "26a676af-d6ae-4391-86e1-d6334de91a49",
+      "attributes": {
+        "versionString": "1.2",
+        "appStoreState": "READY_FOR_SALE",
+        "appVersionState": "READY_FOR_DISTRIBUTION",
+        "releaseType": "AFTER_APPROVAL"
+      }
+    },
+    {
+      "type": "appStoreVersions",
+      "id": "0d3bb0d1-930f-43b3-811b-0dc2a9376b2a",
+      "attributes": {
+        "versionString": "1.0",
+        "appStoreState": "READY_FOR_SALE",
+        "appVersionState": "READY_FOR_DISTRIBUTION",
+        "releaseType": "AFTER_APPROVAL"
+      }
+    }
+  ],
+  "meta": {
+    "paging": {
+      "total": 4,
+      "limit": 50
+    }
+  }
+}

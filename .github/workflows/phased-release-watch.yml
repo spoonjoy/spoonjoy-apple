@@ -1,0 +1,44 @@
+name: Phased release watch
+
+# Every half hour, reads each App Store version that is rolling out in phases (iOS and macOS) and pauses the rollout
+# when its build starts crashing: more TestFlight crashes than when the watch began, or TestFlight crash feedback
+# since the rollout started. It keeps an issue "Phased release: <platform> <version>" (label phased-release) and
+# comments there. It only ever pauses an ACTIVE rollout, reads the state again just before it writes, and never
+# resumes or completes anything, so a rollout someone completed on purpose stays complete.
+# It writes to App Store Connect only when the repository variable PHASED_RELEASE_AUTO_PAUSE is "on"; otherwise it
+# comments what it would pause. See docs/apple-distribution.md#phased-release-watch.
+on:
+  schedule:
+    - cron: '22,52 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: spoonjoy-phased-release-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    name: Phased release watch
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: internal-testflight
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+      - name: Watch
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PHASED_RELEASE_AUTO_PAUSE: ${{ vars.PHASED_RELEASE_AUTO_PAUSE }}
+        run: ruby scripts/phased-release-watch.rb
