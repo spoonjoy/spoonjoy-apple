@@ -3,6 +3,10 @@ name: Submit for App Review
 # Submits a version that "Stage App Store listing" has already prepared. Run it with confirm left empty to see
 # the plan; it submits only when confirm reads exactly "submit <platform> <version>". BOTH checks iOS and the Mac against
 # the builds TestFlight published from the source commit, then submits iOS and then the Mac ("submit BOTH <version>").
+# The TestFlight crash gate runs first, dry run or not: every attached build must have been installed from TestFlight,
+# be at least 12 hours old and have no TestFlight crash, and an iOS source commit must have passed Launch smoke (the
+# Release app at the iPhone's 1 MB stack). crash_gate_override submits a refused build anyway; its reason goes in the
+# run summary next to what the gate found (docs/apple-distribution.md#testflight-crash-gate).
 on:
   workflow_dispatch:
     inputs:
@@ -22,6 +26,10 @@ on:
         type: string
       release_branch:
         description: Read the listing from the head of this release/<version> branch instead of main
+        required: false
+        type: string
+      crash_gate_override:
+        description: Submit even if the TestFlight crash gate refuses; say why (recorded in the run summary). Empty enforces the gate.
         required: false
         type: string
 
@@ -79,6 +87,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SOURCE_SHA: ${{ steps.green.outputs.sha }}
         run: ruby scripts/release-train-builds.rb --repository "$GITHUB_REPOSITORY" --sha "$SOURCE_SHA" --github-output "$GITHUB_OUTPUT"
+      - name: Require Launch smoke at the iPhone's stack size
+        if: inputs.platform != 'MAC_OS'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.green.outputs.sha }}
+          OVERRIDE: ${{ inputs.crash_gate_override }}
+        run: ruby scripts/require-launch-smoke.rb --repository "$GITHUB_REPOSITORY" --sha "$SOURCE_SHA" --override "$OVERRIDE"
       - name: Submit
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
@@ -89,6 +104,7 @@ jobs:
           CONFIRM: ${{ inputs.confirm }}
           IOS_BUILD_ID: ${{ steps.train.outputs.ios_build_id }}
           MAC_BUILD_ID: ${{ steps.train.outputs.mac_build_id }}
+          OVERRIDE: ${{ inputs.crash_gate_override }}
         run: |
           set -euo pipefail
           apply=
@@ -101,4 +117,4 @@ jobs:
             exit 1
           fi
           ruby scripts/submit-app-store-review.rb --platform "$PLATFORM" --version "$VERSION" \
-            --listing release-source/distribution/app-store/listing.json "${builds[@]}" $apply
+            --listing release-source/distribution/app-store/listing.json "${builds[@]}" --crash-gate-override "$OVERRIDE" $apply
