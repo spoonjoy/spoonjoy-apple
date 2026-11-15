@@ -25,6 +25,7 @@ module ParitySheet
   # specific and wins.
   GAPS = {
     ["web", "second-window"] => "Web opens pages in browser tabs, not app windows",
+    ["web", "recipe-checked"] => "Web's capture is read-only; its checked row is in cooking-now-postures' recipe shots",
     ["web", "cook-finish"] => "Native frame for #276: where Mark step and Finish sit",
     ["native", "second-window", "iphone"] => "An iPhone shows one window",
     ["native", "second-window", "duo-open"] => "Duo windows are in DuoJourney (11-two-windows)",
