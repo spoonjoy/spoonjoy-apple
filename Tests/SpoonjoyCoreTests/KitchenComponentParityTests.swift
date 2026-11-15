@@ -189,7 +189,6 @@ struct KitchenComponentParityTests {
         return (0...(lines.count - expected.count)).contains { Array(lines[$0..<($0 + expected.count)]) == expected }
     }
 
-    /// One top-level declaration: from its line to the closing brace at the start of a line.
     @Test("step names dress as on web: ink in cook mode, ink-soft STEP eyebrow, Fraunces names in the spread's Method")
     func stepNamesMatchWeb() throws {
         // Web: `RecipeCookView.tsx` sets the step name in `--sj-ink`, `StepCard.tsx` the "STEP 1" eyebrow in `--sj-ink-soft`.
@@ -211,6 +210,7 @@ struct KitchenComponentParityTests {
         return String(text[begin.lowerBound..<end])
     }
 
+    /// One top-level declaration: from its line to the closing brace at the start of a line.
     static func declaration(_ start: String, in path: String) throws -> String {
         let text = try source(path)
         let begin = try #require(text.range(of: start), "\(start) in \(path)")
