@@ -139,7 +139,7 @@ def apply_common_settings(target, bundle_id:, product_name:, deployment_key:, de
       # development profiles.
       build_configuration.build_settings["SPOONJOY_APS_ENVIRONMENT"] = configuration == "Release" ? "production" : "development"
     end
-    build_configuration.build_settings["MARKETING_VERSION"] = "1.2.1"
+    build_configuration.build_settings["MARKETING_VERSION"] = "1.2.2"
     build_configuration.build_settings["CURRENT_PROJECT_VERSION"] = "32"
     build_configuration.build_settings[deployment_key] = deployment_targets.fetch(configuration)
     build_configuration.build_settings["ASSETCATALOG_COMPILER_APPICON_NAME"] = "AppIcon"
@@ -260,11 +260,20 @@ HINGE_SDK_CONDITION = "SPOONJOY_IOS_27_1_SDK"
 HINGE_SDK_PATTERNS = %w[iphoneos iphonesimulator].flat_map do |sdk|
   (%w[27.1 27.2 27.3 27.4 27.5] + %w[28 29 30]).map { |version| "#{sdk}#{version}*" }
 end.freeze
+# The iPhone's main-thread stack size, for simulator builds (see below).
+IPHONE_MAIN_THREAD_STACK_FLAG = "-Wl,-stack_size,0x100000"
 CONFIGURATIONS.each do |configuration|
   settings = ios_target.build_configuration_list[configuration].build_settings
   HINGE_SDK_PATTERNS.each do |pattern|
     settings["SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=#{pattern}]"] = "$(inherited) #{HINGE_SDK_CONDITION}"
   end
+  # An iPhone gives the app's main thread 1 MB of stack; the simulator borrows the Mac's 8 MB. Building SwiftUI's
+  # type for a deep view tree once overflowed that 1 MB at launch on every iPhone while every simulator run passed
+  # (1.2 to 1.3, TestFlight crash reports of 2026-11-10 to 11-14). Simulator builds take the iPhone's size, so tests
+  # and CI crash where an iPhone would.
+  # The flag needs the app linked as one executable, so Debug's split-out debug dylib is off in the simulator.
+  settings["ENABLE_DEBUG_DYLIB[sdk=iphonesimulator*]"] = "NO"
+  settings["OTHER_LDFLAGS[sdk=iphonesimulator*]"] = "$(inherited) #{IPHONE_MAIN_THREAD_STACK_FLAG}"
 end
 
 
@@ -298,7 +307,7 @@ def apply_widget_settings(target)
     build_configuration.build_settings["SWIFT_ACTIVE_COMPILATION_CONDITIONS"] = configuration == "Release" ? WIDGET_COMPILATION_CONDITION : "DEBUG #{WIDGET_COMPILATION_CONDITION}"
     build_configuration.build_settings["GENERATE_INFOPLIST_FILE"] = "NO"
     build_configuration.build_settings["INFOPLIST_FILE"] = WIDGET_INFO_PLIST
-    build_configuration.build_settings["MARKETING_VERSION"] = "1.2.1"
+    build_configuration.build_settings["MARKETING_VERSION"] = "1.2.2"
     build_configuration.build_settings["CURRENT_PROJECT_VERSION"] = "32"
     build_configuration.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = configuration == "BootstrapDebug" ? "26.5" : "27.0"
     build_configuration.build_settings["SKIP_INSTALL"] = "YES"

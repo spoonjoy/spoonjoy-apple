@@ -3,7 +3,7 @@
   "bundleId": "app.spoonjoy",
   "platform": "IOS",
   "version": {
-    "versionString": "1.2.1",
+    "versionString": "1.2.2",
     "copyright": "2026 Ari Mendelow",
     "releaseType": "AFTER_APPROVAL",
     "phasedRelease": true
@@ -64,7 +64,7 @@
       "keywords": "keeper,box,organizer,saver,grocery,shopping,list,timer,kitchen,journal,family,dinner,baking,cook",
       "supportUrl": "https://spoonjoy.app/support",
       "marketingUrl": "https://spoonjoy.app",
-      "whatsNew": "Sign in with Apple now finds your account even when Apple keeps your email private: sign in once with Google, GitHub or your password and Spoonjoy connects your Apple ID to that account. Continue with Google and GitHub also finish signing you in, even on your first tap after an update."
+      "whatsNew": "Since Spoonjoy 1.2, some iPhones slammed the app shut the moment it opened, before a single recipe appeared. Spoonjoy opens again, with your recipes and cookbooks right where you left them."
     }
   },
   "screenshots": {
