@@ -360,11 +360,7 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
     }
 
     private static func servingsLabel(_ servings: String?) -> String? {
-        guard let servings = servings?.trimmingCharacters(in: .whitespacesAndNewlines), !servings.isEmpty else {
-            return nil
-        }
-
-        return "Serves \(servings)"
+        RecipeServingsLabel.label(servings)
     }
 
     private static func actionIDs(isOwner: Bool, canShare: Bool) -> [RecipeDetailActionID] {

@@ -424,9 +424,82 @@ struct RecipeCatalogDetailTests {
         #expect(RecipeQuantityFormatter.quantityText(quantity: 0.25, unit: "cup") == "¼ cup")
         #expect(RecipeQuantityFormatter.quantityText(quantity: 1.5, unit: nil) == "1 ½")
         #expect(RecipeQuantityFormatter.quantityText(quantity: 2, unit: "") == "2")
-        #expect(RecipeQuantityFormatter.quantityText(quantity: 0.4, unit: "tsp") == "0.4 tsp")
+        // Web rounds to the nearest common cooking fraction, so 0.4 tsp reads as an eighth-spoon measure.
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 0.4, unit: "tsp") == "⅜ tsp")
         #expect(RecipeQuantityFormatter.quantityText(quantity: -0.5, unit: nil) == "-½")
-        #expect(RecipeQuantityFormatter.quantityText(quantity: .nan, unit: nil) == "1")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: .nan, unit: "pinch") == "pinch")
+    }
+
+    // The cases spoonjoy-apple#271 names, each as web's app/lib/quantity.ts writes it.
+    @Test("amounts read as web writes them: glyph fractions and plural units")
+    func amountsMatchWeb() {
+        // Shopping showed "0.25 cup" where the recipe showed "¼ cup".
+        #expect(RecipeQuantityFormatter.amountText(quantity: 0.25, unit: "cup", roundCountsUp: true) == "¼ cup")
+        // Native wrote "2 cup" where web writes "2 cups".
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 2, unit: "cup") == "2 cups")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 1, unit: "cup") == "1 cup")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 2.5, unit: "cup") == "2 ½ cups")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 0.5, unit: "cup") == "½ cup")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 0.3125, unit: "cup") == "⅓ cup")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 2, unit: "Cup") == "2 Cups")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 3, unit: "clove") == "3 cloves")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 2, unit: "leaf") == "2 leaves")
+        // Abbreviations and units already plural stay as written.
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 2, unit: "tbsp") == "2 tbsp")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 2, unit: "cups") == "2 cups")
+        // "whole" is how a counted ingredient is stored, not a word a cook writes.
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 2, unit: "whole") == "2")
+        // The shopping list rounds counted things up: a shopper buys 2 lemons, not 1 ¼.
+        #expect(RecipeQuantityFormatter.amountText(quantity: 1.25, unit: "whole", roundCountsUp: true) == "2")
+        #expect(RecipeQuantityFormatter.amountText(quantity: 1.25, unit: "cloves", roundCountsUp: true) == "2 cloves")
+        #expect(RecipeQuantityFormatter.amountText(quantity: 1.25, unit: "cup", roundCountsUp: true) == "1 ¼ cups")
+        #expect(RecipeQuantityFormatter.amountText(quantity: nil, unit: "pinch") == "pinch")
+        #expect(RecipeQuantityFormatter.amountText(quantity: 0, unit: "cup") == "0 cup")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 4.0 / 3.0, unit: nil) == "1 ⅓")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 5.0 / 6.0, unit: nil) == "⅚")
+        #expect(RecipeQuantityFormatter.formattedQuantity(.infinity) == "")
+        #expect(RecipeQuantityFormatter.fractionText(3, 4) == "¾")
+        #expect(RecipeQuantityFormatter.fractionText(1, 7) == "1/7")
+        // The fiddly rows of web's own table (app/lib/quantity.test.ts).
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 1.01, unit: "cup") == "1 cup")
+        #expect(RecipeQuantityFormatter.amountText(quantity: 2.0000000001, unit: "clove", roundCountsUp: true) == "2 cloves")
+        #expect(RecipeQuantityFormatter.amountText(quantity: 0, unit: "whole", roundCountsUp: true) == "0")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 2, unit: "  cup  ") == "2 cups")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 2, unit: "Whole") == "2")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 1.25, unit: "whole") == "1 ¼")
+        #expect(RecipeQuantityFormatter.amountText(quantity: nil, unit: "whole") == "")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 0.333, unit: nil) == "⅓")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 8.0 / 3.0, unit: nil) == "2 ⅔")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 0.01, unit: nil) == "0")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 1e18, unit: nil) == "1000000000000000000")
+        #expect(RecipeQuantityFormatter.isCountUnit("Cloves") && RecipeQuantityFormatter.isCountUnit("whole"))
+        #expect(!RecipeQuantityFormatter.isCountUnit("cup"))
+    }
+
+    @Test("a shopping item's amount reads as web's shopping list writes it")
+    func shoppingAmountMatchesWeb() {
+        func item(_ quantity: Double?, _ unit: String?) -> ShoppingListItem {
+            ShoppingListItem(
+                id: "item", name: "parsley", quantity: quantity, unit: unit, checked: false, checkedAt: nil,
+                deletedAt: nil, categoryKey: nil, iconKey: nil, sortIndex: 0, updatedAt: "2026-11-15T00:00:00.000Z"
+            )
+        }
+        #expect(item(0.25, "cup").displayQuantity == "¼ cup")
+        #expect(item(2, "cup").displayQuantity == "2 cups")
+        #expect(item(1, "whole").displayQuantity == "1")
+        #expect(item(nil, nil).displayQuantity == "")
+    }
+
+    // Chef recipe rows showed a bare "4" (spoonjoy-apple#271); web's formatServingsLabel writes "Serves 4".
+    @Test("servings labels read as web writes them")
+    func servingsLabelsMatchWeb() {
+        #expect(RecipeServingsLabel.label("4") == "Serves 4")
+        #expect(RecipeServingsLabel.label(" 4-6 ") == "Serves 4-6")
+        #expect(RecipeServingsLabel.label("4 servings") == "4 servings")
+        #expect(RecipeServingsLabel.label("Serves 4") == "Serves 4")
+        #expect(RecipeServingsLabel.label("Makes 12 cookies") == "Makes 12 cookies")
+        #expect(RecipeServingsLabel.label("") == nil)
+        #expect(RecipeServingsLabel.label(nil) == nil)
     }
 
     @Test("live repository builds public catalog requests and maps response envelopes")

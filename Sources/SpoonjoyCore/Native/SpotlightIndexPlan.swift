@@ -130,7 +130,7 @@ public enum SpotlightIndexPlan {
             id: recipe.id,
             scope: scope,
             title: recipe.title,
-            contentDescription: "Recipe by \(recipe.chef.username). \(recipe.description ?? recipe.servings ?? "Ready to cook in Spoonjoy.")",
+            contentDescription: "Recipe by \(recipe.chef.username). \(recipe.description ?? RecipeServingsLabel.label(recipe.servings) ?? "Ready to cook in Spoonjoy.")",
             keywords: [recipe.chef.username] + recipe.steps.flatMap { step in
                 step.ingredients.map(\.name)
             },

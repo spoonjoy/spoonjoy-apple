@@ -41,12 +41,18 @@ public struct RecipeServes: Equatable, Sendable {
     /// "Serves 6", "Serves 6 people", "Serves 4-6 ×1.5" or "Scale 1.5×".
     public func label(scale: Double) -> String {
         if let servings = servings(atScale: scale) {
-            return countUnit.isEmpty ? "Serves \(servings)" : "Serves \(servings) \(countUnit)"
+            if countUnit.isEmpty {
+                return "Serves \(servings)"
+            }
+            // "4 servings" already says what it is, so it is not doubled into "Serves 4 servings".
+            let saysServings = countUnit.range(of: #"^servings?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+            return saysServings ? "\(servings) \(countUnit)" : "Serves \(servings) \(countUnit)"
         }
-        guard let statedServings else {
+        // The recipe's own phrase, as web's formatServingsLabel writes it: "Serves 4-6", "Makes 12 cookies".
+        guard let stated = RecipeServingsLabel.label(statedServings) else {
             return "Scale \(Self.formatted(scale))×"
         }
-        return scale == 1 ? "Serves \(statedServings)" : "Serves \(statedServings) ×\(Self.formatted(scale))"
+        return scale == 1 ? stated : "\(stated) ×\(Self.formatted(scale))"
     }
 
     /// One serving more, or the next half (a quarter below 1×).

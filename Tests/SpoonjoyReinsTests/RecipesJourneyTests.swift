@@ -81,7 +81,7 @@ struct RecipesJourney {
             #expect(recipe.state.amount(of: Self.basil) == "1 cup", "the basil starts at 1 cup")
             try await journey.do("incrementServes", until: { $0.state["serves"] == "Serves 5" })
             let scaled = try await journey.do("incrementServes", until: { $0.state["serves"] == "Serves 6" })
-            #expect(scaled.state.amount(of: Self.basil) == "1 ½ cup", "six servings instead of four scale the basil to 1 ½ cups")
+            #expect(scaled.state.amount(of: Self.basil) == "1 ½ cups", "six servings instead of four scale the basil to 1 ½ cups")
 
             // Search finds the recipe by title; a query that matches nothing clears the list; an ingredient finds it.
             try await journey.do("selectTab", ["tab": "search"], until: { $0.focus == "search" })
@@ -104,7 +104,7 @@ struct RecipesJourney {
             #expect(reopened.state.stepIngredients(2).contains(Self.spaghetti), "step 2 kept its spaghetti after a relaunch")
             // The page's scale is saved per recipe, so it comes back at six servings.
             #expect(reopened.state["serves"] == "Serves 6", "the recipe remembers it serves 6")
-            #expect(reopened.state.amount(of: Self.basil) == "1 ½ cup", "the basil keeps its scaled amount")
+            #expect(reopened.state.amount(of: Self.basil) == "1 ½ cups", "the basil keeps its scaled amount")
             // Rice is step 2's last ingredient, so checking it keeps the list's order.
             let rice = try #require(reopened.state.ingredientRow(named: "rice")?["id"])
             try await after.do("toggleIngredient", ["id": rice], until: { $0.state.ingredientRow(named: "rice")?["value"] == "used" })

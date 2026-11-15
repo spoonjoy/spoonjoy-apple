@@ -202,7 +202,7 @@ private struct RecipeIndexRowContent {
     init(recipe: Recipe) {
         id = recipe.id
         title = recipe.title
-        detail = Self.detail([recipe.displaySubtitle, recipe.servings.map { "Serves \($0)" }, recipe.displayCoverProvenanceLabel])
+        detail = Self.detail([recipe.displaySubtitle, RecipeServingsLabel.label(recipe.servings), recipe.displayCoverProvenanceLabel])
         accessibilityLabel = Self.accessibilityLabel(title: recipe.title, detail: detail, chef: recipe.chef.username)
         coverURL = recipe.displayCoverImageURL
         shareURL = recipe.attribution.canonicalURL

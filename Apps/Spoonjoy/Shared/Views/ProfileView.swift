@@ -276,9 +276,11 @@ private struct ProfileRecipeShelf: View {
     }
 
     private func recipeSubtitle(_ recipe: ProfileRecipeSummary) -> String? {
-        [recipe.description, recipe.servings]
+        // The description, then "Serves 4", as web's chef page sets them; never a bare "4".
+        let parts = [recipe.description, RecipeServingsLabel.label(recipe.servings)]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .first { !$0.isEmpty }
+            .filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }
 

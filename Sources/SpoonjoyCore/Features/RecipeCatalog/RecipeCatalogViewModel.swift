@@ -72,11 +72,7 @@ public struct RecipeCatalogRowViewModel: Identifiable, Equatable, Sendable {
     }
 
     private static func servingsLabel(_ servings: String?) -> String? {
-        guard let servings = servings?.trimmingCharacters(in: .whitespacesAndNewlines), !servings.isEmpty else {
-            return nil
-        }
-
-        return "Serves \(servings)"
+        RecipeServingsLabel.label(servings)
     }
 }
 
