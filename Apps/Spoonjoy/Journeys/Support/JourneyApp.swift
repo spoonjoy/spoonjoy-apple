@@ -658,6 +658,16 @@ final class JourneyApp {
         swipeUpUntilHittable(element, swipesLeft: swipesLeft - 1)
     }
 
+    /// Swipes down until `element` can be tapped, for a control a long page has scrolled off the top. Stops after a
+    /// few swipes either way.
+    func swipeDownUntilHittable(_ element: XCUIElement, swipesLeft: Int = 6) {
+        guard !element.isHittable, swipesLeft > 0 else {
+            return
+        }
+        app.swipeDown()
+        swipeDownUntilHittable(element, swipesLeft: swipesLeft - 1)
+    }
+
     /// Drags the form until `field` sits fully between the navigation bar and whatever covers the bottom of the
     /// screen (the keyboard, or the floating tab bar), with a margin. Stops after a few drags either way.
     private func scrollIntoView(_ field: XCUIElement, dragsLeft: Int) {

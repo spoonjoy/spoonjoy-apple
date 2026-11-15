@@ -9,15 +9,29 @@ require "json"
 # are named parity-<screen>-<device>-<scheme>.png on both sides. A side with no shot gets a grey panel, labelled in
 # index.html, so a gap is visible on the sheet instead of a pair silently disappearing.
 module ParitySheet
-  SCREENS = %w[kitchen recipe cook-step shopping cookbooks cookbook chef sign-in kitchen-empty sheet-add-to-list].freeze
+  # recipe-checked is the recipe with an ingredient checked; cook-finish is cook mode's last step with its Finish in view
+  # (#276); second-window is a recipe opened in a window of its own (iPad).
+  SCREENS = %w[
+    kitchen recipe recipe-checked cook-step cook-finish shopping cookbooks cookbook chef sign-in kitchen-empty
+    sheet-add-to-list second-window
+  ].freeze
   # ipad-landscape is the iPad turned on its side, shot by ParityJourneys right after each portrait iPad shot.
   DEVICES = %w[iphone duo-open ipad ipad-landscape desktop].freeze
   SCHEMES = %w[light dark].freeze
   # The native outer display is off while the Duo is open, so a native open-Duo shot only counts from the inner display.
   # The web has one viewport, so its open-Duo shots are plain.
   INNER_DEVICES = %w[duo-open].freeze
-  # Known gaps, with the reason the sheet shows instead of "not captured".
+  # Known gaps, with the reason the sheet shows instead of "not captured". A [side, screen, device] key is the most
+  # specific and wins.
   GAPS = {
+    ["web", "second-window"] => "Web opens pages in browser tabs, not app windows",
+    ["web", "recipe-checked"] => "Web's capture is read-only; its checked row is in cooking-now-postures' recipe shots",
+    ["web", "cook-finish"] => "Native frame for #276: where Mark step and Finish sit",
+    ["native", "second-window", "iphone"] => "An iPhone shows one window",
+    ["native", "second-window", "ipad-landscape"] => "Shot upright only",
+    ["native", "recipe-checked", "duo-open"] => "Duo canonical screens don't include it",
+    ["native", "cook-finish", "duo-open"] => "Duo canonical screens don't include it",
+    ["native", "second-window", "duo-open"] => "Duo windows are in DuoJourney (11-two-windows)",
     ["web", "sheet-add-to-list"] => "Add to list is one tap, no sheet",
     ["web", "ipad-landscape"] => "Web has no landscape iPad viewport",
     ["native", "desktop"] => "Mac capture comes with the Mac store frames (Task 10)"
@@ -126,7 +140,7 @@ module ParitySheet
   end
 
   def gap_label(side, screen, device = nil)
-    "#{side}: #{GAPS[[side, screen]] || GAPS[[side, device]] || "not captured"}"
+    "#{side}: #{GAPS[[side, screen, device]] || GAPS[[side, screen]] || GAPS[[side, device]] || "not captured"}"
   end
 
   # The `magick` argv that sets web (left) beside native (right), each scaled to one height, with a plain grey panel

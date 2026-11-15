@@ -20,6 +20,7 @@ struct ParityCapture {
 
     struct Kitchen: Sendable {
         let recipeID: String
+        let soupID: String
         let cookbookID: String
         let username: String
     }
@@ -54,7 +55,7 @@ struct ParityCapture {
         try await qa.addShoppingItem(name: shoppingItem, quantity: 1, unit: "cup")
         try await qa.addShoppingItem(name: "lemon", quantity: 1, unit: "whole")
         try await qa.addShoppingItem(name: "parsley", quantity: 0.25, unit: "cup")
-        return Kitchen(recipeID: riceID, cookbookID: weeknightID, username: account.username)
+        return Kitchen(recipeID: riceID, soupID: soupID, cookbookID: weeknightID, username: account.username)
     }
 
     /// Shoots the screen as it stands in light, then in dark, and leaves the simulator light. On the iPad it then turns
@@ -66,6 +67,11 @@ struct ParityCapture {
         Self.turn(.landscapeLeft)
         try shootSchemes(screen, device: "ipad-landscape")
         Self.turn(.portrait)
+    }
+
+    /// Shoots the screen in light and dark as it stands, without turning an iPad on its side.
+    func shootPortraitSchemes(_ screen: String) throws {
+        try shootSchemes(screen, device: device)
     }
 
     private func shootSchemes(_ screen: String, device: String) throws {
@@ -131,6 +137,26 @@ struct ParityCapture {
         try shootBothSchemes("recipe")
     }
 
+    /// The recipe page with jasmine rice checked: the checked row web and native both draw. Clear progress puts the
+    /// page back, so the cook-mode shots start unchecked.
+    func recipeChecked(_ kitchen: Kitchen) throws {
+        journey.openLink(try link("recipes/\(kitchen.recipeID)"))
+        let rice = journey.element(JourneyID.recipeDetailIngredient, labelContainingIgnoringCase: Self.shoppingItem)
+        wait(rice, "The recipe page does not list \(Self.shoppingItem).")
+        journey.swipeUpUntilHittable(rice)
+        rice.tap()
+        wait(journey.element(JourneyID.recipeDetailClearProgress), "Checking \(Self.shoppingItem) did not show Clear progress.")
+        try shootBothSchemes("recipe-checked")
+        // Clear progress sits in the Steps heading, above the row, so a long page may have scrolled it off the top.
+        let clear = journey.element(JourneyID.recipeDetailClearProgress)
+        journey.swipeDownUntilHittable(clear)
+        clear.tap()
+        XCTAssertTrue(
+            clear.waitForNonExistence(timeout: JourneyApp.interactionTimeout),
+            "Clear progress did not clear the check. Screen: \(journey.screen)"
+        )
+    }
+
     func shopping() throws {
         journey.openLink(try link("shopping-list"))
         wait(label(containing: Self.shoppingItem), "The shopping list does not show \(Self.shoppingItem).")
@@ -185,6 +211,68 @@ struct ParityCapture {
         )).firstMatch
         wait(step, "Cook mode did not open on a step.")
         try shootBothSchemes("cook-step")
+    }
+
+    /// Cook mode's last step with Finish cooking in view (#276). A regular-width screen also shows the dock's Mark step;
+    /// a compact iPhone has no dock, so Finish cooking at the end of the last page is how a cook marks it done.
+    /// Run after `cookStep`.
+    func cookFinish() throws {
+        // Only the page on screen carries the step-text identifier; a neighbouring page's preview does not.
+        let lastStep = journey.element(JourneyID.cookStepText, labelContaining: Self.riceSteps.last?.description ?? "")
+        // The rice has three steps: two turns from the first.
+        turnCookPage()
+        turnCookPage()
+        wait(lastStep, "Cook mode did not turn to the last step.")
+        let finish = journey.element(JourneyID.cookFinish)
+        wait(finish, "The last step has no Finish cooking.")
+        journey.swipeUpUntilHittable(finish)
+        XCTAssertTrue(finish.isHittable, "Finish cooking cannot be reached on the last step. Screen: \(journey.screen)")
+        try shootBothSchemes("cook-finish")
+    }
+
+    /// Turns cook mode to the next step: the dock's or the spread's Next where there is one, a swipe on a compact page.
+    private func turnCookPage() {
+        let dockNext = journey.element(JourneyID.cookDockNext)
+        let spreadNext = journey.element(JourneyID.cookSpreadNext)
+        let page = journey.element(JourneyID.cookStepText)
+        let before = page.label
+        if dockNext.exists {
+            dockNext.tap()
+        } else if spreadNext.exists {
+            spreadNext.tap()
+        } else {
+            journey.element(JourneyID.cookPage).swipeLeft()
+        }
+        let turned = NSPredicate { _, _ in page.exists && page.label != before }
+        _ = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: turned, object: nil)], timeout: JourneyApp.interactionTimeout)
+    }
+
+    /// On the iPad, the soup opened in a window of its own from its Kitchen row's menu: the second scene. Shot of the
+    /// whole screen, upright only. Other devices have no such menu item here, so this does nothing there. The soup,
+    /// because after cook mode the rice is the Kitchen's hero, which has no menu.
+    func secondWindow(_ kitchen: Kitchen) throws {
+        guard device == "ipad" else { return }
+        journey.openLink(try link("kitchen"))
+        let row = journey.element(JourneyID.kitchenRecipe, labelContaining: Self.soupTitle)
+        wait(row, "The kitchen does not list \(Self.soupTitle).")
+        // At AX5 the hero can push the index row below the first screen.
+        journey.swipeUpUntilHittable(row)
+        row.press(forDuration: 1.2)
+        let openInNewWindow = journey.copy(JourneyCopy.openInNewWindow)
+        XCTAssertTrue(
+            openInNewWindow.waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "The Kitchen row's menu has no Open in New Window on the iPad. Screen: \(journey.screen)"
+        )
+        openInNewWindow.tap()
+        wait(journey.element(JourneyID.recipeDetailTitle, labelContaining: Self.soupTitle), "The new window is not the soup.")
+        try shootPortraitSchemes("second-window")
+        // A window the system has put behind the new one may stop reporting itself, so only the soup's own window is
+        // required; the count goes in the failure message of the assertion above if that fails.
+        let windows = journey.windowProbes
+        XCTAssertTrue(
+            windows.contains { $0.contains(kitchen.soupID) },
+            "No window reports the soup's recipe page: \(windows). Screen: \(journey.screen)"
+        )
     }
 
     private func link(_ path: String) throws -> URL {

@@ -12,7 +12,8 @@ final class ParityJourneys: JourneyTestCase {
         ParityCapture.turn(.portrait)
         let journey = JourneyApp.launchFresh()
         let capture = ParityCapture(journey: journey, device: ParityCapture.deviceName) { [self] name in
-            journey.attachScreenshot(named: name, to: self, wholeScreen: name.contains("-ipad-landscape-"))
+            // A turned iPad and a second window are shot whole, so the shot shows the screen, not one window.
+            journey.attachScreenshot(named: name, to: self, wholeScreen: name.contains("-ipad-landscape-") || name.contains("second-window"))
         }
 
         try capture.signInScreen()
@@ -25,6 +26,7 @@ final class ParityJourneys: JourneyTestCase {
             try capture.kitchen()
         }
         try capture.recipe(kitchen)
+        try capture.recipeChecked(kitchen)
         try capture.shopping()
         try capture.cookbooks()
         try capture.cookbook(kitchen)
@@ -33,5 +35,8 @@ final class ParityJourneys: JourneyTestCase {
         // A relaunch closes the Reminders sheet; cook mode comes last, as it puts the recipe under Cooking now.
         journey.relaunch()
         try capture.cookStep(kitchen)
+        try capture.cookFinish()
+        // Last, as it leaves a second window open.
+        try capture.secondWindow(kitchen)
     }
 }
