@@ -1,6 +1,6 @@
 ---
-testflight: Spoonjoy opens on iPhone again. It had been closing at launch on iPhone since 1.2.
+testflight: Spoonjoy opens on iPhone again; since 1.2 it could close at launch.
 platforms: [ios]
 order: 5
 ---
-Since Spoonjoy 1.2, some iPhones slammed the app shut the moment it opened, before the Kitchen even appeared. Spoonjoy now opens straight to your Kitchen again, recipes and cookbooks right where you left them.
+Since Spoonjoy 1.2, some iPhones slammed the app shut the moment it opened, before a single recipe appeared. Spoonjoy opens again, with your recipes and cookbooks right where you left them.

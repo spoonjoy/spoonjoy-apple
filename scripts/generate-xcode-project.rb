@@ -267,10 +267,11 @@ apply_common_settings(
 # SDK. Shipping builds stay on stable Xcode 27.0, where the hinge code is compiled out.
 HINGE_SDK_CONDITION = "SPOONJOY_IOS_27_1_SDK"
 # Xcode's sdk= conditions are plain wildcards, with no character classes, so each SDK version is listed.
-IPHONE_MAIN_THREAD_STACK_FLAG = "-Wl,-stack_size,0x100000"
 HINGE_SDK_PATTERNS = %w[iphoneos iphonesimulator].flat_map do |sdk|
   (%w[27.1 27.2 27.3 27.4 27.5] + %w[28 29 30]).map { |version| "#{sdk}#{version}*" }
 end.freeze
+# The iPhone's main-thread stack size, for simulator builds (see below).
+IPHONE_MAIN_THREAD_STACK_FLAG = "-Wl,-stack_size,0x100000"
 CONFIGURATIONS.each do |configuration|
   settings = ios_target.build_configuration_list[configuration].build_settings
   HINGE_SDK_PATTERNS.each do |pattern|
