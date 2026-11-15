@@ -146,8 +146,9 @@ struct ParityCapture {
         rice.tap()
         wait(journey.element(JourneyID.recipeDetailClearProgress), "Checking \(Self.shoppingItem) did not show Clear progress.")
         try shootBothSchemes("recipe-checked")
+        // Clear progress sits in the Steps heading, above the row, so a long page may have scrolled it off the top.
         let clear = journey.element(JourneyID.recipeDetailClearProgress)
-        journey.swipeUpUntilHittable(clear)
+        journey.swipeDownUntilHittable(clear)
         clear.tap()
         XCTAssertTrue(
             clear.waitForNonExistence(timeout: JourneyApp.interactionTimeout),
@@ -211,23 +212,15 @@ struct ParityCapture {
         try shootBothSchemes("cook-step")
     }
 
-    /// Cook mode's last step with its Finish control in view (#276): the dock's Mark step on a regular-width screen,
-    /// and on a compact iPhone, which has no dock, Finish cooking at the end of the last page. Run after `cookStep`.
+    /// Cook mode's last step with Finish cooking in view (#276). A regular-width screen also shows the dock's Mark step;
+    /// a compact iPhone has no dock, so Finish cooking at the end of the last page is how a cook marks it done.
+    /// Run after `cookStep`.
     func cookFinish() throws {
         // Only the page on screen carries the step-text identifier; a neighbouring page's preview does not.
         let lastStep = journey.element(JourneyID.cookStepText, labelContaining: Self.riceSteps.last?.description ?? "")
-        for _ in 0..<2 where !lastStep.exists {
-            let dockNext = journey.element(JourneyID.cookDockNext)
-            let spreadNext = journey.element(JourneyID.cookSpreadNext)
-            if dockNext.exists {
-                dockNext.tap()
-            } else if spreadNext.exists {
-                spreadNext.tap()
-            } else {
-                journey.app.swipeLeft()
-            }
-            _ = lastStep.waitForExistence(timeout: JourneyApp.interactionTimeout)
-        }
+        // The rice has three steps: two turns from the first.
+        turnCookPage()
+        turnCookPage()
         wait(lastStep, "Cook mode did not turn to the last step.")
         let finish = journey.element(JourneyID.cookFinish)
         wait(finish, "The last step has no Finish cooking.")
@@ -236,13 +229,31 @@ struct ParityCapture {
         try shootBothSchemes("cook-finish")
     }
 
-    /// On the iPad, the recipe opened in a window of its own from the Kitchen row's menu: the second scene. Shot of the
-    /// whole screen, upright only. Other devices have no such menu item here, so this does nothing there.
+    /// Turns cook mode to the next step: the dock's or the spread's Next where there is one, a swipe on a compact page.
+    private func turnCookPage() {
+        let dockNext = journey.element(JourneyID.cookDockNext)
+        let spreadNext = journey.element(JourneyID.cookSpreadNext)
+        let page = journey.element(JourneyID.cookStepText)
+        let before = page.label
+        if dockNext.exists {
+            dockNext.tap()
+        } else if spreadNext.exists {
+            spreadNext.tap()
+        } else {
+            journey.element(JourneyID.cookPage).swipeLeft()
+        }
+        let turned = NSPredicate { _, _ in page.exists && page.label != before }
+        _ = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: turned, object: nil)], timeout: JourneyApp.interactionTimeout)
+    }
+
+    /// On the iPad, the soup opened in a window of its own from its Kitchen row's menu: the second scene. Shot of the
+    /// whole screen, upright only. Other devices have no such menu item here, so this does nothing there. The soup,
+    /// because after cook mode the rice is the Kitchen's hero, which has no menu.
     func secondWindow() throws {
         guard device == "ipad" else { return }
         journey.openLink(try link("kitchen"))
-        let row = journey.element(JourneyID.kitchenRecipe, labelContaining: Self.recipeTitle)
-        wait(row, "The kitchen does not list \(Self.recipeTitle).")
+        let row = journey.element(JourneyID.kitchenRecipe, labelContaining: Self.soupTitle)
+        wait(row, "The kitchen does not list \(Self.soupTitle).")
         row.press(forDuration: 1.2)
         let openInNewWindow = journey.copy(JourneyCopy.openInNewWindow)
         XCTAssertTrue(
@@ -250,10 +261,15 @@ struct ParityCapture {
             "The Kitchen row's menu has no Open in New Window on the iPad. Screen: \(journey.screen)"
         )
         openInNewWindow.tap()
-        let windows = journey.waitForWindows(2)
-        wait(journey.element(JourneyID.recipeDetailTitle, labelContaining: Self.recipeTitle), "The new window is not the recipe.")
+        wait(journey.element(JourneyID.recipeDetailTitle, labelContaining: Self.soupTitle), "The new window is not the soup.")
         try shootPortraitSchemes("second-window")
-        XCTAssertGreaterThanOrEqual(windows.count, 2, "Open in New Window did not open a second window: \(windows). Screen: \(journey.screen)")
+        // A window the system has put behind the new one may stop reporting itself, so only the soup's own window is
+        // required; the count goes in the failure message of the assertion above if that fails.
+        let windows = journey.windowProbes
+        XCTAssertTrue(
+            windows.contains { $0.contains("recipe") },
+            "No window reports the soup's recipe page: \(windows). Screen: \(journey.screen)"
+        )
     }
 
     private func link(_ path: String) throws -> URL {

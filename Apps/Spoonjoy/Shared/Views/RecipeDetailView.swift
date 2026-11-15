@@ -1873,6 +1873,8 @@ private struct RecipeSpreadIngredientRow: View {
         .buttonStyle(.plain)
         .accessibilityLabel([name, amount, note ?? ""].filter { !$0.isEmpty }.joined(separator: ", "))
         .accessibilityValue(isChecked ? "used" : "not used")
+        // The same identifier as the single page's rows, so a journey finds an ingredient in either layout.
+        .accessibilityIdentifier("recipeDetail.ingredient")
     }
 
     /// Measures the amount's widest word at the current text size, unwrapped and out of sight.

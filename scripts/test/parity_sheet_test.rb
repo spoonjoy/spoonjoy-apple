@@ -106,6 +106,8 @@ class ParitySheetTest < Minitest::Test
     assert_equal "web: Add to list is one tap, no sheet", ParitySheet.gap_label("web", "sheet-add-to-list", "iphone")
     assert_equal "native: Mac capture comes with the Mac store frames (Task 10)", ParitySheet.gap_label("native", "kitchen", "desktop")
     assert_equal "native: An iPhone shows one window", ParitySheet.gap_label("native", "second-window", "iphone")
+    assert_equal ["recipe-checked-ipad-light", :plain], ParitySheet.shot_key("parity-recipe-checked-ipad-light.png")
+    assert_equal ["second-window-ipad-dark", :plain], ParitySheet.shot_key("parity-second-window-ipad-dark_3_0A1B-2C.png")
     assert_equal "native: Mac capture comes with the Mac store frames (Task 10)", ParitySheet.gap_label("native", "second-window", "desktop")
   end
   
