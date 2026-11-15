@@ -1,0 +1,11 @@
+{
+  "errors": [
+    {
+      "id": "cd55778f-28d2-471c-a697-214d2c0124ab",
+      "status": "404",
+      "code": "NOT_FOUND",
+      "title": "The specified resource does not exist",
+      "detail": "There is no resource of type '/v1/builds/{id}/diagnosticSignatures' with id '86c842c6-17a6-4185-a03a-66f7b303d7de'"
+    }
+  ]
+}

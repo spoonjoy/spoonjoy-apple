@@ -21,16 +21,18 @@ module ReleaseTrainBuilds
     runs.uniq { |run| run["id"] }.sort_by { |run| run["created_at"].to_s }.reverse
   end
 
-  # {"runId", "IOS" => {buildNumber, buildId}, "MAC_OS" => {...}} from the newest run that published both, else Error.
+  # {"runId", "IOS" => {buildNumber, buildId}, "MAC_OS" => {...}} from the newest run that published every one of
+  # platforms (both by default; ["IOS"] for an iOS-only submission), else Error.
   # artifacts answers runs(sha) ([{id, created_at}] of runs holding a summary artifact for sha) and
   # summary(run_id, artifact, file) (parsed JSON, or nil when the run has no such artifact).
-  def self.find(sha, artifacts)
+  def self.find(sha, artifacts, platforms: SUMMARIES.keys)
     reasons = []
+    wanted = SUMMARIES.slice(*platforms)
     candidates = candidate_runs(artifacts.runs(sha))
     reasons << "No TestFlight run uploaded a publish summary for it." if candidates.empty?
     candidates.each do |run|
       builds = {}
-      problems = SUMMARIES.filter_map do |platform, (artifact, file)|
+      problems = wanted.filter_map do |platform, (artifact, file)|
         summary = artifacts.summary(run["id"], format(artifact, sha), file)
         problem = summary_problem(summary, platform, sha)
         builds[platform] = summary.slice("buildNumber", "buildId") unless problem
@@ -40,7 +42,8 @@ module ReleaseTrainBuilds
 
       reasons << "Run #{run['id']}: #{problems.join('; ')}."
     end
-    raise Error, "No TestFlight run published both an iOS and a Mac build from #{sha}. #{reasons.join(' ')} " \
+    builds = platforms.map { |platform| { "IOS" => "an iOS", "MAC_OS" => "a Mac" }.fetch(platform) }.join(" and ")
+    raise Error, "No TestFlight run published #{platforms.size > 1 ? 'both ' : ''}#{builds} build from #{sha}. #{reasons.join(' ')} " \
                  "Dispatch TestFlight for this commit, then try again."
   end
 

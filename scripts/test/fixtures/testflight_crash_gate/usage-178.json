@@ -1,0 +1,26 @@
+{
+  "data": [
+    {
+      "type": "betaBuildUsages",
+      "dataPoints": [
+        {
+          "start": "2025-11-15",
+          "end": "2026-11-15",
+          "values": {
+            "installCount": 0,
+            "crashCount": 0,
+            "sessionCount": 0,
+            "inviteCount": 1,
+            "feedbackCount": 0
+          }
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "paging": {
+      "total": 1,
+      "limit": 50
+    }
+  }
+}

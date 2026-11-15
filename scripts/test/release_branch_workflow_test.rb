@@ -86,7 +86,8 @@ class ReleaseBranchWorkflowTest < Minitest::Test
       steps = workflow(name).fetch("jobs").values.first.fetch("steps")
       train = steps.index { |step| step["id"] == "train" }
       refute_nil train, "#{name} must find both builds"
-      assert_equal "inputs.platform == 'BOTH'", steps[train]["if"]
+      # Submitting iOS alone pins its build to the source commit too (the TestFlight crash gate's Launch smoke check).
+      assert_equal(name == "submit-app-store-review.yml" ? "inputs.platform != 'MAC_OS'" : "inputs.platform == 'BOTH'", steps[train]["if"])
       assert_match(/scripts\/release-train-builds\.rb .*--sha "\$SOURCE_SHA"/, steps[train]["run"])
       assert_equal "${{ steps.green.outputs.sha }}", steps[train].dig("env", "SOURCE_SHA")
       first_secret = steps.index { |step| step.fetch("env", {}).values.any? { |value| value.to_s.include?("secrets.") } }

@@ -7,10 +7,13 @@
 # Without --apply it only prints what it would do. BOTH plans iOS and then the Mac, and submits either only once both
 # plans succeed. --build-id PLATFORM=ID refuses a version whose attached build is not that one; BOTH needs one for
 # each platform (scripts/release-train-builds.rb). Needs ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_BASE64.
+# Every attached build must pass the TestFlight crash gate (scripts/lib/testflight_crash_gate.rb), dry run or not;
+# --crash-gate-override "REASON" submits a refused build anyway and records the reason in the run summary.
 require "base64"
 require "json"
 require "optparse"
 require_relative "lib/app_store_review_submission"
+require_relative "lib/testflight_crash_gate"
 
 PLATFORMS = %w[IOS MAC_OS].freeze
 root = File.expand_path("..", __dir__)
@@ -26,6 +29,7 @@ OptionParser.new do |opts|
   end
   opts.on("--listing PATH") { |value| options[:listing] = value }
   opts.on("--apply") { options[:apply] = true }
+  opts.on("--crash-gate-override REASON") { |value| options[:override] = value.strip.empty? ? nil : value.strip }
 end.parse!
 abort "--platform IOS|MAC_OS|BOTH and --version are required" unless options[:platform] && options[:version]
 platforms = options[:platform] == "BOTH" ? PLATFORMS : [options[:platform]]
@@ -43,8 +47,20 @@ runners = platforms.map do |platform|
                                                version_string: options[:version], build_id: options[:build_ids][platform])
 end
 begin
-  # Every platform's plan first, so one that cannot be submitted stops the train before anything is sent.
-  runners.each(&:check) if runners.length > 1
+  # Every platform's plan and crash gate first, so one that cannot be submitted stops the train before anything is sent.
+  refused = runners.reject do |runner|
+    version, = runner.check
+    facts = TestflightCrashGate::Reader.new(client, app_id: runner.app_id).facts(version.fetch("buildId"))
+    result = TestflightCrashGate.evaluate(facts, now: Time.now)
+    summary = TestflightCrashGate.summary(runner.platform, options[:version], result, override: options[:override])
+    puts summary
+    File.write(ENV["GITHUB_STEP_SUMMARY"], summary, mode: "a") if ENV["GITHUB_STEP_SUMMARY"]
+    result["pass"]
+  end
+  if !refused.empty? && options[:override].nil?
+    abort "The TestFlight crash gate refused #{refused.map(&:platform).join(' and ')}; see above. Fix the build, wait out the " \
+          "soak window, or pass crash_gate_override with a reason."
+  end
   runners.each do |runner|
     puts "#{runner.platform} #{options[:version]}:"
     runner.run(apply: options[:apply])

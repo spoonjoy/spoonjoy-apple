@@ -1,0 +1,12 @@
+{
+  "data": {
+    "type": "builds",
+    "id": "86c842c6-17a6-4185-a03a-66f7b303d7de",
+    "attributes": {
+      "version": "174",
+      "uploadedDate": "2026-11-14T15:42:28-08:00",
+      "expired": false,
+      "processingState": "VALID"
+    }
+  }
+}

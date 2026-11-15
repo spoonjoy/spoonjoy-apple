@@ -77,4 +77,16 @@ class ReleaseTrainBuildsTest < Minitest::Test
     error = assert_raises(ReleaseTrainBuilds::Error) { ReleaseTrainBuilds.find(SHA, artifacts) }
     assert_match(/Run 9: macOS build 61 is PROCESSING, not VALID/, error.message)
   end
+
+  # An iOS-only submission pins the attached build to the source commit too, so the Launch smoke the gate checks on
+  # that commit is the build's own.
+  def test_finds_only_the_ios_build_for_an_ios_submission
+    artifacts = FakeArtifacts.new(9 => { "testflight-publish-summary.json" => ios })
+    found = ReleaseTrainBuilds.find(SHA, artifacts, platforms: ["IOS"])
+    assert_equal 9, found["runId"]
+    assert_equal ios.slice("buildNumber", "buildId"), found["IOS"]
+    refute found.key?("MAC_OS")
+    error = assert_raises(ReleaseTrainBuilds::Error) { ReleaseTrainBuilds.find(SHA, FakeArtifacts.new(9 => {}), platforms: ["IOS"]) }
+    assert_match(/\ANo TestFlight run published an iOS build from #{SHA}\. Run 9: no iOS summary\./, error.message)
+  end
 end

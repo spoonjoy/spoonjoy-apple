@@ -460,6 +460,14 @@ No agent takes App Store screenshots; CI makes them from the commit being releas
 
 Every caption must stay true of the build it ships with (Guideline 2.3). The first three shots of a set are the ones search results show, so they lead with cook mode, a recipe and the kitchen. One shot is in Dark Mode.
 
+## TestFlight crash gate
+
+"Submit for App Review" refuses a version unless its build has proven itself in TestFlight, so a launch crash like iOS 1.2's never needs an expedited review (only the Account Holder can ask for one). The gate runs in the dry run too, so the plan shows it.
+
+- **The build** (`scripts/lib/testflight_crash_gate.rb`, read from App Store Connect): at least one tester installed it from TestFlight, it was uploaded at least 12 hours ago, TestFlight counted no crash on it (`GET /v1/builds/{id}/metrics/betaBuildUsages`) and no tester sent crash feedback for it (`betaFeedbackCrashSubmissions`). Xcode Organizer diagnostics are listed but never refuse.
+- **The source commit** (iOS and BOTH, `scripts/require-launch-smoke.rb`): an After TestFlight run or a dispatch of `launch-smoke.yml` on that commit where every device family's Launch smoke job passed (a pull request's run tests the merge, so it doesn't count). Launch smoke launches the Release app three times at the iPhone's 1 MB main-thread stack (#355). An iOS-only submission, like BOTH, must have the build TestFlight published from that commit attached, so the smoke checked is the build's own. Release branches don't run Launch smoke on push: dispatch `launch-smoke.yml` on the branch first. A Launch smoke refusal still shows the rest of the plan, then stops.
+- **Override:** `crash_gate_override` with a reason submits anyway. The run summary records what the gate found and the reason. Use it only when the refusal is understood, for example a P0 fix nobody can install before review; phased release and the auto-pause watcher still stand behind it.
+
 ## App Review
 
 While any version is with App Review, check its state at the start of every session and after every long wait, not only CI. Apple announces a rejection only by email and in App Store Connect, so it can sit unseen for hours.
