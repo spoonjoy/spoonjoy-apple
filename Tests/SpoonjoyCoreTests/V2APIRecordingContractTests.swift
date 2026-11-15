@@ -163,6 +163,7 @@ struct V2APIRecordingContractTests {
         "connections-list",
         "connection-disconnect",
         "account-delete",
+        "native-config",
         "report-create",
         "report-create-again",
         "blocks-list",
@@ -280,6 +281,7 @@ struct V2APIRecordingContractTests {
         case "connections-list": try envelope(SettingsOAuthConnectionListResponse.self, data)
         case "connection-disconnect": try envelope(JSONValue.self, data)
         case "account-delete": try envelope(AccountDeletionResult.self, data)
+        case "native-config": try envelope(NativeConfigResponse.self, data)
         case "report-create", "report-create-again": try envelope(ContentReportResponse.self, data)
         case "blocks-list": try envelope(ChefBlockListResponse.self, data)
         case "block-create": try envelope(ChefBlockResponse.self, data)
