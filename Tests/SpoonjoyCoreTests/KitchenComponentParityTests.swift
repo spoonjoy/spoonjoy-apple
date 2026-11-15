@@ -189,6 +189,27 @@ struct KitchenComponentParityTests {
         return (0...(lines.count - expected.count)).contains { Array(lines[$0..<($0 + expected.count)]) == expected }
     }
 
+    @Test("step names dress as on web: ink in cook mode, ink-soft STEP eyebrow, Fraunces names in the spread's Method")
+    func stepNamesMatchWeb() throws {
+        // Web: `RecipeCookView.tsx` sets the step name in `--sj-ink`, `StepCard.tsx` the "STEP 1" eyebrow in `--sj-ink-soft`.
+        let heading = try Self.member("private func stepHeading(", in: "\(Self.views)/CookModeView.swift")
+        #expect(heading.contains(".foregroundStyle(KitchenTableTheme.ink)"))
+        #expect(!heading.contains("KitchenTableTheme.brass"))
+        let eyebrow = try Self.member("private func stepEyebrow(", in: "\(Self.views)/RecipeDetailView.swift")
+        #expect(eyebrow.contains(".kitchenEyebrow(KitchenTableTheme.ink2)"))
+        let spreadStep = try Self.member("private func spreadMethodStep(", in: "\(Self.views)/RecipeDetailView.swift")
+        #expect(spreadStep.contains("KitchenTableTheme.stepTitle"))
+        #expect(!spreadStep.contains("KitchenTableTheme.objectTitle"))
+    }
+
+    /// A member declared at one level of indentation, up to its closing brace.
+    static func member(_ start: String, in path: String) throws -> String {
+        let text = try source(path)
+        let begin = try #require(text.range(of: start), "\(start) in \(path)")
+        let end = text.range(of: "\n    }\n", range: begin.upperBound..<text.endIndex)?.upperBound ?? text.endIndex
+        return String(text[begin.lowerBound..<end])
+    }
+
     /// One top-level declaration: from its line to the closing brace at the start of a line.
     static func declaration(_ start: String, in path: String) throws -> String {
         let text = try source(path)
