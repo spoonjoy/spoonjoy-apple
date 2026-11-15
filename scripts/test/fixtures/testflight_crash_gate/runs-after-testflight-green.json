@@ -1,0 +1,90 @@
+{
+    "id": 43654906339,
+    "jobs": [
+        {
+            "conclusion": "success",
+            "name": "Pick the main commit",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Feel / Feel paths",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Launch smoke / Launch smoke (build the Release app)",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Journeys / Live journeys",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "App Intents X-ray / App Intents X-ray (behaviour, main)",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Beta SDK / Find Xcode 27.1+ on the runner",
+            "status": "completed"
+        },
+        {
+            "conclusion": "failure",
+            "name": "Journeys / Duo journeys",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Journeys / Parity capture (iphone)",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Journeys / Siri journey",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Journeys / Parity capture (ipad)",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Journeys / Shopping UI tests",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Feel / Feel (every screen lands still; the way back)",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Beta SDK / Beta SDK build (27.1)",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Beta SDK / Beta SDK build (27.2)",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Launch smoke / Launch smoke (iPhone Duo)",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Launch smoke / Launch smoke (iPad)",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Launch smoke / Launch smoke (iPhone)",
+            "status": "completed"
+        }
+    ]
+}

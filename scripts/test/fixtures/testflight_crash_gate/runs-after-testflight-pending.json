@@ -1,0 +1,80 @@
+{
+    "id": 43678135576,
+    "jobs": [
+        {
+            "conclusion": "success",
+            "name": "Pick the main commit",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Feel / Feel paths",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "Launch smoke / Launch smoke (build the Release app)",
+            "status": "completed"
+        },
+        {
+            "conclusion": null,
+            "name": "Journeys / Live journeys",
+            "status": "pending"
+        },
+        {
+            "conclusion": null,
+            "name": "Beta SDK / Find Xcode 27.1+ on the runner",
+            "status": "pending"
+        },
+        {
+            "conclusion": null,
+            "name": "Journeys / Shopping UI tests",
+            "status": "in_progress"
+        },
+        {
+            "conclusion": "success",
+            "name": "Journeys / Duo journeys",
+            "status": "completed"
+        },
+        {
+            "conclusion": "success",
+            "name": "App Intents X-ray / App Intents X-ray (behaviour, main)",
+            "status": "completed"
+        },
+        {
+            "conclusion": null,
+            "name": "Journeys / Siri journey",
+            "status": "pending"
+        },
+        {
+            "conclusion": null,
+            "name": "Journeys / Parity capture (iphone)",
+            "status": "pending"
+        },
+        {
+            "conclusion": null,
+            "name": "Journeys / Parity capture (ipad)",
+            "status": "pending"
+        },
+        {
+            "conclusion": null,
+            "name": "Feel / Feel (every screen lands still; the way back)",
+            "status": "pending"
+        },
+        {
+            "conclusion": null,
+            "name": "Launch smoke / Launch smoke (iPad)",
+            "status": "pending"
+        },
+        {
+            "conclusion": null,
+            "name": "Launch smoke / Launch smoke (iPhone)",
+            "status": "pending"
+        },
+        {
+            "conclusion": null,
+            "name": "Launch smoke / Launch smoke (iPhone Duo)",
+            "status": "pending"
+        }
+    ]
+}
