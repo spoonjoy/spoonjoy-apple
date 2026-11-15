@@ -1,3 +1,4 @@
+import OuroHX
 import SpoonjoyCore
 import SwiftUI
 
@@ -142,6 +143,8 @@ struct SpoonjoyRootView: View {
             .overlay(alignment: .top) { journeySyncLog }
 #endif
             .environment(\.moderation, moderation)
+            // Ouro UI's components draw in Spoonjoy's own Cookbook theme: brass, tomato and paper instead of Pearl's blue.
+            .ouroTheme(.cookbook)
             .onChange(of: liveStore.bootstrapState.contentState.trustedAccountID, initial: true) { _, accountID in
                 moderation.useAccount(accountID)
             }
