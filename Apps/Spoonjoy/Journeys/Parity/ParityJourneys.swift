@@ -37,6 +37,6 @@ final class ParityJourneys: JourneyTestCase {
         try capture.cookStep(kitchen)
         try capture.cookFinish()
         // Last, as it leaves a second window open.
-        try capture.secondWindow()
+        try capture.secondWindow(kitchen)
     }
 }

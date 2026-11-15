@@ -20,6 +20,7 @@ struct ParityCapture {
 
     struct Kitchen: Sendable {
         let recipeID: String
+        let soupID: String
         let cookbookID: String
         let username: String
     }
@@ -54,7 +55,7 @@ struct ParityCapture {
         try await qa.addShoppingItem(name: shoppingItem, quantity: 1, unit: "cup")
         try await qa.addShoppingItem(name: "lemon", quantity: 1, unit: "whole")
         try await qa.addShoppingItem(name: "parsley", quantity: 0.25, unit: "cup")
-        return Kitchen(recipeID: riceID, cookbookID: weeknightID, username: account.username)
+        return Kitchen(recipeID: riceID, soupID: soupID, cookbookID: weeknightID, username: account.username)
     }
 
     /// Shoots the screen as it stands in light, then in dark, and leaves the simulator light. On the iPad it then turns
@@ -249,11 +250,13 @@ struct ParityCapture {
     /// On the iPad, the soup opened in a window of its own from its Kitchen row's menu: the second scene. Shot of the
     /// whole screen, upright only. Other devices have no such menu item here, so this does nothing there. The soup,
     /// because after cook mode the rice is the Kitchen's hero, which has no menu.
-    func secondWindow() throws {
+    func secondWindow(_ kitchen: Kitchen) throws {
         guard device == "ipad" else { return }
         journey.openLink(try link("kitchen"))
         let row = journey.element(JourneyID.kitchenRecipe, labelContaining: Self.soupTitle)
         wait(row, "The kitchen does not list \(Self.soupTitle).")
+        // At AX5 the hero can push the index row below the first screen.
+        journey.swipeUpUntilHittable(row)
         row.press(forDuration: 1.2)
         let openInNewWindow = journey.copy(JourneyCopy.openInNewWindow)
         XCTAssertTrue(
@@ -267,7 +270,7 @@ struct ParityCapture {
         // required; the count goes in the failure message of the assertion above if that fails.
         let windows = journey.windowProbes
         XCTAssertTrue(
-            windows.contains { $0.contains("recipe") },
+            windows.contains { $0.contains(kitchen.soupID) },
             "No window reports the soup's recipe page: \(windows). Screen: \(journey.screen)"
         )
     }
