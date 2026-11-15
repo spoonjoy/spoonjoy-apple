@@ -572,7 +572,7 @@ struct RecipeLead: View {
     private var meta: String? {
         let parts = [
             RecipeCookTime.label(stepDurations: recipe.steps.map(\.duration)),
-            recipe.servings.map { "Serves \($0)" },
+            RecipeServingsLabel.label(recipe.servings),
             "by \(ChefHandle.wrapping(recipe.chef.username))"
         ]
         .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }

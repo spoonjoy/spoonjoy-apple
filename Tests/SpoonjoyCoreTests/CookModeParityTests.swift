@@ -99,7 +99,7 @@ struct CookModeParityTests {
         ])
         let edgeProgress = CookModeProgress.starting(recipe: edgeRecipe, startedAt: "2026-06-25T12:05:00.000Z")
         let edgeViewModel = CookModeViewModel(recipe: edgeRecipe, progress: edgeProgress)
-        #expect(edgeViewModel.ingredientChecklistRows.map(\.quantityText) == ["½", "1.2 cup", "1 cup", "-¼ tsp"])
+        #expect(edgeViewModel.ingredientChecklistRows.map(\.quantityText) == ["½", "1 ¼ cups", "cup", "-¼ tsp"])
         #expect(edgeViewModel.stepOutputChecklistRows.map(\.title) == ["Step 99"])
     }
 
@@ -127,7 +127,7 @@ struct CookModeParityTests {
             "ingredient_lemon_pasta_oil",
             "ingredient_lemon_pasta_garlic"
         ])
-        #expect(viewModel.ingredientChecklistRows.map(\.quantityText) == ["2 ½ each", "5 tbsp", "5 clove"])
+        #expect(viewModel.ingredientChecklistRows.map(\.quantityText) == ["2 ½ each", "5 tbsp", "5 cloves"])
         #expect(viewModel.ingredientChecklistRows.last?.isChecked == true)
         #expect(viewModel.stepOutputChecklistRows.map(\.title) == ["Step 1: Boil Pasta"])
         #expect(viewModel.stepOutputChecklistRows.first?.isChecked == true)

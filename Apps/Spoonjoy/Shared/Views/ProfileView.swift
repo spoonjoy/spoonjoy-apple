@@ -276,7 +276,8 @@ private struct ProfileRecipeShelf: View {
     }
 
     private func recipeSubtitle(_ recipe: ProfileRecipeSummary) -> String? {
-        [recipe.description, recipe.servings]
+        // The servings read "Serves 4", as on web's chef page, never a bare "4".
+        [recipe.description, RecipeServingsLabel.label(recipe.servings)]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first { !$0.isEmpty }
     }

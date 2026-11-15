@@ -40,20 +40,10 @@ public struct ShoppingListItem: Codable, Equatable, Sendable {
         checked || checkedAt != nil
     }
 
+    /// The amount as web's shopping list writes it: "¼ cup", "2 cups", and counted things rounded up to a whole
+    /// number with "whole" left out ("2" lemons).
     public var displayQuantity: String {
-        guard let quantity else {
-            return unit ?? ""
-        }
-
-        let formattedQuantity = quantity.truncatingRemainder(dividingBy: 1) == 0
-            ? String(Int(quantity))
-            : String(quantity)
-
-        guard let unit, !unit.isEmpty else {
-            return formattedQuantity
-        }
-
-        return "\(formattedQuantity) \(unit)"
+        RecipeQuantityFormatter.amountText(quantity: quantity, unit: unit, roundCountsUp: true)
     }
 
     func settingChecked(_ checked: Bool, checkedAt: String?, updatedAt: String, nextSortIndex: Int) -> ShoppingListItem {

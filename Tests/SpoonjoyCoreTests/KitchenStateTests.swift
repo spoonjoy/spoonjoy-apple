@@ -139,7 +139,7 @@ struct KitchenStateTests {
             updatedAt: "2026-06-01T00:00:00.000Z"
         )
 
-        #expect(decimalItem.displayQuantity == "1.5")
+        #expect(decimalItem.displayQuantity == "1 ½")
         #expect(emptyQuantityItem.displayQuantity == "")
         #expect(tiedSortState.activeItems.map(\.id) == ["item_decimal", "item_empty_quantity"])
         #expect(tiedSortState.receiptSections.map(\.title) == ["Pantry Dry Goods", "Other"])
