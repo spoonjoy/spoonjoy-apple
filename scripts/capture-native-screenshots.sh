@@ -2303,10 +2303,12 @@ run_ios_smoke() {
     if [[ "$attempt" -lt "$ios_smoke_attempts" ]]; then
       local retry_udid=""
       retry_udid="$(ios_udid_from_smoke_log "$smoke_log" || true)"
+      # Shut down only the simulator this run booted, by UDID. Other agents share this Mac's simulators.
+      [[ -n "$retry_udid" ]] || retry_udid="$preferred_udid"
       if [[ -n "$retry_udid" ]]; then
         xcrun simctl shutdown "$retry_udid" >> "$capture_log" 2>&1 || true
       else
-        xcrun simctl shutdown all >> "$capture_log" 2>&1 || true
+        printf '%s smoke log names no booted simulator; leaving other simulators running\n' "$label" >> "$capture_log"
       fi
       sleep 2
     fi

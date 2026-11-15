@@ -311,7 +311,8 @@ struct NativeMobileDesignContractTests {
                 "registered as running before foreground pixel validation",
                 "continuing to foreground/proof checks",
                 "date -u '+%Y-%m-%d %H:%M:%S'",
-                "--start \"$launched_at\""
+                "--start \"$launched_at\"",
+                "simctl shutdown all"
             ]
         )
         expectContent(
@@ -323,7 +324,8 @@ struct NativeMobileDesignContractTests {
                 "SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES:-0"
             ],
             forbids: [
-                "SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES:-1"
+                "SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES:-1",
+                "simctl shutdown all"
             ]
         )
     }
