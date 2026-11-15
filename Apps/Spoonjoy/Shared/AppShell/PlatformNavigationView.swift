@@ -1406,7 +1406,10 @@ struct PlatformNavigationView: View {
     }
 
     private func destinationContent(for route: AppRoute) -> some View {
-        destinationRoute(for: route)
+        // Type-erased on purpose. Unerased, every page's view type nests inside every tab's, and decoding that one
+        // type name at launch overflowed an iPhone's 1 MB main-thread stack (1.2 to 1.3; the simulator's 8 MB hid it).
+        // Erasing here keeps the shell's type shallow whatever the pages grow into.
+        AnyView(destinationRoute(for: route))
             // A missing page offers the way back to the recipes.
             .environment(\.spoonjoyBackToRecipes) { openRoute(.recipes) }
             // A recipe row's long-press menu adds its ingredients to the shopping list.
