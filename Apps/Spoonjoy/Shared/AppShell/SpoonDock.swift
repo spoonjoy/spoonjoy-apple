@@ -112,11 +112,11 @@ struct SpoonDock: View {
         }
     }
 
-    /// At accessibility sizes the dock stacks into two rows. The rows sit further apart than the glass merge
-    /// distance, so the Next chevron never fuses onto the Mark step capsule above it (#276).
+    /// At accessibility sizes the dock stacks into two rows. The rows sit well past the glass merge distance, so the
+    /// Next chevron never fuses onto the Mark step capsule above it (#276).
     private var accessibilityDock: some View {
-        VStack(alignment: .leading, spacing: SpoonDockMetrics.accessibilitySpacing) {
-            HStack(spacing: SpoonDockMetrics.accessibilitySpacing) {
+        VStack(alignment: .leading, spacing: SpoonDockMetrics.accessibilityRowSpacing) {
+            HStack(spacing: SpoonDockMetrics.itemSpacing) {
                 if showsLeftZone {
                     dockButton(context.leftZone, prominence: .supporting)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -266,9 +266,9 @@ private enum SpoonDockMetrics {
     static let horizontalPadding: CGFloat = 8
     static let verticalPadding: CGFloat = 7
     static let itemSpacing: CGFloat = 6
-    /// The gap between controls in the stacked accessibility dock: wider than `glassMergeSpacing`, so its pieces
-    /// stay separate glass.
-    static let accessibilitySpacing: CGFloat = glassMergeSpacing + 4
+    /// The gap between the stacked accessibility dock's rows: twice `glassMergeSpacing`, so the rows stay separate
+    /// glass even while a pressed control swells.
+    static let accessibilityRowSpacing: CGFloat = glassMergeSpacing * 2
     static let handrailSpacing: CGFloat = 14
     static let toolSpacing: CGFloat = 5
     static let supportingWidth: CGFloat = 82

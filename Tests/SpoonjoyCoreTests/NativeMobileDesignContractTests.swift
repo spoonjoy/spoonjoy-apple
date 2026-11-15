@@ -518,9 +518,8 @@ struct NativeMobileDesignContractTests {
             dock,
             in: dockPath,
             contains: [
-                "static let accessibilitySpacing: CGFloat = glassMergeSpacing + 4",
-                "VStack(alignment: .leading, spacing: SpoonDockMetrics.accessibilitySpacing)",
-                "HStack(spacing: SpoonDockMetrics.accessibilitySpacing)"
+                "static let accessibilityRowSpacing: CGFloat = glassMergeSpacing * 2",
+                "VStack(alignment: .leading, spacing: SpoonDockMetrics.accessibilityRowSpacing)"
             ],
             forbids: [
                 "VStack(alignment: .leading, spacing: SpoonDockMetrics.itemSpacing)"
