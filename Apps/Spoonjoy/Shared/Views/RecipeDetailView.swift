@@ -1075,8 +1075,9 @@ struct RecipeDetailView: View {
     }
 
     private func stepEyebrow(_ section: RecipeDetailStepSection) -> some View {
+        // Web's recipe page sets "STEP 1" in `--sj-ink-soft`; brass is kept for the step you are on in cook mode.
         Text("Step \(section.stepNumber)")
-            .kitchenEyebrow()
+            .kitchenEyebrow(KitchenTableTheme.ink2)
             .accessibilityLabel("Step \(section.stepNumber)")
     }
 
@@ -1729,8 +1730,9 @@ extension RecipeDetailView {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 8) {
                     if let title = section.title, !title.isEmpty {
+                        // The step's name in Fraunces, as the recipe page and web set it.
                         Text(title)
-                            .font(KitchenTableTheme.objectTitle)
+                            .font(KitchenTableTheme.stepTitle)
                             .foregroundStyle(KitchenTableTheme.ink)
                     }
                     Text(section.body)

@@ -868,7 +868,8 @@ struct CookModeView: View {
     private func stepHeading(_ step: RecipeStep, scale: Double = 1) -> some View {
         Text(step.stepTitle ?? "Step \(step.stepNum)")
             .font(KitchenTypeRole.stepTitle.font(scaledBy: scale))
-            .foregroundStyle(KitchenTableTheme.brass)
+            // Ink, as web's cook mode sets the step name (`--sj-ink`); brass stays for the step count above it.
+            .foregroundStyle(KitchenTableTheme.ink)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)
             .accessibilityLabel("Current cooking step \(step.stepNum), \(step.stepTitle ?? "Step")")
