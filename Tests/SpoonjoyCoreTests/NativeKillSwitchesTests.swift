@@ -78,12 +78,47 @@ struct NativeKillSwitchesTests {
             store.save(saved)
             #expect(NativeKillSwitchStore(defaults: defaults).load() == saved)
 
-            defaults.set(Data(#"{"cook-session-sync":{"off":true},"retired-feature":{"off":true}}"#.utf8), forKey: NativeKillSwitchStore.key)
+            let savedAt = Date().timeIntervalSinceReferenceDate
+            defaults.set(Data(#"{"savedAt":\#(savedAt),"switches":{"cook-session-sync":{"off":true},"retired-feature":{"off":true}}}"#.utf8), forKey: NativeKillSwitchStore.key)
             #expect(store.load() == NativeKillSwitches(off: [.cookSessionSync]))
+
+            // Switches saved without the time they were saved cannot be aged, so they read as everything on.
+            defaults.set(Data(#"{"cook-session-sync":{"off":true}}"#.utf8), forKey: NativeKillSwitchStore.key)
+            #expect(store.load() == .allOn)
 
             defaults.set(Data("garbage".utf8), forKey: NativeKillSwitchStore.key)
             #expect(store.load() == .allOn)
         }
+    }
+
+    @Test("saved switches older than 7 days are dropped, so everything is on again")
+    func staleSwitches() async throws {
+        try await Self.withDefaults { defaults in
+            let store = NativeKillSwitchStore(defaults: defaults)
+            let savedAt = Date(timeIntervalSinceReferenceDate: 800_000_000)
+            store.save(NativeKillSwitches(off: [.cookSessionSync, .spotlightIndexing]), at: savedAt)
+
+            #expect(NativeKillSwitchStore.maxAge == 7 * 24 * 60 * 60)
+            #expect(store.load(now: savedAt.addingTimeInterval(NativeKillSwitchStore.maxAge)) == NativeKillSwitches(off: [.cookSessionSync, .spotlightIndexing]))
+            #expect(store.load(now: savedAt.addingTimeInterval(NativeKillSwitchStore.maxAge + 1)) == .allOn)
+
+            // A launch eight days on runs with every feature on, and a failed refresh does not bring the old switches back.
+            let center = NativeKillSwitchCenter(store: store, now: { savedAt.addingTimeInterval(8 * 24 * 60 * 60) }) {
+                throw URLError(.notConnectedToInternet)
+            }
+            #expect(center.current == .allOn)
+            #expect(await center.refresh() == nil)
+            #expect(center.current == .allOn)
+        }
+    }
+
+    @Test("gives up on a read that runs past its deadline in all")
+    func fetchDeadline() async throws {
+        let started = ContinuousClock.now
+        await #expect(throws: URLError.self) {
+            _ = try await NativeConfigRequests.fetch(baseURL: Self.baseURL, session: HangingSession(), deadline: .milliseconds(50))
+        }
+        #expect(ContinuousClock.now - started < .seconds(30))
     }
 
     @Test("reads the public config with a short timeout and no credentials")
@@ -143,21 +178,65 @@ struct NativeKillSwitchesTests {
         }
     }
 
-    @Test("the background refresh runs once per process")
-    func centerRefreshesOnce() async throws {
+    @Test("background refreshes run at most once every 15 minutes, and each adopts newly switched-off features")
+    func centerRefreshThrottle() async throws {
         try await Self.withDefaults { defaults in
             let fetches = FetchCounter()
-            let center = NativeKillSwitchCenter(store: NativeKillSwitchStore(defaults: defaults)) {
+            let clock = TestClock(Date(timeIntervalSinceReferenceDate: 800_000_000))
+            let center = NativeKillSwitchCenter(store: NativeKillSwitchStore(defaults: defaults), now: { clock.now }) {
                 await fetches.increment()
-                return NativeKillSwitches(off: [.cookSessionSync])
+                return await fetches.count == 1 ? NativeKillSwitches(off: [.cookSessionSync]) : NativeKillSwitches(off: [.spotlightIndexing])
             }
-            let first = center.refreshInBackgroundOnce()
-            let second = center.refreshInBackgroundOnce()
-            await first.value
-            await second.value
+            #expect(NativeKillSwitchCenter.defaultRefreshInterval == 15 * 60)
+
+            // Launch refreshes.
+            _ = await center.refreshInBackgroundIfDue()?.value
             #expect(await fetches.count == 1)
-            #expect(center.isOff(.cookSessionSync))
+            #expect(center.current == NativeKillSwitches(off: [.cookSessionSync]))
+
+            // Coming to the foreground soon after does not.
+            clock.advance(by: 14 * 60)
+            #expect(center.refreshInBackgroundIfDue() == nil)
+            #expect(await fetches.count == 1)
+
+            // Fifteen minutes after the last refresh it does. Spotlight goes off now; cook sessions, back on at the
+            // server, stay off until the next launch.
+            clock.advance(by: 60)
+            _ = await center.refreshInBackgroundIfDue()?.value
+            #expect(await fetches.count == 2)
+            #expect(center.current == NativeKillSwitches(off: [.cookSessionSync, .spotlightIndexing]))
+            #expect(center.refreshInBackgroundIfDue() == nil)
+
+            // A clock set back never stops refreshes.
+            clock.advance(by: -60 * 60)
+            _ = await center.refreshInBackgroundIfDue()?.value
+            #expect(await fetches.count == 3)
         }
+    }
+}
+
+/// A session that never answers until it is cancelled.
+private struct HangingSession: URLSessionPerforming {
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        try await Task.sleep(for: .seconds(60))
+        throw URLError(.cannotConnectToHost)
+    }
+}
+
+private final class TestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var date: Date
+
+    init(_ date: Date) {
+        self.date = date
+    }
+
+    var now: Date {
+        lock.withLock { date }
+    }
+
+    func advance(by interval: TimeInterval) {
+        lock.withLock { date = date.addingTimeInterval(interval) }
     }
 }
 

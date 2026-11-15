@@ -86,23 +86,31 @@ public struct NativeConfigResponse: Decodable, Equatable, Sendable {
     }
 }
 
-/// Keeps the last switches the server sent, for the next launch to read before anything else runs.
+/// Keeps the last switches the server sent, and when, for the next launch to read before anything else runs.
 public struct NativeKillSwitchStore: @unchecked Sendable {
     public static let key = "SpoonjoyNativeKillSwitches"
+    /// Saved switches older than this are dropped, so a device that cannot reach the server never keeps a feature off for good.
+    public static let maxAge: TimeInterval = 7 * 24 * 60 * 60
     private let defaults: UserDefaults
+
+    private struct Saved: Codable {
+        let savedAt: Date
+        let switches: [String: NativeKillSwitch]
+    }
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
     }
 
-    /// The saved switches; everything on when nothing was saved or the saved value cannot be read.
-    public func load() -> NativeKillSwitches {
+    /// The saved switches; everything on when nothing was saved, the saved value cannot be read, or it is older than `maxAge`.
+    public func load(now: Date = Date()) -> NativeKillSwitches {
         guard let data = defaults.data(forKey: Self.key),
-              let saved = try? JSONDecoder().decode([String: NativeKillSwitch].self, from: data) else {
+              let saved = try? JSONDecoder().decode(Saved.self, from: data),
+              now.timeIntervalSince(saved.savedAt) <= Self.maxAge else {
             return .allOn
         }
         var switchedOff: [NativeFeature: NativeKillSwitch] = [:]
-        for (name, killSwitch) in saved {
+        for (name, killSwitch) in saved.switches {
             if let feature = NativeFeature(rawValue: name) {
                 switchedOff[feature] = killSwitch
             }
@@ -110,16 +118,16 @@ public struct NativeKillSwitchStore: @unchecked Sendable {
         return NativeKillSwitches(switchedOff: switchedOff)
     }
 
-    public func save(_ killSwitches: NativeKillSwitches) {
-        let saved = Dictionary(uniqueKeysWithValues: killSwitches.switchedOff.map { ($0.key.rawValue, $0.value) })
-        // Encoding a dictionary of strings and optional strings cannot fail.
-        defaults.set(try? JSONEncoder().encode(saved), forKey: Self.key)
+    public func save(_ killSwitches: NativeKillSwitches, at savedAt: Date = Date()) {
+        let switches = Dictionary(uniqueKeysWithValues: killSwitches.switchedOff.map { ($0.key.rawValue, $0.value) })
+        // Encoding a date and a dictionary of strings and optional strings cannot fail.
+        defaults.set(try? JSONEncoder().encode(Saved(savedAt: savedAt, switches: switches)), forKey: Self.key)
     }
 }
 
 /// Reads `GET /api/v1/native/config` without credentials, so an expired session never hides a switch.
 public enum NativeConfigRequests {
-    /// Short, because the answer only matters at the next launch and the app never waits for it.
+    /// The whole read's deadline, connection to decoded answer. Short, because the app never waits for it.
     public static let timeout: TimeInterval = 5
 
     public static func urlRequest(baseURL: URL) -> URLRequest {
@@ -133,39 +141,69 @@ public enum NativeConfigRequests {
         return request
     }
 
-    /// The server's switches; throws on any failure, so the caller keeps what it had.
+    /// The server's switches; throws on any failure, or when the read takes longer than `deadline` in all, so the
+    /// caller keeps what it had. (`URLRequest.timeoutInterval` alone only limits the wait between bytes.)
     public static func fetch(
         baseURL: URL,
-        session: any URLSessionPerforming = URLSession.shared
+        session: any URLSessionPerforming = URLSession.shared,
+        deadline: Duration = .seconds(timeout)
     ) async throws -> NativeKillSwitches {
-        let (data, response) = try await session.data(for: urlRequest(baseURL: baseURL))
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw URLError(.badServerResponse)
+        let request = urlRequest(baseURL: baseURL)
+        return try await withThrowingTaskGroup(of: NativeKillSwitches.self) { group in
+            group.addTask {
+                let (data, response) = try await session.data(for: request)
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                    throw URLError(.badServerResponse)
+                }
+                return try APIEnvelope<NativeConfigResponse>.decode(data).data.killSwitches
+            }
+            group.addTask {
+                try await Task.sleep(for: deadline)
+                throw URLError(.timedOut)
+            }
+            defer { group.cancelAll() }
+            // The first child to finish wins; a group with children always has a next result.
+            guard let first = try await group.next() else {
+                throw URLError(.timedOut)
+            }
+            return first
         }
-        return try APIEnvelope<NativeConfigResponse>.decode(data).data.killSwitches
     }
 }
 
 /// The switches this process runs with.
 ///
-/// At launch it reads the saved switches synchronously, with no network, so launch never waits. `refresh()` then
-/// fetches the server's switches in the background and saves them for the next launch (Firebase Remote Config's
-/// "activate on next launch"). A feature the server switches off is also off for the rest of this run from the next
-/// time it starts; a feature switched back on stays off until the next launch, so a feature never starts part-way
-/// through a run that began without it.
+/// At launch it reads the saved switches synchronously, with no network, so launch never waits. The app then
+/// refreshes them in the background at launch and whenever it comes to the foreground, at most once every
+/// `refreshInterval`, and saves them for the next launch (Firebase Remote Config's "activate on next launch"). A
+/// feature the server switches off is also off for the rest of this run from the next time it starts; a feature
+/// switched back on stays off until the next launch, so a feature never starts part-way through a run that began
+/// without it.
 public final class NativeKillSwitchCenter: @unchecked Sendable {
     public typealias Fetch = @Sendable () async throws -> NativeKillSwitches
 
+    /// The shortest time between two background refreshes.
+    public static let defaultRefreshInterval: TimeInterval = 15 * 60
+
     private let lock = NSLock()
     private var active: NativeKillSwitches
-    private var refreshTask: Task<Void, Never>?
+    private var lastRefreshStartedAt: Date?
     private let store: NativeKillSwitchStore
+    private let refreshInterval: TimeInterval
+    private let now: @Sendable () -> Date
     private let fetch: Fetch
 
-    public init(store: NativeKillSwitchStore, fetch: @escaping Fetch) {
+    public init(
+        store: NativeKillSwitchStore,
+        refreshInterval: TimeInterval = NativeKillSwitchCenter.defaultRefreshInterval,
+        now: @escaping @Sendable () -> Date = { Date() },
+        fetch: @escaping Fetch
+    ) {
         self.store = store
+        self.refreshInterval = refreshInterval
+        self.now = now
         self.fetch = fetch
-        active = store.load()
+        active = store.load(now: now())
     }
 
     /// The switches in force now.
@@ -183,22 +221,25 @@ public final class NativeKillSwitchCenter: @unchecked Sendable {
         guard let fetched = try? await fetch() else {
             return nil
         }
-        store.save(fetched)
+        store.save(fetched, at: now())
         lock.withLock { active = active.addingSwitchedOff(from: fetched) }
         return fetched
     }
 
-    /// Starts one background refresh for this process; later calls return the same task. Nothing awaits it at launch.
+    /// Starts a background refresh unless one started less than `refreshInterval` ago; then it returns nil. Called at
+    /// launch and each time the app comes to the foreground. Nothing awaits it.
     @discardableResult
-    public func refreshInBackgroundOnce() -> Task<Void, Never> {
+    public func refreshInBackgroundIfDue() -> Task<Void, Never>? {
         lock.withLock {
-            if let refreshTask {
-                return refreshTask
+            let startedAt = now()
+            // A clock set back counts as due, so a wrong clock never stops refreshes.
+            if let lastRefreshStartedAt, (0..<refreshInterval).contains(startedAt.timeIntervalSince(lastRefreshStartedAt)) {
+                return nil
             }
+            lastRefreshStartedAt = startedAt
             let task = Task.detached(priority: .utility) { [self] in
                 _ = await refresh()
             }
-            refreshTask = task
             return task
         }
     }
