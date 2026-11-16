@@ -14,7 +14,16 @@ on:
 permissions:
   contents: read
 
-# No concurrency group: main runs are never cancelled.
+# One run at a time, never cancelled once it runs; a newer main commit's run replaces one still waiting. Its jobs wait
+# one at a time in macOS lane c (native.yml), so a run takes hours, longer than main goes between merges. Without this,
+# every merge added about ten more lane c jobs for a commit main had already moved past, and pull requests' optional
+# jobs waited behind all of them: on 2026-11-16 five runs held 40 jobs in lane c for over three hours. The newest
+# commit's run covers the ones it replaces, as the commit check below already assumes. A run after a dispatched
+# TestFlight (a rollback, a release branch) skips itself, so it takes a group of its own and never replaces main's.
+# No queue: the default (one waiting) is the point; queue: max would bring the pile back.
+concurrency:
+  group: after-testflight-${{ github.event.workflow_run.event == 'workflow_run' && 'main' || github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   commit:

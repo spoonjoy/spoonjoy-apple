@@ -37,7 +37,8 @@ concurrency:
 # merge queue and main always have at least 2 Macs. Required checks never wait behind optional work. Merge-queue and
 # main or release push jobs take a group of their own and never wait in a lane; TestFlight, the signing dry run and
 # the review demo launch share the free Macs with them and are not laned. A lane holds at most 100 waiting jobs; past
-# that GitHub cancels the newest.
+# that GitHub cancels the newest. After TestFlight runs one main commit at a time (after-testflight.yml), so main's
+# optional jobs in lane c are one commit's, not every merge's.
 
 # Ari's Mac. A self-hosted runner on Ari's Mac (labels: spoonjoy-local-mac only, registered to this repository alone)
 # takes App bundle and Reins journeys on merge-queue and main or release push runs when it is idle, so the merge queue

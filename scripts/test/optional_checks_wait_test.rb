@@ -85,7 +85,11 @@ class OptionalChecksWaitTest < Minitest::Test
   def test_main_runs_optional_workflows_after_testflight
     doc = workflow("after-testflight.yml")
     assert_equal({ "workflows" => ["TestFlight"], "types" => ["completed"], "branches" => ["main"] }, triggers(doc).fetch("workflow_run"))
-    refute doc.key?("concurrency"), "main runs are never cancelled"
+    # One running, never cancelled; a newer commit's run replaces one still waiting, so lane c never piles up.
+    # A dispatched TestFlight's run skips itself, so it gets its own group and never replaces main's waiting run.
+    # No queue key: the default keeps one waiting run; queue: max would pile them up again.
+    assert_equal({ "group" => "after-testflight-${{ github.event.workflow_run.event == 'workflow_run' && 'main' || github.run_id }}",
+                   "cancel-in-progress" => false }, doc.fetch("concurrency"))
     jobs = doc.fetch("jobs")
     gate = jobs.fetch("commit")
     assert_includes gate.fetch("if"), "github.event.workflow_run.event == 'workflow_run'"
