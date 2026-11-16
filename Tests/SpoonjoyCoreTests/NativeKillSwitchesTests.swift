@@ -114,11 +114,12 @@ struct NativeKillSwitchesTests {
 
     @Test("gives up on a read that runs past its deadline in all")
     func fetchDeadline() async throws {
-        let started = ContinuousClock.now
-        await #expect(throws: URLError.self) {
+        // The session would answer only after an hour, so a timedOut error means the deadline won. (No wall-clock
+        // bound: a busy CI runner can stall every test for minutes.)
+        let error = await #expect(throws: URLError.self) {
             _ = try await NativeConfigRequests.fetch(baseURL: Self.baseURL, session: HangingSession(), deadline: .milliseconds(50))
         }
-        #expect(ContinuousClock.now - started < .seconds(30))
+        #expect(error?.code == .timedOut)
     }
 
     @Test("reads the public config with a short timeout and no credentials")
@@ -218,7 +219,7 @@ struct NativeKillSwitchesTests {
 /// A session that never answers until it is cancelled.
 private struct HangingSession: URLSessionPerforming {
     func data(for request: URLRequest) async throws -> (Data, URLResponse) {
-        try await Task.sleep(for: .seconds(60))
+        try await Task.sleep(for: .seconds(3600))
         throw URLError(.cannotConnectToHost)
     }
 }
