@@ -1033,7 +1033,7 @@ struct SpoonjoyRootView: View {
         )
     }
 
-    private static func defaultAppleSignInTelemetryClient() -> NativeAppleSignInTelemetry.Client {
+    static func defaultAppleSignInTelemetryClient() -> NativeAppleSignInTelemetry.Client {
         let environment = ProcessInfo.processInfo.environment
         let configuration = Self.defaultAPIConfiguration(environment: environment)
         return NativeAppleSignInTelemetry.Client(
