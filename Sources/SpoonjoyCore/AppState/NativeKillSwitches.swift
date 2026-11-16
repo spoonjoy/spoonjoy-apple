@@ -162,11 +162,9 @@ public enum NativeConfigRequests {
                 throw URLError(.timedOut)
             }
             defer { group.cancelAll() }
-            // The first child to finish wins; a group with children always has a next result.
-            guard let first = try await group.next() else {
-                throw URLError(.timedOut)
-            }
-            return first
+            // The first child to finish wins. A group with two children always has a next result, so the unwrap
+            // cannot fail.
+            return try await group.next()!
         }
     }
 }
