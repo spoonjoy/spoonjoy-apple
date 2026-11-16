@@ -1,10 +1,13 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Runs one attempt of the live journeys and classifies a failure (see scripts/lib/live_journey_failure.rb).
+# Runs one attempt of the live journeys, or of another XCUITest run such as the parity capture, and classifies a failure
+# (see scripts/lib/live_journey_failure.rb).
 #
-#   ruby scripts/live-journeys.rb --attempt 1 --result-bundle PATH --log PATH --timeout-minutes 38 -- xcodebuild ...
+#   ruby scripts/live-journeys.rb --attempt 1 --result-bundle PATH --log PATH --timeout-minutes 38 \
+#     [--name "Parity capture"] -- xcodebuild ...
 #
+# --name is the run's name in the warnings and the job summary (default "Live journeys").
 # The command's output goes to stdout and to --log. The attempt is stopped at --timeout-minutes, before the step's own
 # timeout, so the result bundle and the log are still there to classify and scan. On a failure it reads the result
 # bundle with xcresulttool, writes `class=<passed|network|launch|assertion>` to $GITHUB_OUTPUT and a table of failed
@@ -66,7 +69,7 @@ module LiveJourneys
   end
 
   def self.main(argv, env: ENV, summary_reader: SUMMARY_READER, out: $stdout)
-    options = { attempt: 1, timeout_minutes: 38 }
+    options = { attempt: 1, timeout_minutes: 38, name: "Live journeys" }
     command = argv.include?("--") ? argv[(argv.index("--") + 1)..-1] : []
     flags = argv.include?("--") ? argv[0...argv.index("--")] : argv
     OptionParser.new do |opts|
@@ -74,6 +77,7 @@ module LiveJourneys
       opts.on("--result-bundle PATH") { |v| options[:result_bundle] = v }
       opts.on("--log PATH") { |v| options[:log] = v }
       opts.on("--timeout-minutes M", Float) { |v| options[:timeout_minutes] = v }
+      opts.on("--name NAME") { |v| options[:name] = v }
     end.parse!(flags)
     raise ArgumentError, "a command after -- is required" if command.empty?
     raise ArgumentError, "--result-bundle and --log are required" unless options[:result_bundle] && options[:log]
@@ -86,22 +90,22 @@ module LiveJourneys
       exit_status: status,
       timed_out: timed_out
     )
-    report(result, attempt: options[:attempt], env: env, out: out, timed_out: timed_out)
+    report(result, attempt: options[:attempt], name: options[:name], env: env, out: out, timed_out: timed_out)
     LiveJourneyFailure.exit_code(result, attempt: options[:attempt])
   end
 
-  def self.report(result, attempt:, env:, out:, timed_out:)
+  def self.report(result, attempt:, name:, env:, out:, timed_out:)
     append(env["GITHUB_OUTPUT"], "class=#{result.klass}\n")
-    append(env["GITHUB_STEP_SUMMARY"], LiveJourneyFailure.markdown(result, attempt: attempt))
-    out.puts("::warning::The live journeys stopped at the attempt's time limit.") if timed_out
+    append(env["GITHUB_STEP_SUMMARY"], LiveJourneyFailure.markdown(result, attempt: attempt, name: name))
+    out.puts("::warning::#{name} stopped at the attempt's time limit.") if timed_out
     return if result.klass == LiveJourneyFailure::PASSED
 
     rules = result.failures.map(&:rule).uniq.join(", ")
     if result.infrastructure?
       next_step = attempt == 1 ? "retrying once" : "the retry failed too"
-      out.puts("::warning::Live journeys attempt #{attempt}: infrastructure failure (#{result.klass}: #{rules}); #{next_step}.")
+      out.puts("::warning::#{name} attempt #{attempt}: infrastructure failure (#{result.klass}: #{rules}); #{next_step}.")
     else
-      out.puts("::error::Live journeys attempt #{attempt}: assertion failure (#{rules}); not retried.")
+      out.puts("::error::#{name} attempt #{attempt}: assertion failure (#{rules}); not retried.")
     end
   end
 

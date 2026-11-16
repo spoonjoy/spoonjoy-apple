@@ -112,10 +112,11 @@ module LiveJourneyFailure
   end
 
   # The job summary section for one attempt: the class and, per failed test, its class and rule. No failure text.
-  def self.markdown(result, attempt:)
-    lines = ["### Live journeys, attempt #{attempt}: #{result.klass}", ""]
+  # name: the run's name in the heading, such as "Live journeys" or "Parity capture".
+  def self.markdown(result, attempt:, name: "Live journeys")
+    lines = ["### #{name}, attempt #{attempt}: #{result.klass}", ""]
     if result.klass == PASSED
-      lines << "Every live journey passed."
+      lines << "Every test passed."
     else
       kind = result.infrastructure? ? "Infrastructure (#{result.klass})" : "Assertion"
       verdict = if !result.infrastructure?

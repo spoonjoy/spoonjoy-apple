@@ -189,13 +189,15 @@ class LiveJourneyFailureTest < Minitest::Test
   end
 
   # The command-line wrapper end to end, with a stand-in for xcodebuild and for xcresulttool.
-  def run_cli(script, attempt:, summary:)
+  def run_cli(script, attempt:, summary:, name: nil)
     Dir.mktmpdir do |dir|
       env = { "GITHUB_OUTPUT" => File.join(dir, "output"), "GITHUB_STEP_SUMMARY" => File.join(dir, "summary") }
       out = StringIO.new
       log = File.join(dir, "test.log")
+      flags = ["--attempt", attempt.to_s, "--result-bundle", File.join(dir, "R.xcresult"), "--log", log]
+      flags += ["--name", name] if name
       code = LiveJourneys.main(
-        ["--attempt", attempt.to_s, "--result-bundle", File.join(dir, "R.xcresult"), "--log", log, "--", "ruby", "-e", script],
+        flags + ["--", "ruby", "-e", script],
         env: env,
         summary_reader: ->(_path) { summary },
         out: out
@@ -208,7 +210,8 @@ class LiveJourneyFailureTest < Minitest::Test
     code, output, step_summary, out, log = run_cli('puts "** TEST EXECUTE SUCCEEDED **"', attempt: 1, summary: nil)
     assert_equal 0, code
     assert_equal "class=passed\n", output
-    assert_includes step_summary, "Every live journey passed."
+    assert_includes step_summary, "### Live journeys, attempt 1: passed"
+    assert_includes step_summary, "Every test passed."
     assert_includes out, "TEST EXECUTE SUCCEEDED"
     assert_includes log, "TEST EXECUTE SUCCEEDED"
   end
@@ -219,6 +222,17 @@ class LiveJourneyFailureTest < Minitest::Test
     assert_equal 0, code
     assert_equal "class=launch\n", output
     assert_includes out, "::warning::Live journeys attempt 1: infrastructure failure (launch: no-process-id); retrying once."
+  end
+
+  # The parity capture runs through the same wrapper (spoonjoy-apple#379): its iPad run lost the app's process ID.
+  def test_cli_names_the_run_it_wraps
+    failing = summary(["ParityJourneys/testParityScreensJourney()", "Application 'app.spoonjoy' does not have a process ID"])
+    code, output, step_summary, out, = run_cli("exit 65", attempt: 1, summary: failing, name: "Parity capture (ipad)")
+    assert_equal 0, code
+    assert_equal "class=launch\n", output
+    assert_includes step_summary, "### Parity capture (ipad), attempt 1: launch"
+    assert_includes out, "::warning::Parity capture (ipad) attempt 1: infrastructure failure (launch: no-process-id); retrying once."
+    refute_includes out, "Live journeys"
   end
 
   def test_cli_launch_failure_on_attempt_two_fails
