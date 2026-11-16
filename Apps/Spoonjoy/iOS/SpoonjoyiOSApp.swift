@@ -9,6 +9,8 @@ struct SpoonjoyiOSApp: App {
     /// sync it once.
     @StateObject private var liveStore = NativeLiveAppStore(dependencies: SpoonjoyRootView.defaultDependencies())
     @State private var cookingNow = CookingNowCenter()
+    /// After launches in a row that never finished opening, windows show a plain safe page instead of the shell.
+    @State private var launchSafeMode = LaunchSafeModeController()
 
     init() {
         SpoonjoyFonts.registerBundled()
@@ -30,9 +32,11 @@ struct SpoonjoyiOSApp: App {
         // view keeps where the window went from there. Opening a recipe that already has a window brings that window
         // forward, so a recipe is never open twice.
         WindowGroup(for: WindowRoute.self) { $windowRoute in
-            SpoonjoyRootView(liveStore: liveStore, cookingNow: cookingNow, windowValue: windowRoute)
-                .debugReduceMotion()
-                .journeyQuietMode()
+            LaunchSafeModeGate(controller: launchSafeMode) {
+                SpoonjoyRootView(liveStore: liveStore, cookingNow: cookingNow, windowValue: windowRoute)
+            }
+            .debugReduceMotion()
+            .journeyQuietMode()
         }
         .commands {
             SpoonjoyGoBackCommands()
