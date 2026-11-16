@@ -17,7 +17,7 @@ struct SpoonjoyActionsTests {
             #expect(refusal.thing == "connection approve")
             #expect(refusal.reason == "You can't approve access to the person's Spoonjoy account; only they can.")
             #expect(refusal.how == "with Approve access on the connection page, after typing the code you showed them")
-            #expect(refusal.message == "connection approve: You can't approve access to the person's Spoonjoy account; only they can. Ask the person, who does it with Approve access on the connection page, after typing the code you showed them.")
+            #expect(refusal.message == "Approve access: You can't approve access to the person's Spoonjoy account; only they can. Ask the person, who does it with Approve access on the connection page, after typing the code you showed them.")
         }
     }
 
