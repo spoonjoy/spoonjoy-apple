@@ -3931,6 +3931,28 @@ public final class NativeLiveAppStore: ObservableObject {
         return result
     }
 
+    /// The configuration telemetry leaves with: the server, and the signed-in token when there is one. MetricKit
+    /// crash and hang reports go out with it too, so they are sent exactly like this store's own telemetry.
+    public var telemetryConfiguration: APIClientConfiguration {
+        configuration
+    }
+
+    public var telemetryEnvironment: NativeCacheEnvironment {
+        cacheEnvironment
+    }
+
+    /// `launch_completed`. Once per process is the caller's job: send it when `NativeLaunchSettlement.markSettled()`
+    /// says true.
+    public func reportLaunchCompleted() async {
+        await dependencies.nativeTelemetryReport(NativeTelemetryEvent(
+            name: .launchCompleted,
+            stage: "launch",
+            environment: cacheEnvironment.rawValue,
+            metadata: dependencies.nativeTelemetryMetadata,
+            accountBound: bootstrapState.contentState.trustedAccountID != nil
+        ), configuration)
+    }
+
     private func reportNativeTelemetry(
         name: NativeTelemetryEvent.Name,
         stage: String,

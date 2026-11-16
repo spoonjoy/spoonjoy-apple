@@ -97,6 +97,7 @@ final class SpoonjoyMacAppDelegate: NSObject, NSApplicationDelegate {
         }
 #endif
         SpoonjoyMacMainWindowCoordinator.shared.scheduleLaunchWindowCheck()
+        SpoonjoyDiagnosticsReporter.shared.start()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

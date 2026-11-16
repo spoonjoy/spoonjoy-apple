@@ -53,6 +53,7 @@ final class SpoonjoyiOSAppDelegate: NSObject, UIApplicationDelegate {
             cookTimerAlarmHost = CookTimerAlarmHost()
         }
         cookSessionActivity = CookSessionLiveActivityController()
+        SpoonjoyDiagnosticsReporter.shared.start()
         return true
     }
 

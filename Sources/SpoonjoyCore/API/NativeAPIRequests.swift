@@ -222,11 +222,14 @@ public struct NativeTelemetryAppMetadata: Equatable, Sendable {
     public let platform: String?
     public let appVersion: String?
     public let buildNumber: String?
+    /// `NativeInstallID`: sent on every event so the server can tell installs apart before sign-in.
+    public let installID: String?
 
-    public init(platform: String? = nil, appVersion: String? = nil, buildNumber: String? = nil) {
+    public init(platform: String? = nil, appVersion: String? = nil, buildNumber: String? = nil, installID: String? = nil) {
         self.platform = platform
         self.appVersion = appVersion
         self.buildNumber = buildNumber
+        self.installID = installID
     }
 
     public static let unknown = NativeTelemetryAppMetadata()
@@ -243,6 +246,8 @@ public struct NativeTelemetryEvent: Equatable, Sendable {
         case authFlowFailed = "auth_flow_failed"
         case settingsRefreshFailed = "settings_refresh_failed"
         case syncFailed = "sync_failed"
+        /// Once per process, when launch has settled (`NativeLaunchSettlement`).
+        case launchCompleted = "launch_completed"
     }
 
     public let name: Name
@@ -489,6 +494,7 @@ public enum NativeTelemetryRequests {
         put(event.metadata.platform, in: &body, key: "platform")
         put(event.metadata.appVersion, in: &body, key: "appVersion")
         put(event.metadata.buildNumber, in: &body, key: "buildNumber")
+        put(event.metadata.installID, in: &body, key: "installId")
         put(event.route, in: &body, key: "route")
         put(event.errorType, in: &body, key: "errorType")
         put(event.requestID, in: &body, key: "requestId")
