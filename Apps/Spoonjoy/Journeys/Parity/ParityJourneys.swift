@@ -17,8 +17,7 @@ final class ParityJourneys: JourneyTestCase {
         }
 
         try capture.signInScreen()
-        journey.signIn(as: account.username, password: account.password)
-        try capture.emptyKitchen()
+        try await capture.signInToEmptyKitchen(account)
 
         let kitchen = try await ParityCapture.seed(account)
         // The kitchen QA now holds reaches the app on a cold start.
