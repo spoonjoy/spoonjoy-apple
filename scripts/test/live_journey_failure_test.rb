@@ -250,6 +250,39 @@ class LiveJourneyFailureTest < Minitest::Test
     assert_includes out, "::error::Live journeys attempt 1: assertion failure (assertion); not retried."
   end
 
+  # Proof run 43923699696: attempt 1 stopped at its deadline left a bundle xcresulttool could not export, so the
+  # password scan failed even though the retry passed.
+  def test_a_stopped_attempt_removes_its_unreadable_bundle
+    Dir.mktmpdir do |dir|
+      bundle = File.join(dir, "R.xcresult")
+      Dir.mkdir(bundle)
+      env = { "GITHUB_OUTPUT" => File.join(dir, "output"), "GITHUB_STEP_SUMMARY" => File.join(dir, "summary") }
+      out = StringIO.new
+      code = LiveJourneys.main(
+        ["--attempt", "1", "--timeout-minutes", "0.01", "--result-bundle", bundle, "--log", File.join(dir, "test.log"),
+         "--", "ruby", "-e", "sleep 30"],
+        env: env, summary_reader: ->(_path) { nil }, out: out
+      )
+      assert_equal 0, code
+      assert_equal "class=launch\n", File.read(env["GITHUB_OUTPUT"])
+      refute File.exist?(bundle)
+      assert_includes out.string, "Removed the result bundle the stopped attempt left unfinished: R.xcresult."
+    end
+  end
+
+  def test_a_readable_bundle_is_kept
+    Dir.mktmpdir do |dir|
+      bundle = File.join(dir, "R.xcresult")
+      Dir.mkdir(bundle)
+      failing = summary(["A/testA()", "Application 'app.spoonjoy' does not have a process ID"])
+      LiveJourneys.main(
+        ["--attempt", "1", "--result-bundle", bundle, "--log", File.join(dir, "test.log"), "--", "ruby", "-e", "exit 65"],
+        env: {}, summary_reader: ->(_path) { failing }, out: StringIO.new
+      )
+      assert File.directory?(bundle)
+    end
+  end
+
   def test_run_stops_a_command_at_the_deadline
     Dir.mktmpdir do |dir|
       started = Time.now

@@ -476,7 +476,7 @@ jobs:
         || 'spoonjoy-macos-lane-c2' }}
       queue: max
     # Room for one retry after an infrastructure failure: a rebooted simulator and a second capture.
-    timeout-minutes: 90
+    timeout-minutes: 100
     strategy:
       fail-fast: false
       matrix:
@@ -583,14 +583,14 @@ jobs:
           export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/parity-secrets/retry-accounts.json"
           export TEST_RUNNER_SPOONJOY_JOURNEY_SUMMARY_FILE="$GITHUB_STEP_SUMMARY"
           ruby scripts/live-journeys.rb --attempt 2 --timeout-minutes 22 --name "Parity capture (${{ matrix.device }})" \
-            --result-bundle "$RUNNER_TEMP/parity/ParityJourneys-retry.xcresult" --log "$RUNNER_TEMP/parity/test-retry.log" -- \
+            --result-bundle "$RUNNER_TEMP/parity/ParityJourneys-attempt2.xcresult" --log "$RUNNER_TEMP/parity/test-attempt2.log" -- \
             xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
             -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyParityJourneys \
             -derivedDataPath "$RUNNER_TEMP/parity/DerivedData" \
             -parallel-testing-enabled NO -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 600 -maximum-test-execution-time-allowance 900 \
             -collect-test-diagnostics never \
-            -resultBundlePath "$RUNNER_TEMP/parity/ParityJourneys-retry.xcresult"
+            -resultBundlePath "$RUNNER_TEMP/parity/ParityJourneys-attempt2.xcresult"
       - name: Print app crash reports
         if: failure() || steps.attempt1.outputs.class == 'launch'
         run: python3 .github/scripts/print-crash-reports.py "$HOME/Library/Logs/DiagnosticReports"
@@ -606,8 +606,8 @@ jobs:
             "$RUNNER_TEMP/parity/build.log" \
             "$RUNNER_TEMP/parity/test.log" \
             "$RUNNER_TEMP/parity/ParityJourneys.xcresult" \
-            "$RUNNER_TEMP/parity/test-retry.log" \
-            "$RUNNER_TEMP/parity/ParityJourneys-retry.xcresult"
+            "$RUNNER_TEMP/parity/test-attempt2.log" \
+            "$RUNNER_TEMP/parity/ParityJourneys-attempt2.xcresult"
       - name: Rotate the retry QA account password
         id: rotate-attempt2
         if: always()
@@ -620,8 +620,8 @@ jobs:
             "$RUNNER_TEMP/parity/build.log" \
             "$RUNNER_TEMP/parity/test.log" \
             "$RUNNER_TEMP/parity/ParityJourneys.xcresult" \
-            "$RUNNER_TEMP/parity/test-retry.log" \
-            "$RUNNER_TEMP/parity/ParityJourneys-retry.xcresult"
+            "$RUNNER_TEMP/parity/test-attempt2.log" \
+            "$RUNNER_TEMP/parity/ParityJourneys-attempt2.xcresult"
       - name: Remove credentials
         if: always()
         run: rm -rf "$RUNNER_TEMP/parity-secrets"
@@ -633,7 +633,7 @@ jobs:
           set -euo pipefail
           bundle="$RUNNER_TEMP/parity/ParityJourneys.xcresult"
           if [[ -n "${{ steps.attempt2.outcome }}" && "${{ steps.attempt2.outcome }}" != "skipped" ]]; then
-            bundle="$RUNNER_TEMP/parity/ParityJourneys-retry.xcresult"
+            bundle="$RUNNER_TEMP/parity/ParityJourneys-attempt2.xcresult"
           fi
           ruby scripts/parity-sheet.rb --export-xcresult "$bundle" --out "$RUNNER_TEMP/parity/shots"
       - name: Upload the parity result bundle
@@ -644,8 +644,8 @@ jobs:
           path: |
             ${{ runner.temp }}/parity/ParityJourneys.xcresult
             ${{ runner.temp }}/parity/test.log
-            ${{ runner.temp }}/parity/ParityJourneys-retry.xcresult
-            ${{ runner.temp }}/parity/test-retry.log
+            ${{ runner.temp }}/parity/ParityJourneys-attempt2.xcresult
+            ${{ runner.temp }}/parity/test-attempt2.log
             ${{ runner.temp }}/parity/build.log
           if-no-files-found: warn
           retention-days: 30

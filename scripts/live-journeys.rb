@@ -16,6 +16,7 @@
 # Exit status: 0 when the journeys passed, or when attempt 1 failed on infrastructure (network or launch) and the
 # workflow's retry step will run; 1 for any assertion failure and for an infrastructure failure on attempt 2.
 
+require "fileutils"
 require "json"
 require "open3"
 require "optparse"
@@ -84,6 +85,7 @@ module LiveJourneys
 
     status, timed_out = run(command, log_path: options[:log], timeout_seconds: options[:timeout_minutes] * 60, out: out)
     summary = status&.zero? && !timed_out ? nil : summary_reader.call(options[:result_bundle])
+    discard_unfinished_bundle(options[:result_bundle], out: out) if timed_out && summary.nil?
     result = LiveJourneyFailure.classify(
       summary: summary,
       log: File.read(options[:log]),
@@ -92,6 +94,15 @@ module LiveJourneys
     )
     report(result, attempt: options[:attempt], name: options[:name], env: env, out: out, timed_out: timed_out)
     LiveJourneyFailure.exit_code(result, attempt: options[:attempt])
+  end
+
+  # A bundle xcodebuild never finished writing cannot be exported, so the password scan would fail on it and it could
+  # never be uploaded. Nothing in it can be read, so it goes; the log still holds what the attempt printed.
+  def self.discard_unfinished_bundle(path, out:)
+    return unless File.exist?(path)
+
+    FileUtils.rm_rf(path)
+    out.puts("::warning::Removed the result bundle the stopped attempt left unfinished: #{File.basename(path)}.")
   end
 
   def self.report(result, attempt:, name:, env:, out:, timed_out:)
