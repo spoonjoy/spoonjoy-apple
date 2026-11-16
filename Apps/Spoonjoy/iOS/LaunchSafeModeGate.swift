@@ -186,9 +186,10 @@ struct LaunchSafeModeGate<Shell: View>: View {
     private func shellContent() -> Shell {
 #if DEBUG
         if controller.crashesShell {
-            // The UI test's real crash: the shell is being built, the count is already on disk, and the launch
-            // cannot have finished.
-            fatalError("Launch safe mode UI test: crashing while the shell is built")
+            // The UI test's sudden death: the shell is being built, the count is already on disk, and the launch
+            // cannot have finished. `_exit` ends the process at once, as a crash does, but leaves no crash report:
+            // XCTest attaches a crash report to the test after it ends, as a failure no expectation can cover.
+            _exit(EXIT_FAILURE)
         }
 #endif
         return shell()

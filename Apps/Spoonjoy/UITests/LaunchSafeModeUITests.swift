@@ -6,9 +6,11 @@ import XCTest
 ///
 /// A launch finishes once the shell has been up and active for three seconds. The test fails two launches in a row:
 /// one with `-SpoonjoyLaunchSafeModeNeverSucceed` (the shell comes up but never counts as finished, and the app is
-/// killed) and one with `-SpoonjoyLaunchSafeModeCrashShell` (a real crash while the shell is built), so the count is
-/// carried across real process deaths, including a crash. Debug builds only count launches when `-SpoonjoyLaunchSafeModeArmed`
-/// is passed, so every other UI test's quick relaunches leave it alone.
+/// killed) and one with `-SpoonjoyLaunchSafeModeCrashShell` (the process dies at once while the shell is built, as in a
+/// crash), so the count is carried across real process deaths, including one mid-build. The app ends itself with
+/// `_exit` rather than crashing, because XCTest fails any test whose app leaves a crash report, after the test ends.
+/// Debug builds only count launches when `-SpoonjoyLaunchSafeModeArmed` is passed, so every other UI test's quick
+/// relaunches leave it alone.
 ///
 /// It uses the hermetic shopping fixture in the real tabbed shell (PlatformNavigationView, where the 1.2 crash was), so
 /// it needs no account or network. The Shopping UI tests job in journeys.yml runs it with the rest of this target.
@@ -47,7 +49,7 @@ final class LaunchSafeModeUITests: XCTestCase {
         pause(Self.pastSuccessDelay)
         first.terminate()
 
-        // 2. A real crash while the shell is built.
+        // 2. The process dies while the shell is built.
         crashingLaunch()
 
         // 3. The next launch opens the safe page instead of the shell.
@@ -78,20 +80,20 @@ final class LaunchSafeModeUITests: XCTestCase {
         XCTAssertFalse(relaunched.descendants(matching: .any)["launchSafeMode.root"].exists, "The safe page came back after a finished launch.")
     }
 
-    /// Launches with the shell set to crash as it is built, and waits for the app to die. XCTest may report the crash
-    /// while launching; that report is expected, so it is allowed without being required.
+    /// Launches with the shell set to end the process as it is built, and waits for the app to die. XCTest may report
+    /// the app's death while launching; that report is expected, so it is allowed without being required.
     private func crashingLaunch() {
         let app = XCUIApplication()
         configure(app, extra: [Self.crashShell])
         let options = XCTExpectedFailure.Options()
         options.isStrict = false
         continueAfterFailure = true
-        XCTExpectFailure("The app crashes on purpose while its shell is built.", options: options) {
+        XCTExpectFailure("The app ends itself on purpose while its shell is built.", options: options) {
             app.launch()
-            XCTAssertTrue(app.wait(for: .notRunning, timeout: 30), "The crashing launch did not stop the app.")
+            XCTAssertTrue(app.wait(for: .notRunning, timeout: 30), "The dying launch did not stop the app.")
         }
         continueAfterFailure = false
-        XCTAssertEqual(app.state, .notRunning, "The shell crash did not stop the app.")
+        XCTAssertEqual(app.state, .notRunning, "The shell's death did not stop the app.")
     }
 
     private func launch(_ extra: [String] = []) -> XCUIApplication {

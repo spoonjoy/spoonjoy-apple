@@ -199,7 +199,8 @@ public struct LaunchSafeModeOptions: Equatable, Sendable {
     public static let presetArgument = "-SpoonjoyLaunchSafeModeUnfinishedLaunches"
     /// This launch never counts as finished, as if it crashed before the shell settled.
     public static let neverSucceedArgument = "-SpoonjoyLaunchSafeModeNeverSucceed"
-    /// The shell crashes the app for real, once it has been built and before the launch can finish.
+    /// The process dies at once while the shell is built, before the launch can finish (the UI test's stand-in for a
+    /// crash; it ends with `_exit`, so XCTest finds no crash report).
     public static let crashShellArgument = "-SpoonjoyLaunchSafeModeCrashShell"
 
     public let armed: Bool
