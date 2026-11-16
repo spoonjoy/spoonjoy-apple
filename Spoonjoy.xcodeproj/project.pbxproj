@@ -2698,7 +2698,7 @@
 			repositoryURL = "https://github.com/ourostack/ouro-ui-apple.git";
 			requirement = {
 				kind = exactVersion;
-				version = 0.6.0;
+				version = 1.0.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
