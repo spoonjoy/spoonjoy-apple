@@ -1,0 +1,9 @@
+{
+  "name": "spoonjoy-testflight-feedback-autopilot",
+  "private": true,
+  "type": "module",
+  "description": "Policy rules for the TestFlight feedback autopilot (scripts/testflight-feedback-autopilot.mjs).",
+  "scripts": {
+    "test": "node --test test/autopilot-policy.test.mjs"
+  }
+}

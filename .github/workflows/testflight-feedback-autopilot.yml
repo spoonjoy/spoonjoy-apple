@@ -1,0 +1,31 @@
+name: TestFlight feedback autopilot
+
+# The policy rules for the TestFlight feedback autopilot (scripts/testflight-feedback-autopilot.mjs). They decide when a
+# crash report is re-queued, when it is parked, and how long a dispatch may take. Runs only when they change.
+on:
+  pull_request:
+    paths:
+      - scripts/testflight-feedback-autopilot/**
+      - scripts/testflight-feedback-autopilot-policy.mjs
+      - scripts/testflight-feedback-autopilot.mjs
+      - .github/workflows/testflight-feedback-autopilot.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testflight-feedback-autopilot-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    name: Autopilot policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Test the policy rules
+        working-directory: scripts/testflight-feedback-autopilot
+        run: npm test
