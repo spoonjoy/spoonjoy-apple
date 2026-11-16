@@ -320,6 +320,10 @@ struct PlatformNavigationView: View {
                 await runForegroundSync()
             }
             .onChange(of: scenePhase) { oldPhase, newPhase in
+                if oldPhase != .active, newPhase == .active {
+                    // At most once every 15 minutes; a feature switched off stops from its next start.
+                    SpoonjoyKillSwitches.center.refreshInBackgroundIfDue()
+                }
                 if NativeSceneSyncPolicy.shouldSync(wasActive: oldPhase == .active, isActive: newPhase == .active) {
                     Task { @MainActor in
                         await runForegroundSync()
@@ -2853,6 +2857,10 @@ struct PlatformNavigationView: View {
 
     private static func indexSpotlightIfAvailable(payload: SpotlightIndexPayload) async {
 #if canImport(CoreSpotlight)
+        // Switched off by the server (NativeFeature.spotlightIndexing): the index keeps what it already holds.
+        guard SpoonjoyKillSwitches.center.current.allows(.spotlightIndexing) else {
+            return
+        }
         if #available(iOS 27.0, macOS 27.0, *) {
             let indexer = SpoonjoySpotlightIndexer()
             try? await indexer.replaceAll(payload.documents, scope: payload.scope)

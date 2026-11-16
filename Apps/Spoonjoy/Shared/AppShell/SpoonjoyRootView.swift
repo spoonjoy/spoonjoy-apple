@@ -979,6 +979,10 @@ struct SpoonjoyRootView: View {
             transport: URLSessionNativeSyncTransport.refreshing(authRepository, baseURL: configuration.baseURL)
         )
         let syncTriggerCoordinator = NativeSyncTriggerCoordinator(runner: syncEngine, configuration: configuration)
+        // Reads the saved switches now, then fetches the server's in the background; nothing here waits for the
+        // network. The shell refreshes them again when the app comes to the foreground.
+        let killSwitches = SpoonjoyKillSwitches.center
+        killSwitches.refreshInBackgroundIfDue()
         return NativeLiveAppStoreDependencies(
             authSessionRepository: authRepository,
             cacheStore: cacheStore,
@@ -1029,6 +1033,7 @@ struct SpoonjoyRootView: View {
             },
             nativeTelemetryMetadata: Self.nativeTelemetryMetadata(),
             bootstrapMode: bootstrapMode,
+            killSwitches: { killSwitches.current },
             now: Date.init
         )
     }

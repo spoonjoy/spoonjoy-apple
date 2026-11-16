@@ -7565,6 +7565,7 @@ private extension NativeLiveStoreTests {
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
         cookSessionClient: @escaping @Sendable (APIClientConfiguration) -> any CookSessionClient = { _ in OffCookSessionClient() },
         cookSessionPushDelay: Duration = .seconds(3_600),
+        killSwitches: NativeKillSwitches = .allOn,
         revoke: @escaping NativeRevokeOperation = { _, _ in }
     ) -> NativeLiveAppStore {
         let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
@@ -7591,6 +7592,7 @@ private extension NativeLiveStoreTests {
             bootstrapMode: bootstrapMode,
             cookSessionClient: cookSessionClient,
             cookSessionPushDelay: cookSessionPushDelay,
+            killSwitches: { killSwitches },
             now: { Self.now }
         ))
     }
@@ -8095,7 +8097,8 @@ extension NativeLiveStoreTests {
         server: FakeCookServer,
         appStateStore: NativeAppStateStore,
         vault: InMemoryTokenVault,
-        bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst
+        bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
+        killSwitches: NativeKillSwitches = .allOn
     ) throws -> NativeLiveAppStore {
         let syncData = try Self.sampleSyncData(recipe: cookRecipe, shoppingItem: nil, accountID: "chef_ari")
         return Self.liveStore(
@@ -8108,7 +8111,8 @@ extension NativeLiveStoreTests {
             cookSessionClient: { configuration in
                 server.client(token: configuration.bearerToken)
             },
-            cookSessionPushDelay: .zero
+            cookSessionPushDelay: .zero,
+            killSwitches: killSwitches
         )
     }
 
@@ -8166,6 +8170,39 @@ extension NativeLiveStoreTests {
                 Issue.record("Expected live sync; got \(store.bootstrapState)")
                 return
             }
+        }
+    }
+
+    @MainActor
+    @Test("with cook-session-sync switched off by the server, cook progress never leaves the device")
+    func cookSessionSyncKillSwitch() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("app.json"))
+            let server = FakeCookServer()
+            await server.seed(recipeID: Self.cookRecipe.id, progress: CookSyncProgress(
+                activeStepIndex: 1, scaleFactor: 2, checkedIngredientIDs: ["ing_a"], checkedStepOutputIDs: []
+            ))
+            let store = try Self.cookStore(
+                directory: directory,
+                server: server,
+                appStateStore: appStateStore,
+                vault: vault,
+                killSwitches: NativeKillSwitches(off: [.cookSessionSync])
+            )
+            await store.bootstrap()
+
+            // Opening cook mode does not read the server's progress, and a check here stays on the device.
+            store.cookModeOpened(recipeID: Self.cookRecipe.id)
+            await store.waitForSync()
+            try Self.checkingIngredient("ing_b", in: store)
+            await store.cookPushTask?.value
+            await store.requestCookSync().value
+            await store.waitForSync()
+
+            #expect(await server.requestCount == 0)
+            #expect(store.bootstrapState.contentState.cookProgress(for: Self.cookRecipe.id)?.checkedIngredientIDs == ["ing_b"])
+            #expect(await server.progress(recipeID: Self.cookRecipe.id)?.checkedIngredientIDs == ["ing_a"])
         }
     }
 

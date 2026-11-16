@@ -95,6 +95,17 @@ private actor SpoonjoyScreenshotValidationTokenVault: TokenVault {
 }
 #endif
 
+/// The server's kill switches for this process (`GET /api/v1/native/config`, NativeFeature). Made on first use from
+/// the switches saved at the last refresh, without the network, so launch never waits for it.
+enum SpoonjoyKillSwitches {
+    static let center: NativeKillSwitchCenter = {
+        let baseURL = SpoonjoyAppServer.configuration().baseURL
+        return NativeKillSwitchCenter(store: NativeKillSwitchStore()) {
+            try await NativeConfigRequests.fetch(baseURL: baseURL)
+        }
+    }()
+}
+
 /// The server the app signs in to, for the app and for every App Intent in its process; it sits beside the vault
 /// because a session only works on the server that issued it.
 ///
