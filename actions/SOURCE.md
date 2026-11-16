@@ -10,6 +10,6 @@ The Actions workflow (`.github/workflows/actions.yml`, `scripts/check-actions-dr
 - declaration-path: actions/spoonjoy.actions.mts
 - declaration-commit: fded0c835ba1cdb417c365d0a3778c009a39971f
 - declaration-sha256: 19e838cda218a83f55eae7aaadf632941523e75378b0de6d622c2768b41c55d9
-- generator: ourostack/ouro-ui-core v0.15.0, tools/ouro-actions/ouro-actions.mts
-- generator-sha256: 37b1f9dd0daa0bdb6b26aed5b292bc498740210f7895991c09e6d34c63d7c6fa
+- generator: ourostack/ouro-ui-core v0.16.0, tools/ouro-actions/ouro-actions.mts
+- generator-sha256: 5f2dedade42b15bdf3ca23785be7e7532cdf07fbbce8243b78c162401ebcf5a4
 - claims-sha256: 944f48be5f9409dd70e0774dfe4976fef9cc3ba3f4ab4b9231df428700523f1a

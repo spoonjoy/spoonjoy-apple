@@ -30,3 +30,10 @@ jobs:
           node-version: '22.18'
       - name: Check the generator, the declaration and the generated actions
         run: scripts/check-actions-drift.sh
+      - name: Write the action claims report
+        run: node tools/ouro-actions/ouro-actions.mts check actions/spoonjoy.actions.mts actions/generated --report xray/actions/report.json --app "Spoonjoy" --commit "$GITHUB_SHA"
+      - if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: actions-xray
+          path: xray/actions/report.json
