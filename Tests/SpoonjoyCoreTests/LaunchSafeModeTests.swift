@@ -150,6 +150,7 @@ struct LaunchSafeModeTests {
 
     @Test("success waits a few seconds after the first frame, like expo-updates")
     func constants() {
+        #expect(LaunchSafeMode.successDelay == NativeLaunchSettlement.settleDelay)
         #expect(LaunchSafeMode.successDelay == .seconds(3))
         #expect(LaunchSafeMode.defaultThreshold == 2)
     }

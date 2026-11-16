@@ -90,8 +90,9 @@ public struct LaunchSafeMode {
     }
 
     public static let defaultThreshold = 2
-    /// How long the shell must stay up, active, after its first frame before the launch counts as finished.
-    public static let successDelay: Duration = .seconds(3)
+    /// How long the shell must stay up, active, before the launch counts as finished: the same settle time as the
+    /// `launch_completed` report (``NativeLaunchSettlement``), so both agree on what a finished launch is.
+    public static var successDelay: Duration { NativeLaunchSettlement.settleDelay }
 
     public let threshold: Int
     public let buildVersion: String

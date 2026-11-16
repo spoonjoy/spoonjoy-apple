@@ -3,8 +3,9 @@ import SpoonjoyCore
 import SwiftUI
 
 /// Decides once per process whether windows show the shell or the safe page (``LaunchSafeMode``), and marks the
-/// launch finished once a shell has been up and active for a few seconds, or when its scene first goes to the
-/// background.
+/// launch finished once a shell has been up and active for `NativeLaunchSettlement.settleDelay` (the same settle as the
+/// `launch_completed` report, or at once when that report has already settled the process), or when its scene first
+/// goes to the background.
 ///
 /// Created with the app but decides nothing until the first window asks, so a launch with no window (an App Intent,
 /// a notification) is never counted. Crashes before the first window is built (in the App's init or
@@ -94,7 +95,15 @@ final class LaunchSafeModeController {
     /// Called whenever a shell's scene phase changes: after the delay while active, or on first going to the
     /// background, the launch has finished.
     func shellIsUp(scenePhase: ScenePhase) async {
-        guard options.armed, !options.neverSucceeds, !finished, await settles(scenePhase: scenePhase), !finished else {
+        guard options.armed, !options.neverSucceeds, !finished else {
+            return
+        }
+        // The shell's `launch_completed` report already settled this process (NativeLaunchSettlement): it has finished.
+        var settled = scenePhase == .active && NativeLaunchSettlement.process.isSettled
+        if !settled {
+            settled = await settles(scenePhase: scenePhase)
+        }
+        guard settled, !finished else {
             return
         }
         finished = true
