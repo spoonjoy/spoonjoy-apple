@@ -117,6 +117,64 @@ struct ParityCapture {
         try shootBothSchemes("sign-in")
     }
 
+    /// Signs in through the form and waits for the app to leave the sign-in screen, then shoots the empty kitchen.
+    ///
+    /// Journeys run 43931150392 (#383) failed here as "the kitchen does not show its empty hero", but the app never
+    /// got that far: the form said "Could not sign in" for the run's own new account, whose password the account
+    /// script then used to sign in to QA. So a failed sign-in is named as one, with what QA says to the same
+    /// credentials from the test runner, and is tried once more. Whether sign-in works is SignInJourney's subject;
+    /// here it is only the way in to the screens.
+    func signInToEmptyKitchen(_ account: JourneyAccount) async throws {
+        journey.signIn(as: account.username, password: account.password)
+        if formRejectedSignIn() {
+            let firstStatus = signInStatus
+            let runner = await runnerSignIn(account)
+            XCTContext.runActivity(named: "The sign-in form said \"\(firstStatus)\"; \(runner). Signing in once more.") { _ in }
+            journey.signIn(as: account.username, password: account.password)
+            // The failure line stays until the app takes the new attempt; do not read the first attempt's answer.
+            _ = journey.element(JourneyID.signInStatus, labelContaining: JourneyCopy.wrongPasswordStatus)
+                .waitForNonExistence(timeout: JourneyApp.interactionTimeout)
+            if formRejectedSignIn() {
+                XCTFail(
+                    "The sign-in form rejected the run's own account twice (\"\(signInStatus)\"); \(runner). "
+                        + "The kitchen was never reached. Screen: \(journey.screen)"
+                )
+                return
+            }
+        }
+        try emptyKitchen()
+    }
+
+    /// Waits for either the new account's kitchen or the sign-in form's failure line, and says whether it was the
+    /// failure. Neither within the network timeout counts as not rejected, so `emptyKitchen` reports it.
+    private func formRejectedSignIn() -> Bool {
+        let outcome = journey.app.descendants(matching: .any).matching(NSPredicate(
+            format: "identifier == %@ OR (identifier == %@ AND label CONTAINS %@)",
+            JourneyID.kitchenEmptyHero,
+            JourneyID.signInStatus,
+            JourneyCopy.wrongPasswordStatus
+        )).firstMatch
+        guard outcome.waitForExistence(timeout: JourneyApp.networkTimeout) else { return false }
+        return !journey.element(JourneyID.kitchenEmptyHero).exists
+            && journey.element(JourneyID.signInStatus, labelContaining: JourneyCopy.wrongPasswordStatus).exists
+    }
+
+    private var signInStatus: String {
+        let status = journey.element(JourneyID.signInStatus)
+        return status.exists ? status.label : "no status line"
+    }
+
+    /// What QA answers when the test runner signs in with the same credentials the form was given: it tells a
+    /// problem in the app or simulator apart from one on QA.
+    private func runnerSignIn(_ account: JourneyAccount) async -> String {
+        do {
+            _ = try await JourneyQAClient.signIn(account)
+            return "the same credentials signed in to QA from the test runner"
+        } catch {
+            return "the test runner's sign-in to QA with the same credentials failed too (\(error))"
+        }
+    }
+
     func emptyKitchen() throws {
         wait(journey.element(JourneyID.kitchenEmptyHero), "The new account's kitchen does not show its empty hero.")
         try shootBothSchemes("kitchen-empty")
