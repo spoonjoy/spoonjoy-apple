@@ -98,10 +98,10 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         XCTAssertTrue(app.otherElements["shopping.ui-test.root"].waitForExistence(timeout: 8))
 
         chooseShoppingView("Need 1", in: app)
-        XCTAssertTrue(app.buttons["Need 1"].isSelected, "Choosing Need 1 did not select it. \(app.debugDescription)")
+        waitForSelectedSegment("Need 1", in: app)
         chooseShoppingView("Basket 1", in: app)
         chooseShoppingView("All 2", in: app)
-        XCTAssertTrue(app.buttons["All 2"].isSelected, "Choosing All 2 did not select it. \(app.debugDescription)")
+        waitForSelectedSegment("All 2", in: app)
         chooseAisle("Produce", in: app)
         XCTAssertTrue(app.staticTexts["Showing Produce"].waitForExistence(timeout: 5), "Choosing Produce did not say so. \(app.debugDescription)")
         tapOnceItExists(app.buttons["Show all"], named: "Show all", in: app)
@@ -185,10 +185,9 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         )
         // At accessibility sizes the view is a menu on the page, whose button names the chosen view.
         chooseShoppingView("Need 1", in: app)
-        XCTAssertTrue(
-            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Need 1'")).firstMatch.waitForExistence(timeout: 10),
-            "Choosing Need 1 did not update the view menu. \(app.debugDescription)"
-        )
+        let viewMenu = app.buttons["shopping.mode"]
+        let namesNeed = expectation(for: NSPredicate(format: "label CONTAINS 'Need 1'"), evaluatedWith: viewMenu)
+        wait(for: [namesNeed], timeout: 10)
 
         // The filter line under the composer names the chosen aisle once the menu has closed and the choice applied.
         chooseAisle("Produce", in: app)
@@ -347,12 +346,18 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         tapWhenHittable(sheet.buttons[title], named: title, in: app, file: file, line: line)
     }
 
-    /// Picks Need, Basket or All from the ⋯ menu's inline picker.
+    /// Waits for a segment of the Need, Basket and All control to show as chosen.
+    private func waitForSelectedSegment(_ option: String, in app: XCUIApplication) {
+        let segment = app.segmentedControls["shopping.mode"].buttons[option]
+        let selected = expectation(for: NSPredicate(format: "isSelected == true"), evaluatedWith: segment)
+        wait(for: [selected], timeout: 5)
+    }
+
     /// Picks Need, Basket or All: a segment of the control under the composer, or at accessibility sizes an item of
     /// the menu that stands in for it.
     private func chooseShoppingView(_ option: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         let segment = app.segmentedControls["shopping.mode"].buttons[option]
-        if segment.waitForExistence(timeout: 3) {
+        if app.segmentedControls["shopping.mode"].waitForExistence(timeout: 3) {
             tapOnceItExists(segment, named: "The \(option) segment", in: app, file: file, line: line)
         } else {
             tapOnceItExists(app.buttons["shopping.mode"], named: "The view menu", in: app, file: file, line: line)

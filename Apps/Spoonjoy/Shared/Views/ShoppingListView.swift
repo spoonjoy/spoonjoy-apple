@@ -267,7 +267,7 @@ struct ShoppingListView: View {
     }
 
     /// Need, Basket and All, as web's filter: the platform's capsule segmented control under the composer. At
-    /// accessibility sizes three counted labels can't share a row, so it becomes a menu showing the current view.
+    /// the largest text sizes three counted labels can't share a phone's row, so it becomes a menu showing the view.
     @ViewBuilder private func shoppingModeStrip(_ presentation: ShoppingPresentationModel) -> some View {
         let picker = Picker("Show", selection: modeSelection) {
             ForEach(presentation.modeOptions, id: \.mode) { option in
@@ -275,7 +275,7 @@ struct ShoppingListView: View {
             }
         }
         Group {
-            if isAccessibilityLayout {
+            if dynamicTypeSize >= .xxxLarge {
                 picker
                     .pickerStyle(.menu)
                     .tint(KitchenTableTheme.ink)
