@@ -4,7 +4,7 @@ import SpoonjoyCore
 struct SearchQuery: ReinsInput { let query: String }
 
 extension SpoonjoyReinsShell {
-    /// The Search tab (`SearchSurfaceView` over `SearchSurfaceViewModel`): the field, and the results by section.
+    /// The Search tab (`SearchView` over `SearchSurfaceViewModel`): the field, and the results by section.
     func searchNode(query: String, scope: SearchScope) -> ReinsNode {
         let state = SearchState(query: query, scope: scope)
         // The last run, while it is for this search; otherwise what this device last saw for it.
