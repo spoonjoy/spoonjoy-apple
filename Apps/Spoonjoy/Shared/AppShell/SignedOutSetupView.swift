@@ -67,10 +67,11 @@ struct SignedOutSetupView: View {
 #if os(macOS)
         // As web's desktop sign-in: the lead on the left, the credentials on the right, a hairline between.
         HStack(spacing: 0) {
+            // A fixed lead column, so the credentials keep their full width at the window's narrowest.
             signedOutBrandColumn
-                .frame(minWidth: 340, maxWidth: 520)
+                .frame(width: 340)
                 .frame(maxHeight: .infinity)
-                .padding(.horizontal, 44)
+                .padding(.horizontal, 40)
 
             Rectangle()
                 .fill(KitchenTableTheme.hairline)
@@ -110,7 +111,7 @@ struct SignedOutSetupView: View {
     private var spoonjoyWordmark: some View {
         HStack(spacing: 10) {
             SpoonjoyIdentityMark()
-                .frame(width: wordmarkSize, height: wordmarkSize)
+                .frame(width: min(wordmarkSize, 44), height: min(wordmarkSize, 44))
             Text("SPOONJOY")
                 .font(KitchenTableTheme.sectionTitle)
                 .tracking(1.6)
@@ -125,8 +126,9 @@ struct SignedOutSetupView: View {
     /// Web's editorial lead: the eyebrow, the promise in display Fraunces and one serif sentence.
     private var signInLead: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("KITCHEN SIGN-IN")
+            Text("Kitchen sign-in")
                 .font(KitchenTableTheme.eyebrow)
+                .textCase(.uppercase)
                 .tracking(2)
                 .foregroundStyle(KitchenTableTheme.ink2)
             Text("Keep the good recipes close.")
@@ -134,7 +136,7 @@ struct SignedOutSetupView: View {
                 .foregroundStyle(KitchenTableTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
-            Text("Sign in to cook, fork, save, and remember the recipes that actually make it to your table.")
+            Text("Sign in to cook, fork, save, and remember the recipes that actually make it to your table. Your spoonjoy.app account works here too.")
                 .font(KitchenTableTheme.story)
                 .foregroundStyle(KitchenTableTheme.ink2)
                 .lineSpacing(5)
