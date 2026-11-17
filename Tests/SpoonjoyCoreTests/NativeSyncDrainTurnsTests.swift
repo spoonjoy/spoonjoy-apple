@@ -175,6 +175,21 @@ struct NativeSyncDrainTurnsTests {
         #expect(ran)
     }
 
+    @Test("a pass already cancelled when it asks never takes the turn, and the store stays free for the next pass")
+    func cancelledBeforeAskingNeverTakesTheTurn() async throws {
+        let store = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .local, checkpoint: nil, queue: NativeMutationQueue())
+        let log = PassLog()
+        let cancelled = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            try await NativeSyncDrainTurns.run(on: store) { await log.record("cancelled pass") }
+        }
+        await #expect(throws: CancellationError.self) { try await cancelled.value }
+        #expect(NativeSyncDrainTurns.waitingCount(on: store) == 0)
+        let ran = try await NativeSyncDrainTurns.run(on: store) { true }
+        #expect(ran)
+        #expect(await log.entries.isEmpty)
+    }
+
     /// Polls `condition` for up to five seconds.
     static func eventually(_ condition: @Sendable () async -> Bool) async -> Bool {
         for _ in 0..<5_000 {
