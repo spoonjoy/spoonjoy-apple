@@ -723,7 +723,7 @@ struct PlatformNavigationView: View {
             .navigationTitle(compactTabTitle(for: tab))
 #if os(iOS)
             // Every root but the Kitchen opens on its large display title, as web's pages do; it collapses inline as
-            // the list scrolls. The kitchen leads with its dish edge to edge, so its title stays out of the way.
+            // the list scrolls. The kitchen sets its own "My Kitchen" header, so the bar's title stays out of the way.
             .navigationBarTitleDisplayMode(tab == .kitchen ? .inline : .large)
 #endif
         switch tab {
@@ -815,6 +815,7 @@ struct PlatformNavigationView: View {
     }
 #endif
 
+    /// Pages that set their own lead (the kitchen's identity header, a recipe's cover), so the bar's title stays quiet.
     private func routeLeadsWithPhoto(_ route: AppRoute) -> Bool {
         switch route {
         case .kitchen, .recipeDetail(_, .detail):
@@ -1432,6 +1433,7 @@ struct PlatformNavigationView: View {
                 kitchen: contentState.kitchen,
                 recipes: contentState.recipes,
                 cookbooks: contentState.cookbooks,
+                chef: currentChefSummary,
                 cookProgress: { contentState.cookProgress(for: $0) },
                 openRecipe: openRecipe,
                 startCooking: startCooking,
@@ -2195,8 +2197,16 @@ struct PlatformNavigationView: View {
         contentState.sessionAccountID
     }
 
+    /// The signed-in chef: the account's own name and photo once Settings has loaded them, else the chef on one of
+    /// their own recipes or cookbooks.
     private var currentChefSummary: ChefSummary? {
-        contentState.recipes.first?.chef ?? contentState.cookbooks.first?.chef ?? currentChefID.map {
+        if let account = contentState.settingsSurfaceData?.account {
+            return ChefSummary(id: account.id, username: account.username, photoURL: account.photoURL)
+        }
+        let ownChef = currentChefID.flatMap { id in
+            contentState.recipes.first { $0.chef.id == id }?.chef ?? contentState.cookbooks.first { $0.chef.id == id }?.chef
+        }
+        return ownChef ?? contentState.recipes.first?.chef ?? contentState.cookbooks.first?.chef ?? currentChefID.map {
             ChefSummary(id: $0, username: "Spoonjoy")
         }
     }
