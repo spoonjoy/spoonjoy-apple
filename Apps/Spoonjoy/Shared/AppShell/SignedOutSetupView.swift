@@ -65,15 +65,15 @@ struct SignedOutSetupView: View {
 
     @ViewBuilder private var signedOutLayout: some View {
 #if os(macOS)
+        // As web's desktop sign-in: the lead on the left, the credentials on the right, a hairline between.
         HStack(spacing: 0) {
             signedOutBrandColumn
-                .frame(width: 300)
+                .frame(minWidth: 340, maxWidth: 520)
                 .frame(maxHeight: .infinity)
-                .padding(.horizontal, 36)
-                .background(KitchenTableTheme.raised)
+                .padding(.horizontal, 44)
 
             Rectangle()
-                .fill(KitchenTableTheme.ink.opacity(0.10))
+                .fill(KitchenTableTheme.hairline)
                 .frame(width: 1)
 
             GeometryReader { geometry in
@@ -91,14 +91,14 @@ struct SignedOutSetupView: View {
 #else
         GeometryReader { geometry in
             ScrollView {
-                VStack(spacing: 26) {
+                VStack(alignment: .leading, spacing: 30) {
                     identityHeader
                     credentialPanel
                 }
-                .frame(maxWidth: 430)
-                .frame(minHeight: geometry.size.height)
+                .frame(maxWidth: 430, alignment: .leading)
+                .frame(minHeight: geometry.size.height, alignment: .top)
                 .padding(.horizontal, 28)
-                .padding(.vertical, 30)
+                .padding(.vertical, 24)
                 .frame(maxWidth: .infinity)
             }
             .scrollIndicators(.hidden)
@@ -106,69 +106,63 @@ struct SignedOutSetupView: View {
 #endif
     }
 
-    private var identityHeader: some View {
-        VStack(spacing: 14) {
+    /// The Spoonjoy wordmark, as web's header sets it: the mark and the name in tracked serif capitals.
+    private var spoonjoyWordmark: some View {
+        HStack(spacing: 10) {
             SpoonjoyIdentityMark()
-                .frame(width: 76, height: 76)
-                .accessibilityHidden(true)
+                .frame(width: wordmarkSize, height: wordmarkSize)
+            Text("SPOONJOY")
+                .font(KitchenTableTheme.sectionTitle)
+                .tracking(1.6)
+                .foregroundStyle(KitchenTableTheme.ink)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Spoonjoy")
+    }
 
-            VStack(spacing: 5) {
-                Text("Spoonjoy")
-                    .font(KitchenTableTheme.largeTitle)
-                    .foregroundStyle(KitchenTableTheme.ink)
-                    .multilineTextAlignment(.center)
+    @ScaledMetric(relativeTo: .title3) private var wordmarkSize: CGFloat = 30
 
-                Text("Recipes, passed hand to hand.")
-                    .font(KitchenTableTheme.instructionBody)
-                    .foregroundStyle(KitchenTableTheme.ink2)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+    /// Web's editorial lead: the eyebrow, the promise in display Fraunces and one serif sentence.
+    private var signInLead: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("KITCHEN SIGN-IN")
+                .font(KitchenTableTheme.eyebrow)
+                .tracking(2)
+                .foregroundStyle(KitchenTableTheme.ink2)
+            Text("Keep the good recipes close.")
+                .font(KitchenTableTheme.displayTitle)
+                .foregroundStyle(KitchenTableTheme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            Text("Sign in to cook, fork, save, and remember the recipes that actually make it to your table.")
+                .font(KitchenTableTheme.story)
+                .foregroundStyle(KitchenTableTheme.ink2)
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
+    private var identityHeader: some View {
+        VStack(alignment: .leading, spacing: 34) {
+            spoonjoyWordmark
+            signInLead
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private var signedOutBrandColumn: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            SpoonjoyIdentityMark()
-                .frame(width: 84, height: 84)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Spoonjoy")
-                    .font(KitchenTableTheme.largeTitle)
-                    .foregroundStyle(KitchenTableTheme.ink)
-
-                Text("Recipes, passed hand to hand.")
-                    .font(KitchenTableTheme.spreadInstruction)
-                    .foregroundStyle(KitchenTableTheme.ink2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 18)
-
-            Label("spoonjoy.app", systemImage: "link")
-                .font(KitchenTableTheme.uiLabel.weight(.semibold))
-                .foregroundStyle(KitchenTableTheme.ink.opacity(0.58))
-                .labelStyle(.titleAndIcon)
-            }
+        VStack(alignment: .leading, spacing: 0) {
+            spoonjoyWordmark
+            signInLead
+                .padding(.top, 88)
+            Spacer(minLength: 0)
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(.vertical, 44)
     }
 
     private var credentialPanel: some View {
         VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Sign in")
-                    .font(KitchenTableTheme.sectionTitle)
-                    .foregroundStyle(KitchenTableTheme.ink)
-                    .accessibilityAddTraits(.isHeader)
-
-                Text("Use the same Spoonjoy account you use on spoonjoy.app.")
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.ink2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
             if pendingRoute != .kitchen {
                 Label(pendingRouteLabel, systemImage: "arrow.triangle.turn.up.right.circle")
                     .font(KitchenTableTheme.uiLabel)
@@ -202,7 +196,8 @@ struct SignedOutSetupView: View {
                 }
                 .signInWithAppleButtonStyle(.black)
                 .frame(maxWidth: .infinity, minHeight: 50, maxHeight: 50)
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
+                // A capsule, as every other control on the screen.
+                .clipShape(Capsule())
                 .disabled(isSigningIn)
                 .accessibilityIdentifier(Self.liveAppleSignInIdentifier)
             } else {
@@ -351,12 +346,14 @@ struct SignedOutSetupView: View {
         .accessibilityIdentifier("native Apple sign-in availability")
     }
 
+    /// Sign in is the screen's primary capsule: the action fill every primary button has (charcoal by day, amber at
+    /// night), and a quiet wash until both fields are filled.
     private var passwordButtonBackground: Color {
         if isSigningIn {
-            return KitchenTableTheme.herb.opacity(0.54)
+            return KitchenTableTheme.action.opacity(0.54)
         }
         if canSubmitPassword {
-            return KitchenTableTheme.herb
+            return KitchenTableTheme.action
         }
         return KitchenTableTheme.ink.opacity(0.08)
     }
