@@ -53,7 +53,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
     "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndexRow", "CookbookShelf"],
-    "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "edge-to-edge-hero"]
+    "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "counter-card"]
   },
   "search" => {
     "voiceOverLabels" => ["Search", "row.accessibilityLabel"],
