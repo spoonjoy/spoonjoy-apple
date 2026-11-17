@@ -157,8 +157,9 @@ struct KitchenComponentParityTests {
         #expect(!row.contains(".lineLimit("), "An index row's title and detail wrap in full at every text size.")
 
         let meta = try Self.source("\(Self.views)/RecipeDetailView.swift")
-        #expect(meta.contains(#"Text("by \(ChefHandle.wrapping(viewModel.recipe.chef.username))")"#))
-        #expect(meta.contains(#".accessibilityLabel("by \(viewModel.recipe.chef.username)")"#))
+        // The byline under the title carries the chef, as web's does; the meta row no longer repeats them.
+        #expect(meta.contains(#"Text(ChefHandle.wrapping(chef.displayName))"#))
+        #expect(meta.contains(#".accessibilityLabel("By \(chef.displayName)")"#))
         #expect(!Self.containsLines(meta, [#"Text("by \(viewModel.recipe.chef.username)")"#, ".lineLimit(1)"]))
         #expect(meta.contains("AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 8))"), "A wrapped byline hangs from the meta line's baseline.")
 
