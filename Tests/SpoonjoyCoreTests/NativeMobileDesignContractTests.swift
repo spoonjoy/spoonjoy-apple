@@ -740,7 +740,6 @@ struct NativeMobileDesignContractTests {
             in: kitchenPath,
             contains: [
                 "RecipeLead",
-                "KitchenHeroStretch.scale(",
                 "RecipeInitialTile(title: recipe.title)",
                 "showsFallbackLabel: false",
                 "Text(recipe.title)"

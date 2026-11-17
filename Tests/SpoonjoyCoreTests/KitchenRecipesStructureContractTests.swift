@@ -43,7 +43,7 @@ struct KitchenRecipesStructureContractTests {
         )
     }
 
-    @Test("Kitchen bar keeps a clean top at rest, backs its buttons once the page scrolls, and keeps their glyphs legible")
+    @Test("Kitchen opens on web's identity header on paper, with its own title instead of the bar's, and keeps the bar's glyphs legible")
     func kitchenBarBacksButtonsOnceScrolled() throws {
         let kitchenPath = "Apps/Spoonjoy/Shared/Views/KitchenView.swift"
         let kitchen = uncommentedSwift(try readRepoFile(kitchenPath))
@@ -52,11 +52,19 @@ struct KitchenRecipesStructureContractTests {
             kitchen,
             in: kitchenPath,
             contains: [
-                ".scrollEdgeEffectHidden(!KitchenHeroStretch.showsTopEdgeEffect(scrollOffset: Double(scrollOffset)), for: .top)",
-                ".scrollEdgeEffectStyle(.hard, for: .top)"
+                // The paper page covers the bar once scrolled (`paperTopEdge`), as every other page does.
+                "KitchenTablePage(maxContentWidth: pageMaxContentWidth, bottomReserve: pageBottomReserve)",
+                "KitchenMasthead(kitchen: kitchen, chef: chef)",
+                ".toolbar(removing: .title)",
+                "\"My Kitchen\"",
+                "static func countSentence(recipes: Int, cookbooks: Int)",
+                ".clipShape(RoundedRectangle(cornerRadius: KitchenLeadMetrics.cardRadius, style: .continuous))"
             ],
             forbids: [
                 ".scrollEdgeEffectHidden(true, for: .top)",
+                // The dish no longer runs under the status bar: the identity header leads, as on web.
+                "KitchenHeroStretch",
+                ".ignoresSafeArea(edges: .top)",
                 // A forced bar scheme left the buttons' glyphs white on the paper once the photo scrolled away;
                 // the status bar already follows what is under it.
                 ".toolbarColorScheme("
