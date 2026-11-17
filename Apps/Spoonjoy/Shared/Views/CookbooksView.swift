@@ -378,15 +378,19 @@ private struct CookbookShelfBook: View {
 private struct CookbookCoverArt: View {
     let title: String
     let cover: CookbookCover
+    /// "2 recipes": given on the cookbook's own page, where a book without a photo is drawn as web draws it.
+    let recipeCountLabel: String?
 
     init(row: CookbookSurfaceRowViewModel) {
         title = row.title
         cover = row.cover
+        recipeCountLabel = nil
     }
 
-    init(cookbook: Cookbook) {
+    init(cookbook: Cookbook, recipeCountLabel: String? = nil) {
         title = cookbook.title
         cover = cookbook.cover
+        self.recipeCountLabel = recipeCountLabel
     }
 
     var body: some View {
@@ -400,13 +404,21 @@ private struct CookbookCoverArt: View {
         ZStack(alignment: .leading) {
             if let primaryImageURL = cover.primaryImageURL {
                 CookbookImageCover(imageURL: primaryImageURL, title: title)
+                CookbookSpine()
+            } else if let recipeCountLabel {
+                CookbookDrawnCover(title: title, recipeCountLabel: recipeCountLabel)
             } else {
                 CookbookFallbackCover(title: title)
+                CookbookSpine()
             }
-            CookbookSpine()
         }
         .aspectRatio(3 / 4, contentMode: .fit)
         .clipShape(shape)
+        .overlay {
+            if cover.primaryImageURL == nil, recipeCountLabel != nil {
+                shape.strokeBorder(KitchenTableTheme.lineStrong, lineWidth: 1)
+            }
+        }
         .shadow(color: KitchenTableTheme.ink.opacity(0.16), radius: 10, x: 2, y: 6)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
@@ -450,6 +462,48 @@ private struct CookbookImageCover: View {
                 .clipped()
         }
         .background(KitchenTableTheme.raised)
+    }
+}
+
+/// A cookbook without a photo on its own page, drawn as web draws it: a paper cover with the Spoonjoy imprint, the
+/// title in the serif between rules, a few ruled lines and the recipe count at the foot.
+private struct CookbookDrawnCover: View {
+    let title: String
+    let recipeCountLabel: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Spoonjoy")
+                .kitchenEyebrow()
+                .accessibilityHidden(true)
+            rule.padding(.top, 14)
+            Text(title)
+                .font(KitchenTableTheme.recipeTitle)
+                .foregroundStyle(KitchenTableTheme.ink)
+                .minimumScaleFactor(0.6)
+                .lineLimit(4)
+                .padding(.top, 18)
+            Spacer(minLength: 12)
+            VStack(alignment: .leading, spacing: 8) {
+                rule
+                rule.scaleEffect(x: 0.7, anchor: .leading)
+                rule.scaleEffect(x: 0.6, anchor: .leading)
+            }
+            .accessibilityHidden(true)
+            rule.padding(.top, 14)
+            Text(recipeCountLabel)
+                .kitchenEyebrow(KitchenTableTheme.ink2)
+                .padding(.top, 12)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(KitchenTableTheme.raised)
+    }
+
+    private var rule: some View {
+        Rectangle()
+            .fill(KitchenTableTheme.hairline)
+            .frame(height: 1)
     }
 }
 
@@ -667,7 +721,7 @@ private struct CookbookDetailView: View {
     }
 
     private var detailCoverWidth: CGFloat {
-        usesCompactCookbookDetailLayout ? 188 : 208
+        usesCompactCookbookDetailLayout ? 220 : 240
     }
 
     private var detailHeaderWidth: CGFloat {
@@ -676,28 +730,25 @@ private struct CookbookDetailView: View {
 
     @ViewBuilder private var cookbookDetailSpread: some View {
         if usesCompactCookbookDetailLayout {
-            // On a phone the book leads, then its title, the way a cover opens onto its first page.
+            // On a phone, as on web: the Cookbook eyebrow, the title and its byline, then the book itself, then Share.
             VStack(alignment: .leading, spacing: 18) {
-                CookbookCoverArt(cookbook: viewModel.cookbook)
-                    .frame(width: detailCoverWidth)
-                    .accessibilityIdentifier("CookbookDetailHero")
-                detailHeader
+                detailTitleBlock
+                detailCover
+                    .frame(maxWidth: .infinity, alignment: .center)
+                detailShareAction
             }
         } else {
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .top, spacing: 28) {
                     detailHeader
                         .frame(width: detailHeaderWidth, alignment: .leading)
-                    CookbookCoverArt(cookbook: viewModel.cookbook)
-                        .frame(width: detailCoverWidth)
-                        .accessibilityIdentifier("CookbookDetailHero")
+                    detailCover
                 }
 
                 VStack(alignment: .leading, spacing: 18) {
-                    detailHeader
-                    CookbookCoverArt(cookbook: viewModel.cookbook)
-                        .frame(width: detailCoverWidth)
-                        .accessibilityIdentifier("CookbookDetailHero")
+                    detailTitleBlock
+                    detailCover
+                    detailShareAction
                 }
             }
         }
@@ -705,13 +756,26 @@ private struct CookbookDetailView: View {
 
     private var detailHeader: some View {
         VStack(alignment: .leading, spacing: 14) {
-            KitchenTableHeader(
-                title: viewModel.title,
-                subtitle: "\(viewModel.chefLine) · \(viewModel.recipeCountLabel)",
-                titleFont: .system(.title, design: .serif).weight(.bold)
-            )
+            detailTitleBlock
             detailShareAction
         }
+    }
+
+    /// Web's cookbook header: the Cookbook eyebrow, the title in display Fraunces and "By … · N recipes".
+    private var detailTitleBlock: some View {
+        KitchenTableHeader(
+            eyebrow: "Cookbook",
+            title: viewModel.title,
+            subtitle: "\(viewModel.chefLine) · \(viewModel.recipeCountLabel)",
+            titleFont: KitchenTableTheme.displayTitle
+        )
+    }
+
+    /// The photo cover when the book has one; otherwise the drawn paper cover with its count.
+    private var detailCover: some View {
+        CookbookCoverArt(cookbook: viewModel.cookbook, recipeCountLabel: viewModel.recipeCountLabel)
+            .frame(width: detailCoverWidth)
+            .accessibilityIdentifier("CookbookDetailHero")
     }
 
     private var detailShareAction: some View {
