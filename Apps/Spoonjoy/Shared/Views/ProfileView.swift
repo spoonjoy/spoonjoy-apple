@@ -131,19 +131,21 @@ private struct ProfileHero: View {
     let openRoute: (AppRoute) -> Void
     let moderationChef: BlockedChef?
     @Binding var moderationPrompt: ModerationPrompt?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            ProfileAvatar(url: viewModel.header.photoURL, name: viewModel.header.username)
+        VStack(alignment: .leading, spacing: 18) {
+            identity
 
-            // The handle takes web's chef-name size, the title role (30 pt on a phone), not display size.
-            KitchenTableHeader(
-                title: viewModel.header.username,
-                subtitle: viewModel.header.joinedLabel,
-                titleFont: KitchenTableTheme.recipeTitle,
-                titleBreaksAnywhere: true
-            ) {
-                ownerActions
+            if hasOwnerActions {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 10) {
+                        ownerActions
+                    }
+                    VStack(alignment: .leading, spacing: 10) {
+                        ownerActions
+                    }
+                }
             }
 
             ProfileFigures(
@@ -153,6 +155,30 @@ private struct ProfileHero: View {
                 openRoute: openRoute
             )
         }
+    }
+
+    /// As web's chef page: the photo beside the CHEF PROFILE eyebrow, the handle and when they joined. At
+    /// accessibility sizes the photo sits above, so the handle keeps the width.
+    private var identity: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 14))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 18))
+        return layout {
+            ProfileAvatar(url: viewModel.header.photoURL, name: viewModel.header.username)
+
+            // The handle takes web's chef-name size, the title role (30 pt on a phone), not display size.
+            KitchenTableHeader(
+                eyebrow: "Chef profile",
+                title: viewModel.header.username,
+                subtitle: viewModel.header.joinedLabel,
+                titleFont: KitchenTableTheme.recipeTitle,
+                titleBreaksAnywhere: true
+            )
+        }
+    }
+
+    private var hasOwnerActions: Bool {
+        (viewModel.ownerActions.isVisible && viewModel.ownerActions.editProfileRoute != nil) || moderationChef != nil
     }
 
     @ViewBuilder private var ownerActions: some View {
@@ -240,7 +266,8 @@ private struct ProfileAvatar: View {
             }
         }
         .frame(width: 88, height: 88)
-        .clipShape(Circle())
+        // Web's rounded-square chef photo, as the Kitchen's identity header shows it.
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .accessibilityHidden(true)
     }
 }
