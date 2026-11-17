@@ -4659,11 +4659,16 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         try await bootstrapAndDrain(configuration: configuration, trigger: trigger, scope: .unbound)
     }
 
+    /// Syncs and drains the queue. Every pass on this engine's store takes its turn (`NativeSyncDrainTurns`), whichever
+    /// engine runs it, because each pass sends and writes back its own loaded copy of the queue. Cancelling a pass that
+    /// is still waiting for its turn throws `CancellationError` and leaves the queue untouched.
     public func bootstrapAndDrain(
         configuration: APIClientConfiguration,
         trigger: NativeCacheRevalidationTrigger,
         scope: NativeSyncExecutionScope
     ) async throws -> NativeSyncReport {
+        try await NativeSyncDrainTurns.take(on: store)
+        defer { NativeSyncDrainTurns.hand(on: store) }
         let previousSnapshot = try await store.loadSnapshot()
         let previousCheckpoint = Self.reusableCheckpoint(from: previousSnapshot, scope: scope)
         let bootstrapApplication = try await applyBootstrap(

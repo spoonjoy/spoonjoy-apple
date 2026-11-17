@@ -34,9 +34,8 @@ enum NativeSyncDrainTurns {
 
     /// Runs `pass` when no other pass on `store` is running, and gives the turn to the next pass when it ends.
     static func run<Result>(on store: any NativeSyncStore, _ pass: () async throws -> Result) async throws -> Result {
-        let key = ObjectIdentifier(store)
-        try await take(key)
-        defer { hand(key) }
+        try await take(on: store)
+        defer { hand(on: store) }
         return try await pass()
     }
 
@@ -45,7 +44,9 @@ enum NativeSyncDrainTurns {
         turns.withLock { $0.waitersByStore[ObjectIdentifier(store)]?.count ?? 0 }
     }
 
-    private static func take(_ key: ObjectIdentifier) async throws {
+    /// Waits for `store`'s turn. Every successful `take` is followed by exactly one `hand`, on every path out.
+    static func take(on store: any NativeSyncStore) async throws {
+        let key = ObjectIdentifier(store)
         let id = turns.withLock { turns -> UInt64 in
             turns.nextWaiterID += 1
             return turns.nextWaiterID
@@ -84,7 +85,9 @@ enum NativeSyncDrainTurns {
         }
     }
 
-    private static func hand(_ key: ObjectIdentifier) {
+    /// Gives `store`'s turn to the next pass waiting, if any.
+    static func hand(on store: any NativeSyncStore) {
+        let key = ObjectIdentifier(store)
         let next = turns.withLock { turns -> CheckedContinuation<Void, any Error>? in
             guard var waiters = turns.waitersByStore[key], !waiters.isEmpty else {
                 turns.waitersByStore[key] = nil
