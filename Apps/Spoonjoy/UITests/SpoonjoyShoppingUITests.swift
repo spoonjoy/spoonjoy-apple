@@ -98,10 +98,10 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         XCTAssertTrue(app.otherElements["shopping.ui-test.root"].waitForExistence(timeout: 8))
 
         chooseShoppingView("Need 1", in: app)
-        XCTAssertTrue(app.staticTexts["Showing Need 1"].waitForExistence(timeout: 5), "Choosing Need 1 did not say so. \(app.debugDescription)")
+        XCTAssertTrue(app.buttons["Need 1"].isSelected, "Choosing Need 1 did not select it. \(app.debugDescription)")
         chooseShoppingView("Basket 1", in: app)
         chooseShoppingView("All 2", in: app)
-        XCTAssertTrue(app.staticTexts["Showing Basket 1"].waitForNonExistence(timeout: 5), "Choosing All left a filter line. \(app.debugDescription)")
+        XCTAssertTrue(app.buttons["All 2"].isSelected, "Choosing All 2 did not select it. \(app.debugDescription)")
         chooseAisle("Produce", in: app)
         XCTAssertTrue(app.staticTexts["Showing Produce"].waitForExistence(timeout: 5), "Choosing Produce did not say so. \(app.debugDescription)")
         tapOnceItExists(app.buttons["Show all"], named: "Show all", in: app)
@@ -183,12 +183,16 @@ final class SpoonjoyShoppingUITests: XCTestCase {
             variant: "normal",
             contentSizeCategory: "UICTContentSizeCategoryAccessibilityXXXL"
         )
-        // The filter line under the composer names the chosen view once the menu has closed and the choice applied.
+        // At accessibility sizes the view is a menu on the page, whose button names the chosen view.
         chooseShoppingView("Need 1", in: app)
-        XCTAssertTrue(app.staticTexts["Showing Need 1"].waitForExistence(timeout: 10), "Choosing Need 1 did not update the filter line. \(app.debugDescription)")
+        XCTAssertTrue(
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Need 1'")).firstMatch.waitForExistence(timeout: 10),
+            "Choosing Need 1 did not update the view menu. \(app.debugDescription)"
+        )
 
+        // The filter line under the composer names the chosen aisle once the menu has closed and the choice applied.
         chooseAisle("Produce", in: app)
-        XCTAssertTrue(app.staticTexts["Showing Need 1 · Produce"].waitForExistence(timeout: 10), "Choosing Produce did not update the filter line. \(app.debugDescription)")
+        XCTAssertTrue(app.staticTexts["Showing Produce"].waitForExistence(timeout: 10), "Choosing Produce did not update the filter line. \(app.debugDescription)")
         XCTAssertTrue(app.buttons["Show all"].isHittable)
         tapOnceItExists(app.buttons["Add from recipe"], named: "Add from recipe", in: app)
         app.terminate()
@@ -344,9 +348,16 @@ final class SpoonjoyShoppingUITests: XCTestCase {
     }
 
     /// Picks Need, Basket or All from the ⋯ menu's inline picker.
+    /// Picks Need, Basket or All: a segment of the control under the composer, or at accessibility sizes an item of
+    /// the menu that stands in for it.
     private func chooseShoppingView(_ option: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
-        tapOnceItExists(app.buttons["Receipt actions"], named: "Receipt actions", in: app, file: file, line: line)
-        tapWhenHittable(app.buttons[option], named: "The menu's \(option) item", in: app, file: file, line: line)
+        let segment = app.segmentedControls["shopping.mode"].buttons[option]
+        if segment.waitForExistence(timeout: 3) {
+            tapOnceItExists(segment, named: "The \(option) segment", in: app, file: file, line: line)
+        } else {
+            tapOnceItExists(app.buttons["shopping.mode"], named: "The view menu", in: app, file: file, line: line)
+            tapWhenHittable(app.buttons[option], named: "The view menu's \(option) item", in: app, file: file, line: line)
+        }
     }
 
     /// Picks an aisle from the ⋯ menu's aisle submenu, whose label names the current aisle.
