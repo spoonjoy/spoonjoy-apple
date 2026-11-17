@@ -569,7 +569,7 @@ struct RecipeDetailView: View {
                 heroHeight: Double(proxy.size.height),
                 reduceMotion: accessibilityReduceMotion
             )
-            recipeHeroCover(coverImageURL: coverImageURL)
+            recipeHeroCover(coverImageURL: coverImageURL, underBar: true)
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .clipped()
                 .scaleEffect(scale, anchor: .top)
@@ -591,7 +591,9 @@ struct RecipeDetailView: View {
         .accessibilityIdentifier("recipeDetail.cover")
     }
 
-    @ViewBuilder private func recipeHeroCover(coverImageURL: URL?) -> some View {
+    /// The photo or the initial tile. `underBar` darkens the top of a photo for the status bar and the glass buttons
+    /// over it; the spread's cover sits on its page with nothing over it.
+    @ViewBuilder private func recipeHeroCover(coverImageURL: URL?, underBar: Bool) -> some View {
         if let coverImageURL {
             RecipeCoverImage(
                 url: coverImageURL,
@@ -612,6 +614,7 @@ struct RecipeDetailView: View {
                     startPoint: .top,
                     endPoint: .bottom
                 )
+                .opacity(underBar ? 1 : 0)
             }
         } else {
             // The same vellum-to-brass tile and serif initial every recipe row shows, at hero size.
@@ -672,8 +675,13 @@ struct RecipeDetailView: View {
         // A deleted chef has no page to open.
         .disabled(chef.displayName == ChefDisplayName.deletedChef)
         .accessibilityLabel("By \(chef.displayName)")
-        .accessibilityHint("Opens the chef's page.")
+        .accessibilityHint(bylineHint)
         .accessibilityIdentifier("recipeDetail.byline")
+    }
+
+    /// A deleted chef's byline opens nothing, so it offers nothing.
+    private var bylineHint: String {
+        viewModel.recipe.chef.displayName == ChefDisplayName.deletedChef ? "" : "Opens the chef's page."
     }
 
     private var bylineAvatarSize: CGFloat {
@@ -688,7 +696,7 @@ struct RecipeDetailView: View {
         let stacked = dynamicTypeSize.isAccessibilitySize
         let layout = stacked
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-            // On a baseline, so a byline that wraps hangs from the first line instead of floating against "Serves".
+            // On a baseline, so the time sits on the Serves pill's label line.
             : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 8))
         return layout {
             recipeMetaFacts(separated: !stacked)
@@ -761,7 +769,7 @@ struct RecipeDetailView: View {
     /// Where the recipe came from, under a hairline as web sets it: "originally from <site>" linking out, and
     /// "forked from <chef> · <recipe>" opening the recipe it was forked from.
     @ViewBuilder private var recipeProvenance: some View {
-        if viewModel.sourceLink != nil || viewModel.sourceAttribution != nil {
+        if viewModel.sourceLink != nil || viewModel.unlinkedSourceHost != nil || viewModel.sourceAttribution != nil {
             VStack(alignment: .leading, spacing: 6) {
                 if let sourceLink = viewModel.sourceLink {
                     Link(destination: sourceLink.url) {
@@ -769,10 +777,17 @@ struct RecipeDetailView: View {
                             .foregroundStyle(KitchenTableTheme.brass)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
+                            .frame(minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .leading)
+                            .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Originally from \(sourceLink.label)")
                     .accessibilityHint("Opens the page this recipe was imported from.")
                     .accessibilityIdentifier("recipeDetail.originallyFrom")
+                } else if let host = viewModel.unlinkedSourceHost {
+                    Text("originally from \(host)")
+                        .foregroundStyle(KitchenTableTheme.ink2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("recipeDetail.originallyFrom")
                 }
                 if let sourceAttribution = viewModel.sourceAttribution {
                     recipeForkLine(sourceAttribution)
@@ -798,6 +813,8 @@ struct RecipeDetailView: View {
                 Label(sourceAttribution.forkLine, systemImage: Self.provenanceIconName)
                     .foregroundStyle(KitchenTableTheme.ink2)
                     .multilineTextAlignment(.leading)
+                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .leading)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityHint("Opens the recipe this one was forked from.")
@@ -1647,7 +1664,7 @@ extension RecipeDetailView {
         VStack(alignment: .leading, spacing: 22) {
             offlineIndicator
             // The left page opens on the cover too: the photo, or the initial tile when there is none.
-            recipeHeroCover(coverImageURL: realCoverURL)
+            recipeHeroCover(coverImageURL: realCoverURL, underBar: false)
                 .frame(maxWidth: .infinity)
                 .frame(height: CGFloat(BookSpreadLayout.coverHeight(pageWidth: Double(pageWidth))))
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo))
