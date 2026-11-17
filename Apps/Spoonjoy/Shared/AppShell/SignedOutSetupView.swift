@@ -112,9 +112,10 @@ struct SignedOutSetupView: View {
         HStack(spacing: 10) {
             SpoonjoyIdentityMark()
                 .frame(width: min(wordmarkSize, 44), height: min(wordmarkSize, 44))
-            Text("SPOONJOY")
+            Text("Spoonjoy")
                 .font(KitchenTableTheme.sectionTitle)
-                .tracking(1.6)
+                .textCase(.uppercase)
+                .kitchenEyebrowTracking()
                 .foregroundStyle(KitchenTableTheme.ink)
         }
         .accessibilityElement(children: .ignore)
@@ -127,10 +128,7 @@ struct SignedOutSetupView: View {
     private var signInLead: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Kitchen sign-in")
-                .font(KitchenTableTheme.eyebrow)
-                .textCase(.uppercase)
-                .tracking(2)
-                .foregroundStyle(KitchenTableTheme.ink2)
+                .kitchenEyebrow(KitchenTableTheme.ink2)
             Text("Keep the good recipes close.")
                 .font(KitchenTableTheme.displayTitle)
                 .foregroundStyle(KitchenTableTheme.ink)
