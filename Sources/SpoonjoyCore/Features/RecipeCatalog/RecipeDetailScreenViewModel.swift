@@ -266,6 +266,9 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
     public let cover: RecipeDetailCoverViewModel
     public let sourceAttribution: RecipeDetailSourceAttribution?
     public let sourceLink: RecipeDetailSourceLink?
+    /// The site an imported recipe came from when its address can't be opened: "originally from example.com", as
+    /// plain text.
+    public let unlinkedSourceHost: String?
     public let stepSections: [RecipeDetailStepSection]
     public let spoonSummary: RecipeDetailSpoonSummary
     public let cookbookSave: RecipeDetailCookbookSaveState
@@ -303,6 +306,8 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
             )
         }
         sourceLink = recipe.attribution.sourceURL.map(RecipeDetailSourceLink.init(url:))
+        let host = recipe.attribution.sourceHost?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        unlinkedSourceHost = sourceLink == nil && !host.isEmpty ? host : nil
         stepSections = recipe.steps.map(RecipeDetailStepSection.init(step:))
         spoonSummary = RecipeDetailSpoonSummary(
             rows: recipe.recentSpoons

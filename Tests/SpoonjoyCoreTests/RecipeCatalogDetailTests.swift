@@ -405,6 +405,7 @@ struct RecipeCatalogDetailTests {
         ))
         #expect(forked.sourceAttribution?.creditLine == "forked from qa_kitchen_chef · Lemon Herb Rice")
         #expect(forked.sourceLink == nil)
+        #expect(forked.unlinkedSourceHost == nil)
 
         let parsley = RecipeDetailIngredientRow(ingredient: RecipeIngredient(id: "i1", name: "parsley", quantity: 0.25, unit: "cup"))
         #expect(parsley.quantityText() == "¼ cup")
@@ -436,6 +437,21 @@ struct RecipeCatalogDetailTests {
         #expect(imported.sourceLink?.url.absoluteString == "https://www.joshuaweissman.com/recipes/aglio-e-olio")
         #expect(imported.sourceAttribution?.recipeID == nil)
         #expect(imported.sourceAttribution?.forkLine == "forked from Old Aglio")
+
+        #expect(imported.unlinkedSourceHost == nil)
+
+        let unsafe = RecipeDetailScreenViewModel(recipe: Self.manualRecipe(
+            servings: nil, stepTitle: nil, dependencyTitle: nil, recentSpoons: [],
+            attribution: RecipeAttribution(
+                creditText: "Aglio e Olio by ari on Spoonjoy",
+                canonicalURL: URL(string: "https://spoonjoy.app/recipes/recipe_manual")!,
+                sourceURLRaw: "javascript:alert(1)",
+                sourceHost: " example.com ",
+                sourceRecipe: nil
+            )
+        ))
+        #expect(unsafe.sourceLink == nil)
+        #expect(unsafe.unlinkedSourceHost == "example.com")
 
         let hostless = RecipeDetailSourceLink(url: URL(string: "urn:spoonjoy:recipe")!)
         #expect(hostless.label == "urn:spoonjoy:recipe")
