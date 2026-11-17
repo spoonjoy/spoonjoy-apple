@@ -92,7 +92,7 @@ struct RecipeCatalogDetailTests {
         #expect(custom == RecipeCatalogEmptyState(
             title: "No saved dinner party recipes",
             message: "",
-            systemImage: "book.closed"
+            systemImage: "book"
         ))
     }
 

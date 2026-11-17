@@ -18,7 +18,7 @@ public struct RecipeCatalogEmptyState: Equatable, Sendable, ExpressibleByStringL
     public static let noRecipes = RecipeCatalogEmptyState(
         title: "No recipes yet",
         message: "Start your recipe box with the dishes you actually cook.",
-        systemImage: "book.closed"
+        systemImage: "book"
     )
 
     public static let noMatches = RecipeCatalogEmptyState(
@@ -42,7 +42,7 @@ public struct RecipeCatalogEmptyState: Equatable, Sendable, ExpressibleByStringL
         case noSavedRecipes.title:
             noSavedRecipes
         default:
-            RecipeCatalogEmptyState(title: title, message: "", systemImage: "book.closed")
+            RecipeCatalogEmptyState(title: title, message: "", systemImage: "book")
         }
     }
 }

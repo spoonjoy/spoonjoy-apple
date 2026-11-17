@@ -107,7 +107,7 @@ public struct SearchSurfaceRow: Identifiable, Equatable, Sendable {
     public var systemImage: String {
         switch result.type {
         case .recipe:
-            "book.closed"
+            "book"
         case .cookbook:
             "books.vertical"
         case .chef:

@@ -387,7 +387,7 @@ struct NativeMobileDesignContractTests {
                 "compactMobileShell",
                 "TabView(selection: compactTabSelection)",
                 "Tab(\"Kitchen\", systemImage: \"house\", value: CompactTab.kitchen)",
-                "Tab(\"Recipes\", systemImage: \"book.closed\", value: CompactTab.recipes)",
+                "Tab(\"Recipes\", systemImage: \"book\", value: CompactTab.recipes)",
                 "Tab(\"Cookbooks\", systemImage: \"books.vertical\", value: CompactTab.cookbooks)",
                 "Tab(\"Shopping\", systemImage: \"cart\", value: CompactTab.shopping)",
                 "Tab(\"Search\", systemImage: \"magnifyingglass\", value: CompactTab.search, role: .search)",
