@@ -132,6 +132,10 @@ struct RecipeCatalogDetailTests {
         #expect(viewModel.cover.accessibilityLabel == "Lemon Pantry Pasta cover image")
         #expect(viewModel.sourceAttribution?.title == "Original Lemon Pasta")
         #expect(viewModel.sourceAttribution?.host == "example.com")
+        #expect(viewModel.sourceAttribution?.recipeID == "recipe_source_pasta")
+        #expect(viewModel.sourceAttribution?.forkLine == "forked from jules · Original Lemon Pasta")
+        #expect(viewModel.sourceLink?.url.absoluteString == "https://example.com/original-lemon-pasta")
+        #expect(viewModel.sourceLink?.label == "example.com")
         #expect(viewModel.stepSections.map(\.stepNumber) == [1, 2])
         #expect(viewModel.stepSections[0].title == "Boil Pasta")
         #expect(viewModel.stepSections[0].durationMinutes == 10)
@@ -400,12 +404,41 @@ struct RecipeCatalogDetailTests {
             servings: nil, stepTitle: nil, dependencyTitle: nil, recentSpoons: [], attribution: attribution
         ))
         #expect(forked.sourceAttribution?.creditLine == "forked from qa_kitchen_chef · Lemon Herb Rice")
+        #expect(forked.sourceLink == nil)
 
         let parsley = RecipeDetailIngredientRow(ingredient: RecipeIngredient(id: "i1", name: "parsley", quantity: 0.25, unit: "cup"))
         #expect(parsley.quantityText() == "¼ cup")
         #expect(parsley.aisleLabel == "Produce")
         let rice = RecipeDetailIngredientRow(ingredient: RecipeIngredient(id: "i2", name: "jasmine rice", quantity: 1, unit: "cup"))
         #expect(rice.aisleLabel == "Pantry")
+    }
+
+    @Test("an imported recipe names the site it came from, and a deleted fork source opens nothing")
+    func importedSourceLinkAndDeletedForkSource() {
+        let attribution = RecipeAttribution(
+            creditText: "Aglio e Olio by ari on Spoonjoy",
+            canonicalURL: URL(string: "https://spoonjoy.app/recipes/recipe_manual")!,
+            sourceURLRaw: "  https://www.joshuaweissman.com/recipes/aglio-e-olio  ",
+            sourceHost: nil,
+            sourceRecipe: SourceRecipeAttribution(
+                id: "recipe_gone",
+                title: "Old Aglio",
+                chef: nil,
+                href: nil,
+                canonicalURL: nil,
+                deleted: true
+            )
+        )
+        let imported = RecipeDetailScreenViewModel(recipe: Self.manualRecipe(
+            servings: nil, stepTitle: nil, dependencyTitle: nil, recentSpoons: [], attribution: attribution
+        ))
+        #expect(imported.sourceLink?.label == "www.joshuaweissman.com")
+        #expect(imported.sourceLink?.url.absoluteString == "https://www.joshuaweissman.com/recipes/aglio-e-olio")
+        #expect(imported.sourceAttribution?.recipeID == nil)
+        #expect(imported.sourceAttribution?.forkLine == "forked from Old Aglio")
+
+        let hostless = RecipeDetailSourceLink(url: URL(string: "urn:spoonjoy:recipe")!)
+        #expect(hostless.label == "urn:spoonjoy:recipe")
     }
 
     @Test("share falls back to the recipe's web address when the server canonical URL is on another host")
