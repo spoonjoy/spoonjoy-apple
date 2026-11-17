@@ -336,7 +336,7 @@ struct KitchenIdentityLine: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             avatar
-                .frame(width: min(avatarSize, 96), height: min(avatarSize, 96))
+                .frame(width: avatarSide, height: avatarSide)
                 .clipShape(RoundedRectangle(cornerRadius: KitchenIdentityMetrics.avatarRadius, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: KitchenIdentityMetrics.avatarRadius, style: .continuous)
@@ -351,6 +351,10 @@ struct KitchenIdentityLine: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Chef \(chef.username)")
         .accessibilityIdentifier("kitchen.identity")
+    }
+
+    private var avatarSide: CGFloat {
+        min(avatarSize, 96)
     }
 
     @ViewBuilder private var avatar: some View {
@@ -372,7 +376,8 @@ struct KitchenIdentityLine: View {
         ZStack {
             KitchenTableTheme.vellum
             Text(String(chef.username.prefix(1)).uppercased())
-                .font(KitchenTypeRole.recipeTitle.font(relativeTo: .largeTitle))
+                // Sized to the photo square, which stops growing at 96 pt, so the letter never outgrows it.
+                .font(KitchenTypeRole.recipeTitle.fixedFont(size: Double(avatarSide) * 0.45))
                 .foregroundStyle(KitchenTableTheme.ink)
         }
     }
@@ -430,20 +435,25 @@ struct RecipeLead: View {
         .accessibilityIdentifier("kitchen.recipe")
     }
 
-    /// The photo, or a designed tile for a recipe without one, filling the card.
+    /// The photo, or a designed tile for a recipe without one, filling the card and clipped to it, so the scrim and
+    /// the zoom start from the card's own shape.
     private var heroPhoto: some View {
-        ZStack {
-            if let coverURL = recipe.displayCoverImageURL {
-                RecipeCoverImage(url: coverURL, title: recipe.title, subtitle: nil, showsFallbackLabel: false)
-                    .scaledToFill()
-            } else {
-                KitchenTableTheme.photoCharcoal
-                RecipeInitialTile(title: recipe.title)
-                    .opacity(0.5)
+        Color.clear
+            .overlay {
+                if let coverURL = recipe.displayCoverImageURL {
+                    RecipeCoverImage(url: coverURL, title: recipe.title, subtitle: nil, showsFallbackLabel: false)
+                        .scaledToFill()
+                } else {
+                    ZStack {
+                        KitchenTableTheme.photoCharcoal
+                        RecipeInitialTile(title: recipe.title)
+                            .opacity(0.5)
+                    }
+                }
             }
-        }
-        .overlay { scrim }
-        .allowsHitTesting(false)
+            .clipShape(RoundedRectangle(cornerRadius: KitchenLeadMetrics.cardRadius, style: .continuous))
+            .overlay { scrim }
+            .allowsHitTesting(false)
         .recipeZoomSource(id: recipe.id)
         .accessibilityHidden(true)
     }

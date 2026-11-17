@@ -591,7 +591,7 @@ struct PlatformNavigationView: View {
                 regularDetailPage
                     .navigationTitle(regularBarTitle(for: navigation.route))
 #if os(iOS)
-                    // The Kitchen's and a recipe's photo is the title, so their bar stays inline and the photo runs under it.
+                    // The Kitchen's own header and a recipe's photo lead their pages, so their bar stays inline and quiet.
                     // Cook mode opens with its own step header, as on the phone.
                     .navigationBarTitleDisplayMode(routeLeadsWithPhoto(navigation.route) || routeIsCookMode(navigation.route) ? .inline : .large)
                     .toolbar(hidesNavigationBar ? .hidden : .automatic, for: .navigationBar)
@@ -840,7 +840,7 @@ struct PlatformNavigationView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .safeAreaInset(edge: .top, spacing: 0) {
                 if route == navigation.route && shouldShowShellOfflineStatus {
-                    // The Kitchen's photo runs under the status line, so the quiet line gets a paper capsule there.
+                    // The Kitchen's quiet line sits on a paper capsule, so it reads as a status over the identity header.
                     compactOfflineStatusBar(onPhoto: route == .kitchen)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
@@ -1433,7 +1433,7 @@ struct PlatformNavigationView: View {
                 kitchen: contentState.kitchen,
                 recipes: contentState.recipes,
                 cookbooks: contentState.cookbooks,
-                chef: currentChefSummary,
+                chef: kitchenChef,
                 cookProgress: { contentState.cookProgress(for: $0) },
                 openRecipe: openRecipe,
                 startCooking: startCooking,
@@ -2203,12 +2203,18 @@ struct PlatformNavigationView: View {
         if let account = contentState.settingsSurfaceData?.account {
             return ChefSummary(id: account.id, username: account.username, photoURL: account.photoURL)
         }
-        let ownChef = currentChefID.flatMap { id in
-            contentState.recipes.first { $0.chef.id == id }?.chef ?? contentState.cookbooks.first { $0.chef.id == id }?.chef
+        guard let currentChefID else {
+            return contentState.recipes.first?.chef ?? contentState.cookbooks.first?.chef
         }
-        return ownChef ?? contentState.recipes.first?.chef ?? contentState.cookbooks.first?.chef ?? currentChefID.map {
-            ChefSummary(id: $0, username: "Spoonjoy")
-        }
+        return contentState.recipes.first { $0.chef.id == currentChefID }?.chef
+            ?? contentState.cookbooks.first { $0.chef.id == currentChefID }?.chef
+            ?? ChefSummary(id: currentChefID, username: "Spoonjoy")
+    }
+
+    /// The kitchen's identity header names only the signed-in chef: never someone else's handle from a saved recipe.
+    private var kitchenChef: ChefSummary? {
+        guard let chef = currentChefSummary, chef.username != "Spoonjoy" else { return nil }
+        return chef
     }
 
     private func recipeEditorViewModel(id: String?) -> RecipeEditorViewModel? {

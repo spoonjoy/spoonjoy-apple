@@ -301,7 +301,7 @@ struct KitchenRecipesStructureContractTests {
                     "Recipe index",
                     "Cookbook shelf",
                     "RecipeIndexRow",
-                    "edge-to-edge-hero",
+                    "counter-card",
                     "Loading recipes",
                     "OfflineStatusView"
                 ],
