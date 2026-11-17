@@ -32,7 +32,8 @@ enum NativeSyncDrainTurns {
 
     private static let turns = Mutex(Turns())
 
-    /// Runs `pass` when no other pass on `store` is running, and gives the turn to the next pass when it ends.
+    /// Runs `pass` when no other pass on `store` is running, and gives the turn to the next pass when it ends. The engine
+    /// calls `take` and `hand` itself; this is the same thing as one call, for tests.
     static func run<Result>(on store: any NativeSyncStore, _ pass: () async throws -> Result) async throws -> Result {
         try await take(on: store)
         defer { hand(on: store) }
