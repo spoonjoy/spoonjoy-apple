@@ -107,7 +107,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "voiceOverLabels" => ["Spoonjoy", "Sign in", "Opening Capture after sign-in", "native Apple sign-in", "native password sign-in"],
     "keyboardNavigationTargets" => ["native sign-in email or username", "native sign-in password", "native Apple sign-in", "Settings"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
-    "contrastPairs" => ["charcoal on bone", "herb button on bone", "brass status on bone"],
+    "contrastPairs" => ["charcoal on bone", "action button on bone", "brass status on bone"],
     "hierarchyAnchors" => ["SignedOutSetupView", "SpoonjoyIdentityMark", "pendingRouteLabel", "SignInWithAppleButton"],
     "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters"]
   },
