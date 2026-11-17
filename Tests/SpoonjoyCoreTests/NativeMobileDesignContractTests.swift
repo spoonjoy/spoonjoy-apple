@@ -387,7 +387,7 @@ struct NativeMobileDesignContractTests {
                 "compactMobileShell",
                 "TabView(selection: compactTabSelection)",
                 "Tab(\"Kitchen\", systemImage: \"house\", value: CompactTab.kitchen)",
-                "Tab(\"Recipes\", systemImage: \"book.closed\", value: CompactTab.recipes)",
+                "Tab(\"Recipes\", systemImage: \"book\", value: CompactTab.recipes)",
                 "Tab(\"Cookbooks\", systemImage: \"books.vertical\", value: CompactTab.cookbooks)",
                 "Tab(\"Shopping\", systemImage: \"cart\", value: CompactTab.shopping)",
                 "Tab(\"Search\", systemImage: \"magnifyingglass\", value: CompactTab.search, role: .search)",
@@ -1054,11 +1054,12 @@ struct NativeMobileDesignContractTests {
                 "let hasVisibleCurrentRecipe = routeState.currentViewModel?.id == recipeID",
                 "if !hasVisibleCurrentRecipe",
                 "private var recipeMasthead",
-                "private func recipeHeroMedia(coverImageURL: URL)",
-                "if let coverImageURL = viewModel.cover.imageURL, viewModel.cover.hasRealCover",
-                "private var recipeNoPhotoStatus",
-                "Label(viewModel.cover.noPhotoLabel",
+                "private func recipeHeroMedia(coverImageURL: URL?)",
+                "viewModel.cover.hasRealCover ? viewModel.cover.imageURL : nil",
+                "RecipeInitialTile(title: viewModel.title)",
                 "private var recipeIdentityAndProvenance",
+                "private var recipeByline",
+                "viewModel.sourceLink",
                 "private var recipeMastheadActions",
                 "private var recipeMastheadLogCookAction",
                 "viewModel.cover.hasRealCover",
@@ -1071,6 +1072,8 @@ struct NativeMobileDesignContractTests {
             forbids: [
                 ".navigationTitle(\"Save\")",
                 "subtitle: viewModel.cover.noPhotoLabel",
+                "Label(viewModel.cover.noPhotoLabel",
+                "private var recipeNoPhotoStatus",
                 "showsFallbackLabel: true",
                 "private var recipeNoPhotoHeight"
             ]
@@ -1747,7 +1750,7 @@ struct NativeMobileDesignContractTests {
             try readRepoFile("Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"),
             in: "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift",
             contains: [
-                "if let coverImageURL = viewModel.cover.imageURL",
+                "viewModel.cover.hasRealCover ? viewModel.cover.imageURL : nil",
                 "showsFallbackLabel: false"
             ],
             forbids: [

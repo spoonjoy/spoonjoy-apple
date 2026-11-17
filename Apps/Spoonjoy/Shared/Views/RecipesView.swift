@@ -72,7 +72,7 @@ struct RecipesView: View {
             )
 
             if isLoading, state.rows.isEmpty {
-                KitchenTableLoadingStateView(title: loadingTitle, subtitle: loadingSubtitle, systemImage: "book.closed")
+                KitchenTableLoadingStateView(title: loadingTitle, subtitle: loadingSubtitle, systemImage: "book")
             } else if let emptyState = state.resolvedEmptyState(overridingDefaultWith: emptyStateOverride) {
                 recipesEmptyState(emptyState)
             } else {

@@ -53,9 +53,10 @@ class OptionalChecksWaitTest < Minitest::Test
       doc = YAML.safe_load(File.read(path))
       next unless runs_on_macos?(doc)
 
+      fix = "#{name} runs on macOS: drop its pull_request trigger, add workflow_call, and call it from native.yml after the required checks"
       events = triggers(doc).keys
-      refute_includes events, "pull_request", "#{name} runs on macOS, so Native calls it after the required checks"
-      refute_includes events, "pull_request_target", name
+      refute_includes events, "pull_request", fix
+      refute_includes events, "pull_request_target", fix
     end
   end
 

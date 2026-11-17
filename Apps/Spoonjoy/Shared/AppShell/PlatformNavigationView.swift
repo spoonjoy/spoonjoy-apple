@@ -620,7 +620,7 @@ struct PlatformNavigationView: View {
             Tab("Kitchen", systemImage: "house", value: CompactTab.kitchen) {
                 compactTabStack(for: .kitchen).modifier(clearsCookingNowAccessory)
             }
-            Tab("Recipes", systemImage: "book.closed", value: CompactTab.recipes) {
+            Tab("Recipes", systemImage: "book", value: CompactTab.recipes) {
                 compactTabStack(for: .recipes).modifier(clearsCookingNowAccessory)
             }
             Tab("Cookbooks", systemImage: "books.vertical", value: CompactTab.cookbooks) {
@@ -1311,7 +1311,7 @@ struct PlatformNavigationView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("sidebar.addRecipe")
-                sidebarLink(section: .recipes, title: "My Recipes", systemImage: "book.closed")
+                sidebarLink(section: .recipes, title: "My Recipes", systemImage: "book")
                 sidebarLink(section: .savedRecipes, title: "Saved Recipes", systemImage: "bookmark")
                 sidebarLink(section: .everyoneRecipes, title: "Everyone's Recipes", systemImage: "globe")
                 // The chef's own cookbooks sit under Cookbooks like a table of contents, so a book is one tap away.

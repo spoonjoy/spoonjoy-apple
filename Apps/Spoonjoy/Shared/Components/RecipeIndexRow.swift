@@ -277,13 +277,13 @@ struct RecipeInitialTile: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                // The letter is decoration sized to the tile, not text to read, so it scales with the tile
-                // (a Large Title is 34 points at the default text size) instead of with Dynamic Type.
+                // The letter is decoration sized to the tile, not text to read, so it follows the tile's height
+                // instead of Dynamic Type. It is set at that size rather than scaled up, so the hero-sized tile on a
+                // recipe page with no photo stays as crisp as a row's thumbnail.
                 Text(initial)
-                    .font(KitchenTableTheme.largeTitle)
-                    .dynamicTypeSize(.large)
+                    .font(KitchenTypeRole.largeTitle.fixedFont(size: Double(max(proxy.size.height, 1)) * 0.42))
                     .foregroundStyle(KitchenTableTheme.brass)
-                    .scaleEffect(proxy.size.height * 0.42 / 34)
+                    .frame(width: proxy.size.width, height: proxy.size.height)
             }
         }
     }

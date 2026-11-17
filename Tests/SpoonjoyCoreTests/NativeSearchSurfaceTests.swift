@@ -652,7 +652,7 @@ struct NativeSearchSurfaceTests {
 
         #expect(rows.map(\.id) == ["recipe-recipe_sparse", "cookbook-cookbook_tomato", "chef-chef_no_username", "shopping-list-item-item_tomato_paste"])
         #expect(rows.map(\.subtitle) == ["crisp bread", "Cookbook by ari", "", "Shopping list"])
-        #expect(rows.map(\.systemImage) == ["book.closed", "books.vertical", "person.crop.circle", "cart"])
+        #expect(rows.map(\.systemImage) == ["book", "books.vertical", "person.crop.circle", "cart"])
         #expect(rows[0].imageURL == URL(string: "https://spoonjoy.app/photos/sparse-toast.jpg"))
         #expect(rows[0].accessibilityLabel == "Recipe, Sparse Toast, crisp bread")
         #expect(rows[1].accessibilityLabel == "Cookbook, Tomato Weeknights, Cookbook by ari")
