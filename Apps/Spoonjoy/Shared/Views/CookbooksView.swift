@@ -470,11 +470,14 @@ private struct CookbookImageCover: View {
 private struct CookbookDrawnCover: View {
     let title: String
     let recipeCountLabel: String
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Spoonjoy")
                 .kitchenEyebrow()
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .accessibilityHidden(true)
             rule.padding(.top, 14)
             Text(title)
@@ -484,15 +487,20 @@ private struct CookbookDrawnCover: View {
                 .lineLimit(4)
                 .padding(.top, 18)
             Spacer(minLength: 12)
-            VStack(alignment: .leading, spacing: 8) {
-                rule
-                rule.scaleEffect(x: 0.7, anchor: .leading)
-                rule.scaleEffect(x: 0.6, anchor: .leading)
+            // At accessibility sizes the ruled lines step aside so the title and count keep the cover's room.
+            if !dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 8) {
+                    rule
+                    rule.scaleEffect(x: 0.7, anchor: .leading)
+                    rule.scaleEffect(x: 0.6, anchor: .leading)
+                }
+                .accessibilityHidden(true)
             }
-            .accessibilityHidden(true)
             rule.padding(.top, 14)
             Text(recipeCountLabel)
                 .kitchenEyebrow(KitchenTableTheme.ink2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .padding(.top, 12)
         }
         .padding(18)
