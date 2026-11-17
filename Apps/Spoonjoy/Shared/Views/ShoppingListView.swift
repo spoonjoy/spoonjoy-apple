@@ -76,6 +76,9 @@ struct ShoppingListView: View {
             shoppingRunHeader
             VStack(alignment: .leading, spacing: 10) {
                 shoppingReceiptComposer
+                if let presentation = shoppingPresentation, !(shoppingList?.items.isEmpty ?? true) {
+                    shoppingModeStrip(presentation)
+                }
                 activeFilterLine
                 statusBanner
             }
@@ -204,9 +207,8 @@ struct ShoppingListView: View {
 
     private var receiptActionsMenu: some View {
         Menu {
-            // Need, Basket and All, and the aisle filter, live here rather than as bars over the list.
-            if let presentation = shoppingPresentation {
-                shoppingModeStrip(presentation)
+            // The aisle filter lives here; Need, Basket and All sit on the page under the composer, as on web.
+            if let presentation = shoppingPresentation, presentation.categoryOptions.count > 1 {
                 shoppingCategoryFilters(presentation)
                 Divider()
             }
@@ -264,14 +266,27 @@ struct ShoppingListView: View {
         viewModel.presentation(mode: viewMode, activeCategory: activeCategory)
     }
 
-    /// Need, Basket and All, as an inline picker in the ⋯ menu.
-    private func shoppingModeStrip(_ presentation: ShoppingPresentationModel) -> some View {
-        Picker("Show", selection: modeSelection) {
+    /// Need, Basket and All, as web's filter: the platform's capsule segmented control under the composer. At
+    /// accessibility sizes three counted labels can't share a row, so it becomes a menu showing the current view.
+    @ViewBuilder private func shoppingModeStrip(_ presentation: ShoppingPresentationModel) -> some View {
+        let picker = Picker("Show", selection: modeSelection) {
             ForEach(presentation.modeOptions, id: \.mode) { option in
                 Text(option.label).tag(option.mode)
             }
         }
-        .pickerStyle(.inline)
+        Group {
+            if isAccessibilityLayout {
+                picker
+                    .pickerStyle(.menu)
+                    .tint(KitchenTableTheme.ink)
+            } else {
+                picker
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(maxWidth: 420)
+            }
+        }
+        .accessibilityIdentifier("shopping.mode")
     }
 
     /// The aisle filter, as a submenu in the ⋯ menu; a list with one aisle has nothing to filter.
@@ -301,7 +316,8 @@ struct ShoppingListView: View {
 
     /// While the list is narrowed, one quiet line says how, with the way back to everything.
     @ViewBuilder private var activeFilterLine: some View {
-        if let presentation = shoppingPresentation, viewMode != .all || presentation.activeCategory != "all" {
+        // The view is already on the page's segmented control; this line names only an aisle filter.
+        if let presentation = shoppingPresentation, presentation.activeCategory != "all" {
             let layout = isAccessibilityLayout
                 ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
                 : AnyLayout(HStackLayout(spacing: 10))
@@ -318,11 +334,7 @@ struct ShoppingListView: View {
     }
 
     private func activeFilterLabel(_ presentation: ShoppingPresentationModel) -> some View {
-        let parts = [
-            viewMode == .all ? nil : selectedModeLabel(in: presentation),
-            presentation.activeCategory == "all" ? nil : presentation.activeCategory
-        ].compactMap { $0 }
-        return Label("Showing \(parts.joined(separator: " · "))", systemImage: "line.3.horizontal.decrease")
+        Label("Showing \(presentation.activeCategory)", systemImage: "line.3.horizontal.decrease")
             .font(KitchenTableTheme.uiLabel)
             .foregroundStyle(KitchenTableTheme.ink2)
             .fixedSize(horizontal: false, vertical: true)
@@ -330,7 +342,6 @@ struct ShoppingListView: View {
 
     private var showAllButton: some View {
         Button("Show all") {
-            viewMode = .all
             activeCategory = "all"
         }
         .font(KitchenTableTheme.uiLabel.weight(.semibold))
@@ -510,10 +521,6 @@ struct ShoppingListView: View {
 
     private var isAccessibilityLayout: Bool {
         dynamicTypeSize.isAccessibilitySize
-    }
-
-    private func selectedModeLabel(in presentation: ShoppingPresentationModel) -> String {
-        presentation.modeOptions.first { $0.mode == viewMode }!.label
     }
 
     private func categoryLabel(_ category: String) -> String {
