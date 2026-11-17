@@ -6,6 +6,8 @@ struct KitchenView: View {
     let kitchen: KitchenFixtureState
     let recipes: [Recipe]
     let cookbooks: [Cookbook]
+    /// The signed-in chef, for the identity header; nil until the account is known.
+    let chef: ChefSummary?
     /// The saved cook progress for a recipe, so the hero resumes the cook instead of restarting it.
     let cookProgress: (String) -> CookModeProgress?
     let openRecipe: (String) -> Void
@@ -25,14 +27,6 @@ struct KitchenView: View {
     /// The tab stack's cover-zoom namespace, so a tapped cover grows into its recipe; its own outside a tab stack.
     @Environment(\.recipeZoomNamespace) private var tabRecipeTransition
     @Namespace private var localRecipeTransition
-    /// How far the page is pulled down past its top; the hero stretches by this much.
-    @State private var heroPull: CGFloat = 0
-    /// How far the page has scrolled; paper covers the status bar once the hero has gone under it.
-    @State private var scrollOffset: CGFloat = 0
-    @State private var heroHeight: CGFloat = 0
-    /// The status bar, the bar buttons and any offline line above the page, which the photo runs under.
-    @State private var chromeHeight: CGFloat = 0
-
     private var recipeTransition: Namespace.ID {
         tabRecipeTransition ?? localRecipeTransition
     }
@@ -53,117 +47,46 @@ struct KitchenView: View {
             }
     }
 
-    @ViewBuilder private var content: some View {
-        if recipes.isEmpty && cookbooks.isEmpty {
-            KitchenTablePage(maxContentWidth: pageMaxContentWidth, bottomReserve: pageBottomReserve) {
-                KitchenMasthead(kitchen: kitchen, ownerName: recipes.first?.chef.username, chef: recipes.first?.chef)
+    /// As web's kitchen: whose kitchen it is first, then the dish on the counter, then the recipes and the shelf.
+    private var content: some View {
+        KitchenTablePage(maxContentWidth: pageMaxContentWidth, bottomReserve: pageBottomReserve) {
+            KitchenMasthead(kitchen: kitchen, chef: chef)
+            if recipes.isEmpty && cookbooks.isEmpty {
                 KitchenEmptyHero(createRecipe: createRecipe, importRecipe: importRecipe)
-            }
-        } else if let leadRecipe {
-            heroPage(leadRecipe: leadRecipe)
-        } else {
-            // Only cookbooks: there is no dish to lead with, so the page opens on its masthead.
-            KitchenTablePage(maxContentWidth: pageMaxContentWidth, bottomReserve: pageBottomReserve) {
-                KitchenMasthead(kitchen: kitchen, ownerName: recipes.first?.chef.username, chef: recipes.first?.chef)
-                kitchenIndexStack
-            }
-        }
-    }
-
-    /// The dish runs edge to edge under the status bar; the recipes sit on a sheet of paper over its foot.
-    private func heroPage(leadRecipe: Recipe) -> some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                RecipeLead(
-                    recipe: leadRecipe,
-                    counterCook: counterCook,
-                    pull: heroPull,
-                    chromeHeight: chromeHeight,
-                    openRecipe: openRecipe,
-                    startCooking: startCooking
-                )
-                .onGeometryChange(for: CGFloat.self) { proxy in
-                    proxy.size.height
-                } action: { height in
-                    heroHeight = height
+            } else {
+                if let leadRecipe {
+                    RecipeLead(
+                        recipe: leadRecipe,
+                        counterCook: counterCook,
+                        openRecipe: openRecipe,
+                        startCooking: startCooking
+                    )
                 }
-
-                kitchenSheet
-                    .padding(.top, -KitchenLeadMetrics.sheetOverlap)
+                kitchenSections
             }
         }
-        .onScrollGeometryChange(for: CGFloat.self) { geometry in
-            geometry.contentOffset.y + geometry.contentInsets.top
-        } action: { _, offset in
-            scrollOffset = offset
-            heroPull = CGFloat(KitchenHeroStretch.pull(contentOffsetY: Double(offset), topInset: 0))
-        }
-        .background(KitchenTableTheme.page.ignoresSafeArea())
 #if os(iOS)
-        .ignoresSafeArea(edges: .top)
-        .onGeometryChange(for: CGFloat.self) { proxy in
-            proxy.safeAreaInsets.top
-        } action: { inset in
-            chromeHeight = inset
-        }
-        .scrollEdgeEffectHidden(!KitchenHeroStretch.showsTopEdgeEffect(scrollOffset: Double(scrollOffset)), for: .top)
-        // A soft edge fades only a sliver at the top; at large text the dish's title would still sit under the buttons.
-        .scrollEdgeEffectStyle(.hard, for: .top)
-        // The dish is the title. The status bar follows what is under it, light over the photo and dark on paper,
-        // and the bar's glass keeps its own glyph color; forcing a bar scheme left the glyphs white on the paper.
+        // The page's own "My Kitchen" is the title; the bar keeps only its buttons.
         .toolbar(removing: .title)
-        // Over the photo the bar draws nothing of its own.
-        .toolbarBackground(Color.clear, for: .navigationBar)
-        .toolbarBackgroundVisibility(isHeroUnderBar ? .visible : .automatic, for: .navigationBar)
-        .overlay(alignment: .top) {
-            // Once the photo has scrolled away, paper covers the status bar so text never runs under the clock.
-            Color.clear
-                .frame(height: 0)
-                .background(KitchenTableTheme.page.ignoresSafeArea(edges: .top))
-                .opacity(scrollOffset > heroHeight - KitchenLeadMetrics.sheetOverlap ? 1 : 0)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-        }
-#else
-        .scrollEdgeEffectStyle(.hard, for: .top)
 #endif
     }
 
-    private var isHeroUnderBar: Bool {
-        scrollOffset < heroHeight - KitchenLeadMetrics.sheetOverlap - KitchenLeadMetrics.lightBarPhotoMargin
-    }
-
-    private var kitchenSheet: some View {
-        Group {
-            if usesWideKitchenSpread {
-                VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing + 8) {
-                    cookingNowSection
-                    HStack(alignment: .top, spacing: 28) {
-                        recipeIndex
-                            .frame(maxWidth: 640, alignment: .topLeading)
-                        if !cookbooks.isEmpty {
-                            CookbookShelf(cookbooks: cookbooks, openCookbook: openCookbook)
-                                .frame(maxWidth: 408, alignment: .topLeading)
-                        }
+    @ViewBuilder private var kitchenSections: some View {
+        if usesWideKitchenSpread {
+            VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing + 8) {
+                cookingNowSection
+                HStack(alignment: .top, spacing: 28) {
+                    recipeIndex
+                        .frame(maxWidth: 640, alignment: .topLeading)
+                    if !cookbooks.isEmpty {
+                        CookbookShelf(cookbooks: cookbooks, openCookbook: openCookbook)
+                            .frame(maxWidth: 408, alignment: .topLeading)
                     }
                 }
-            } else {
-                kitchenIndexStack
             }
+        } else {
+            kitchenIndexStack
         }
-        .padding(.horizontal, KitchenTableTheme.pagePadding)
-        .padding(.top, 26)
-        .padding(.bottom, pageBottomReserve)
-        .frame(maxWidth: pageMaxContentWidth, alignment: .leading)
-        .frame(maxWidth: .infinity, alignment: .center)
-        .background(
-            KitchenTableTheme.page,
-            in: UnevenRoundedRectangle(
-                topLeadingRadius: KitchenLeadMetrics.sheetRadius,
-                topTrailingRadius: KitchenLeadMetrics.sheetRadius,
-                style: .continuous
-            )
-        )
     }
 
     private var leadObject: KitchenLeadObject {
@@ -307,24 +230,37 @@ struct KitchenEmptyHero: View {
     }
 }
 
+/// Whose kitchen this is, as web's kitchen leads: the chef's photo and handle, "My Kitchen" at display size and a
+/// serif count of what is in it.
 struct KitchenMasthead: View {
     let kitchen: KitchenFixtureState
-    let ownerName: String?
     var chef: ChefSummary? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             if let chef {
                 KitchenIdentityLine(chef: chef)
             }
 
-            KitchenTableHeader(eyebrow: dayLabel, title: title, subtitle: countSummary, hidesTitleInCompactNavigation: true)
+            Text(title)
+                .font(KitchenTypeRole.displayTitle.font(scaledBy: 1.2))
+                .foregroundStyle(KitchenTableTheme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+
+            Text(countSentence)
+                .font(KitchenTableTheme.story)
+                .foregroundStyle(KitchenTableTheme.ink2)
+                .fixedSize(horizontal: false, vertical: true)
 
             // "Ready" is the normal state, so it stays quiet; only the preparing state needs a badge.
             if kitchen.status != .ready {
                 statusBadge
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("kitchen.masthead")
     }
 
     private var statusBadge: some View {
@@ -360,8 +296,13 @@ struct KitchenMasthead: View {
         }
     }
 
-    private var countSummary: String {
-        Self.countSummary(recipes: kitchen.counts.recipes, cookbooks: kitchen.counts.cookbooks)
+    /// "2 recipes and 2 cookbooks", as web's kitchen says it.
+    private var countSentence: String {
+        Self.countSentence(recipes: kitchen.counts.recipes, cookbooks: kitchen.counts.cookbooks)
+    }
+
+    static func countSentence(recipes: Int, cookbooks: Int) -> String {
+        "\(countLabel(recipes, singular: "recipe")) and \(countLabel(cookbooks, singular: "cookbook"))"
     }
 
     static func countSummary(recipes: Int, cookbooks: Int) -> String {
@@ -376,33 +317,31 @@ struct KitchenMasthead: View {
         return "\(count) \(noun)"
     }
 
-    private var dayLabel: String {
+    private var title: String {
         switch kitchen.status {
         case .bootstrap:
             "Setting the table"
         case .ready:
-            "Kitchen table"
+            "My Kitchen"
         }
-    }
-
-    private var title: String {
-        guard let ownerName, !ownerName.isEmpty else {
-            return "Spoonjoy kitchen"
-        }
-        return "\(ownerName)'s kitchen"
     }
 }
 
-/// Whose kitchen this is: the chef's avatar and handle, as the web's kitchen page leads with.
+/// Whose kitchen this is: the chef's photo and brass handle, as the web's kitchen page leads with.
 struct KitchenIdentityLine: View {
     let chef: ChefSummary
 
+    @ScaledMetric(relativeTo: .largeTitle) private var avatarSize: CGFloat = 64
+
     var body: some View {
-        HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
             avatar
-                .frame(width: 36, height: 36)
-                .clipShape(Circle())
-                .overlay(Circle().strokeBorder(KitchenTableTheme.hairline, lineWidth: 1))
+                .frame(width: avatarSide, height: avatarSide)
+                .clipShape(RoundedRectangle(cornerRadius: KitchenIdentityMetrics.avatarRadius, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: KitchenIdentityMetrics.avatarRadius, style: .continuous)
+                        .strokeBorder(KitchenTableTheme.hairline, lineWidth: 1)
+                )
                 .accessibilityHidden(true)
             Text(ChefHandle.breakingAnywhere(chef.username))
                 .font(KitchenTableTheme.uiLabel)
@@ -412,6 +351,10 @@ struct KitchenIdentityLine: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Chef \(chef.username)")
         .accessibilityIdentifier("kitchen.identity")
+    }
+
+    private var avatarSide: CGFloat {
+        min(avatarSize, 96)
     }
 
     @ViewBuilder private var avatar: some View {
@@ -433,33 +376,31 @@ struct KitchenIdentityLine: View {
         ZStack {
             KitchenTableTheme.vellum
             Text(String(chef.username.prefix(1)).uppercased())
-                .font(KitchenTypeRole.recipeTitle.font(relativeTo: .subheadline))
+                // Sized to the photo square, which stops growing at 96 pt, so the letter never outgrows it.
+                .font(KitchenTypeRole.recipeTitle.fixedFont(size: Double(avatarSide) * 0.45))
                 .foregroundStyle(KitchenTableTheme.ink)
         }
     }
 }
 
-private enum KitchenLeadMetrics {
-    /// How far the paper sheet rides up over the foot of the photo.
-    static let sheetOverlap: CGFloat = 30
-    static let sheetRadius: CGFloat = 28
-    /// How much photo must still sit under the bar for its clock and buttons to stay light; past that the bar
-    /// turns dark before the paper reaches it.
-    static let lightBarPhotoMargin: CGFloat = 100
+private enum KitchenIdentityMetrics {
+    /// Web's rounded-square chef photo.
+    static let avatarRadius: CGFloat = 18
 }
 
-/// The dish on the counter: the photo edge to edge, its title in the serif, and the way back into the cook.
+private enum KitchenLeadMetrics {
+    /// The counter card's corners, as the page's other rounded media.
+    static let cardRadius: CGFloat = 24
+}
+
+/// The dish on the counter: a card under the kitchen's header with the photo, or the recipe's initial tile, its
+/// title in the serif and the way back into the cook.
 struct RecipeLead: View {
     let recipe: Recipe
     let counterCook: KitchenCounterCook?
-    /// How far the page is pulled down past its top.
-    let pull: CGFloat
-    /// What sits over the top of the photo; the text starts below it, so a large text size never runs under it.
-    var chromeHeight: CGFloat = 0
     let openRecipe: (String) -> Void
     let startCooking: (String) -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
@@ -481,61 +422,48 @@ struct RecipeLead: View {
             .frame(maxWidth: 420, alignment: .leading)
             .padding(.top, 8)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, max(120, chromeHeight + 16))
-        .padding(.bottom, 24 + KitchenLeadMetrics.sheetOverlap)
+        .padding(.horizontal, 22)
+        .padding(.top, 120)
+        .padding(.bottom, 22)
         .frame(maxWidth: .infinity, minHeight: heroHeight, alignment: .bottomLeading)
-        .background(alignment: .top) {
+        .background {
             heroPhoto
         }
+        .clipShape(RoundedRectangle(cornerRadius: KitchenLeadMetrics.cardRadius, style: .continuous))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(recipe.title)
         .accessibilityIdentifier("kitchen.recipe")
     }
 
-    /// The photo, or a designed tile for a recipe without one, stretched from its top edge while the page is pulled.
+    /// The photo, or a designed tile for a recipe without one, filling the card and clipped to it, so the scrim and
+    /// the zoom start from the card's own shape.
     private var heroPhoto: some View {
-        GeometryReader { proxy in
-            let scale = KitchenHeroStretch.scale(
-                pull: Double(pull),
-                heroHeight: Double(proxy.size.height),
-                reduceMotion: accessibilityReduceMotion
-            )
-            ZStack {
+        Color.clear
+            .overlay {
                 if let coverURL = recipe.displayCoverImageURL {
                     RecipeCoverImage(url: coverURL, title: recipe.title, subtitle: nil, showsFallbackLabel: false)
                         .scaledToFill()
                 } else {
-                    KitchenTableTheme.photoCharcoal
-                    RecipeInitialTile(title: recipe.title)
-                        .opacity(0.5)
+                    ZStack {
+                        KitchenTableTheme.photoCharcoal
+                        RecipeInitialTile(title: recipe.title)
+                            .opacity(0.5)
+                    }
                 }
             }
-            .frame(width: proxy.size.width, height: proxy.size.height)
-            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: KitchenLeadMetrics.cardRadius, style: .continuous))
             .overlay { scrim }
-            .scaleEffect(scale, anchor: .top)
-            // Pulled down, the page moves; the photo stays pinned to the top of the screen and grows instead.
-            .offset(y: accessibilityReduceMotion ? 0 : -pull)
-            .background(alignment: .top) {
-                // Under Reduce Motion the photo moves down with the page; its dark ground fills the space above it.
-                let fill = CGFloat(KitchenHeroStretch.stillPhotoFill(pull: Double(pull), reduceMotion: accessibilityReduceMotion))
-                KitchenTableTheme.photoCharcoal
-                    .frame(height: fill + 1)
-                    .offset(y: -fill)
-            }
-        }
+            .allowsHitTesting(false)
         .recipeZoomSource(id: recipe.id)
         .accessibilityHidden(true)
     }
 
-    /// Darkens the top for the status bar and the foot for the title, as the web's hero does.
+    /// Darkens the foot for the title, as the web's hero does.
     private var scrim: some View {
         LinearGradient(
             stops: [
-                .init(color: KitchenTableTheme.photoCharcoal.opacity(0.32), location: 0),
-                .init(color: KitchenTableTheme.photoCharcoal.opacity(0), location: 0.2),
-                .init(color: KitchenTableTheme.photoCharcoal.opacity(0), location: 0.4),
+                .init(color: KitchenTableTheme.photoCharcoal.opacity(0), location: 0),
+                .init(color: KitchenTableTheme.photoCharcoal.opacity(0), location: 0.3),
                 .init(color: KitchenTableTheme.photoCharcoal.opacity(0.84), location: 1)
             ],
             startPoint: .top,
@@ -598,12 +526,12 @@ struct RecipeLead: View {
         .accessibilityIdentifier("kitchen.recipe.open")
     }
 
-    /// Most of a phone's height, so the dish fills the top; shorter on the Mac, where the window is wide.
+    /// Tall enough for the dish to read under the header; shorter on the Mac, where the window is wide.
     private var heroHeight: CGFloat {
 #if os(macOS)
-        420
+        360
 #else
-        horizontalSizeClass == .regular ? 480 : 540
+        horizontalSizeClass == .regular ? 400 : 440
 #endif
     }
 }

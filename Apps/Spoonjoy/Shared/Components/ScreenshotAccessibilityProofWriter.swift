@@ -312,7 +312,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel", ".title2"],
                 contrastPairs: ["charcoal on bone", "media-aware contrast on real covers", "brass on bone"],
                 hierarchyAnchors: ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndex", "RecipeIndexRow", "CookbookShelf"],
-                declaredLayoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "edge-to-edge-hero"]
+                declaredLayoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "counter-card"]
             )
         }
     }
