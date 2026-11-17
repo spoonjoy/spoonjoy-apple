@@ -261,6 +261,7 @@ struct RecipeDetailView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.moderation) private var moderation
     @ScaledMetric(relativeTo: .title3) private var scaledUtilityButtonSize = RecipeHeroMetrics.utilityButtonSize
+    @ScaledMetric(relativeTo: .body) private var scaledBylineAvatarSize = RecipeHeroMetrics.bylineAvatarSize
     @Environment(\.dismiss) private var dismiss
     @State private var moderationPrompt: ModerationPrompt?
 
@@ -433,22 +434,24 @@ struct RecipeDetailView: View {
 #endif
     }
 
-    /// With a real cover the photo runs edge to edge under the status bar and the recipe sits on a sheet of paper
-    /// over its foot; without one the page opens on the title.
-    @ViewBuilder private var singlePageLayout: some View {
-        if let coverImageURL = viewModel.cover.imageURL, viewModel.cover.hasRealCover {
-            heroPage(coverImageURL: coverImageURL)
-        } else {
-            KitchenTablePage {
-                offlineIndicator
-                recipeMasthead
-                stepsSection
-                cookLogView(showsHeader: true)
-            }
-        }
+    /// The cover runs edge to edge under the status bar and the recipe sits on a sheet of paper over its foot, as web
+    /// opens a recipe. A recipe with no photo opens on its initial tile at hero size, so every recipe page leads with
+    /// a cover; adding a photo stays under More.
+    private var singlePageLayout: some View {
+        heroPage(coverImageURL: realCoverURL)
     }
 
-    private func heroPage(coverImageURL: URL) -> some View {
+    /// The cover as one image element: the photo, or the recipe's initial tile.
+    private var coverAccessibilityLabel: String {
+        realCoverURL == nil ? "\(viewModel.title) cover" : "\(viewModel.title) cover image"
+    }
+
+    /// The recipe's photo, or nil when it has none (or only a placeholder) and the initial tile stands in.
+    private var realCoverURL: URL? {
+        viewModel.cover.hasRealCover ? viewModel.cover.imageURL : nil
+    }
+
+    private func heroPage(coverImageURL: URL?) -> some View {
         ScrollView {
             VStack(spacing: 0) {
                 recipeHeroMedia(coverImageURL: coverImageURL)
@@ -536,33 +539,60 @@ struct RecipeDetailView: View {
 #endif
     }
 
-    /// Title, story, the one meta row, then the actions: Cook filled, Save and Add to list as glass.
+    /// As web's recipe header reads: the title, the chef's byline, where the recipe came from, the story on its brass
+    /// rule, then the one meta row and the actions (Cook filled, Save and Add to list as glass).
     private var recipeMasthead: some View {
         VStack(alignment: .leading, spacing: 18) {
             recipeIdentityAndProvenance
-            if !viewModel.cover.hasRealCover {
-                recipeNoPhotoStatus
-            }
             recipeMastheadActions
         }
     }
 
-    /// The hero's height for the page as measured now; it changes continuously with the page's height.
+    /// The hero's height for the page as measured now; it changes continuously with the page's height. The initial
+    /// tile is shorter than a photo, as web's placeholder is: it marks the recipe without pushing the title down.
     private var heroHeight: CGFloat {
-        CGFloat(KitchenHeroStretch.heroHeight(
-            preferred: Double(RecipeHeroMetrics.height(isRegular: !usesCompactRecipeDock)),
+        let isRegular = !usesCompactRecipeDock
+        let preferred = realCoverURL == nil
+            ? RecipeHeroMetrics.tileHeight(isRegular: isRegular)
+            : RecipeHeroMetrics.height(isRegular: isRegular)
+        return CGFloat(KitchenHeroStretch.heroHeight(
+            preferred: Double(preferred),
             viewportHeight: Double(heroViewportHeight)
         ))
     }
 
-    /// The photo, stretched from its top edge while the page is pulled down, as the Kitchen's hero is.
-    private func recipeHeroMedia(coverImageURL: URL) -> some View {
+    /// The cover, stretched from its top edge while the page is pulled down, as the Kitchen's hero is.
+    private func recipeHeroMedia(coverImageURL: URL?) -> some View {
         GeometryReader { proxy in
             let scale = KitchenHeroStretch.scale(
                 pull: Double(heroPull),
                 heroHeight: Double(proxy.size.height),
                 reduceMotion: accessibilityReduceMotion
             )
+            recipeHeroCover(coverImageURL: coverImageURL)
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .clipped()
+                .scaleEffect(scale, anchor: .top)
+                // Pulled down, the page moves; the cover stays pinned to the top of the screen and grows instead.
+                .offset(y: accessibilityReduceMotion ? 0 : -heroPull)
+                .background(alignment: .top) {
+                    // Under Reduce Motion the cover moves down with the page; its ground fills the space above it.
+                    let fill = CGFloat(KitchenHeroStretch.stillPhotoFill(pull: Double(heroPull), reduceMotion: accessibilityReduceMotion))
+                    (coverImageURL == nil ? KitchenTableTheme.vellum : KitchenTableTheme.photoCharcoal)
+                        .frame(height: fill + 1)
+                        .offset(y: -fill)
+                }
+        }
+        .frame(height: heroHeight)
+        // One labelled image element, so VoiceOver and the journeys can find the cover.
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isImage)
+        .accessibilityLabel(coverAccessibilityLabel)
+        .accessibilityIdentifier("recipeDetail.cover")
+    }
+
+    @ViewBuilder private func recipeHeroCover(coverImageURL: URL?) -> some View {
+        if let coverImageURL {
             RecipeCoverImage(
                 url: coverImageURL,
                 title: viewModel.title,
@@ -570,8 +600,6 @@ struct RecipeDetailView: View {
                 showsFallbackLabel: false
             )
             .scaledToFill()
-            .frame(width: proxy.size.width, height: proxy.size.height)
-            .clipped()
             .overlay {
                 // Darkens the top so the status bar and the glass buttons read over any photo, including a bright
                 // plate under dark mode's white glyphs. It holds its weight past the buttons before fading.
@@ -585,54 +613,76 @@ struct RecipeDetailView: View {
                     endPoint: .bottom
                 )
             }
-            .scaleEffect(scale, anchor: .top)
-            // Pulled down, the page moves; the photo stays pinned to the top of the screen and grows instead.
-            .offset(y: accessibilityReduceMotion ? 0 : -heroPull)
-            .background(alignment: .top) {
-                // Under Reduce Motion the photo moves down with the page; its dark ground fills the space above it.
-                let fill = CGFloat(KitchenHeroStretch.stillPhotoFill(pull: Double(heroPull), reduceMotion: accessibilityReduceMotion))
-                KitchenTableTheme.photoCharcoal
-                    .frame(height: fill + 1)
-                    .offset(y: -fill)
-            }
+        } else {
+            // The same vellum-to-brass tile and serif initial every recipe row shows, at hero size.
+            RecipeInitialTile(title: viewModel.title)
         }
-        .frame(height: heroHeight)
-        // One labelled image element, so VoiceOver and the journeys can find the cover.
-        .accessibilityElement(children: .ignore)
-        .accessibilityAddTraits(.isImage)
-        .accessibilityLabel("\(viewModel.title) cover image")
-        .accessibilityIdentifier("recipeDetail.cover")
-    }
-
-    private var recipeNoPhotoStatus: some View {
-        Label(viewModel.cover.noPhotoLabel, systemImage: "photo.badge.plus")
-            .font(KitchenTableTheme.uiLabel)
-            .foregroundStyle(KitchenTableTheme.ink2)
-            .accessibilityLabel(viewModel.cover.accessibilityLabel)
     }
 
     private var recipeIdentityAndProvenance: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             Text(viewModel.title)
                 .font(KitchenTableTheme.displayTitle)
                 .foregroundStyle(KitchenTableTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityIdentifier("recipeDetail.title")
+            recipeByline
+            recipeProvenance
             if let story = viewModel.recipe.displaySubtitle {
+                // The story on web's brass rule.
                 Text(story)
                     .font(KitchenTableTheme.story)
                     .foregroundStyle(KitchenTableTheme.ink2)
-                    .lineSpacing(3)
+                    .lineSpacing(5)
                     .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, RecipeHeroMetrics.storyRuleInset)
+                    .overlay(alignment: .leading) {
+                        Rectangle()
+                            .fill(KitchenTableTheme.brass)
+                            .frame(width: RecipeHeroMetrics.storyRuleWidth)
+                            .accessibilityHidden(true)
+                    }
+                    .padding(.vertical, 4)
+                    .accessibilityIdentifier("recipeDetail.story")
             }
             recipeMetaRow
-            recipeProvenance
         }
     }
 
-    /// "23 min · Serves 4 · by maya": every fact once. "Serves 4" is the recipe's one scale control; it opens a
-    /// stepper in place. The time is the timed steps added up and is left out when no step is timed.
+    /// The chef's photo and "By ari", as web's byline; it opens the chef's page.
+    private var recipeByline: some View {
+        let chef = viewModel.recipe.chef
+        return Button {
+            openRoute(.profile(identifier: chef.username))
+        } label: {
+            HStack(spacing: 10) {
+                ChefAvatar(url: chef.photoURL, name: chef.displayName)
+                    .frame(width: bylineAvatarSize, height: bylineAvatarSize)
+                // A long handle wraps anywhere, as web's does, instead of ending in an ellipsis.
+                Text("\(Text("By ").foregroundStyle(KitchenTableTheme.ink2))\(Text(ChefHandle.wrapping(chef.displayName)).foregroundStyle(KitchenTableTheme.ink).bold())")
+                    .font(KitchenTableTheme.uiLabel.weight(.semibold))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        // A deleted chef has no page to open.
+        .disabled(chef.displayName == ChefDisplayName.deletedChef)
+        .accessibilityLabel("By \(chef.displayName)")
+        .accessibilityHint("Opens the chef's page.")
+        .accessibilityIdentifier("recipeDetail.byline")
+    }
+
+    private var bylineAvatarSize: CGFloat {
+        min(scaledBylineAvatarSize, RecipeHeroMetrics.maximumBylineAvatarSize)
+    }
+
+    /// "23 min · Serves 4": every fact once; the chef is the byline above. "Serves 4" is the recipe's one scale
+    /// control; it opens a stepper in place. The time is the timed steps added up and is left out when no step is
+    /// timed.
     private var recipeMetaRow: some View {
         // One layout, so "Serves" has one popover owner: a line, or a stack at accessibility sizes.
         let stacked = dynamicTypeSize.isAccessibilitySize
@@ -657,13 +707,6 @@ struct RecipeDetailView: View {
             }
         }
         recipeServesControl
-        if separated {
-            metaDot
-        }
-        // A long handle wraps anywhere, as web's does, instead of ending in an ellipsis.
-        Text("by \(ChefHandle.wrapping(viewModel.recipe.chef.username))")
-            .fixedSize(horizontal: false, vertical: true)
-            .accessibilityLabel("by \(viewModel.recipe.chef.username)")
     }
 
     private var metaDot: some View {
@@ -715,10 +758,51 @@ struct RecipeDetailView: View {
         .kitchenAnimation(.snappy, value: shoppingScaleFactor)
     }
 
+    /// Where the recipe came from, under a hairline as web sets it: "originally from <site>" linking out, and
+    /// "forked from <chef> · <recipe>" opening the recipe it was forked from.
     @ViewBuilder private var recipeProvenance: some View {
-        if let sourceAttribution = viewModel.sourceAttribution {
-            Label(sourceAttribution.creditLine, systemImage: Self.provenanceIconName)
-                .font(KitchenTableTheme.uiLabel)
+        if viewModel.sourceLink != nil || viewModel.sourceAttribution != nil {
+            VStack(alignment: .leading, spacing: 6) {
+                if let sourceLink = viewModel.sourceLink {
+                    Link(destination: sourceLink.url) {
+                        Text("\(Text("originally from ").foregroundStyle(KitchenTableTheme.ink2))\(Text(sourceLink.label).underline(color: KitchenTableTheme.brass.opacity(0.45))) \(Image(systemName: "arrow.up.right"))")
+                            .foregroundStyle(KitchenTableTheme.brass)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .accessibilityLabel("Originally from \(sourceLink.label)")
+                    .accessibilityHint("Opens the page this recipe was imported from.")
+                    .accessibilityIdentifier("recipeDetail.originallyFrom")
+                }
+                if let sourceAttribution = viewModel.sourceAttribution {
+                    recipeForkLine(sourceAttribution)
+                }
+            }
+            .font(KitchenTableTheme.story)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 14)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(KitchenTableTheme.hairline)
+                    .frame(height: 1)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+
+    @ViewBuilder private func recipeForkLine(_ sourceAttribution: RecipeDetailSourceAttribution) -> some View {
+        if let sourceRecipeID = sourceAttribution.recipeID {
+            Button {
+                openRoute(.recipeDetail(id: sourceRecipeID, presentation: .detail))
+            } label: {
+                Label(sourceAttribution.forkLine, systemImage: Self.provenanceIconName)
+                    .foregroundStyle(KitchenTableTheme.ink2)
+                    .multilineTextAlignment(.leading)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens the recipe this one was forked from.")
+        } else {
+            Label(sourceAttribution.forkLine, systemImage: Self.provenanceIconName)
                 .foregroundStyle(KitchenTableTheme.ink2)
         }
     }
@@ -1562,21 +1646,15 @@ extension RecipeDetailView {
     private func spreadIngredientPage(index: RecipeSpreadIngredientIndex, pageWidth: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 22) {
             offlineIndicator
-            if let coverImageURL = viewModel.cover.imageURL, viewModel.cover.hasRealCover {
-                RecipeCoverImage(
-                    url: coverImageURL,
-                    title: viewModel.title,
-                    subtitle: "Cover",
-                    showsFallbackLabel: false
-                )
+            // The left page opens on the cover too: the photo, or the initial tile when there is none.
+            recipeHeroCover(coverImageURL: realCoverURL)
                 .frame(maxWidth: .infinity)
                 .frame(height: CGFloat(BookSpreadLayout.coverHeight(pageWidth: Double(pageWidth))))
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo))
                 .accessibilityElement(children: .ignore)
                 .accessibilityAddTraits(.isImage)
-                .accessibilityLabel("\(viewModel.title) cover image")
+                .accessibilityLabel(coverAccessibilityLabel)
                 .accessibilityIdentifier("recipeDetail.cover")
-            }
             recipeMasthead
             spreadIngredientList(index: index)
         }
@@ -1976,6 +2054,21 @@ private enum RecipeHeroMetrics {
     /// with Dynamic Type up to `maximumUtilityButtonSize`.
     static let utilityButtonSize: CGFloat = 52
     static let maximumUtilityButtonSize: CGFloat = 80
+    /// The byline's chef photo, as web's medium avatar; it grows with the text up to the maximum.
+    static let bylineAvatarSize: CGFloat = 40
+    static let maximumBylineAvatarSize: CGFloat = 64
+    /// The story's brass rule and the gap to its text, as web's 3 px left border and 1.25 rem padding.
+    static let storyRuleWidth: CGFloat = 3
+    static let storyRuleInset: CGFloat = 20
+
+    /// A recipe with no photo opens on its initial tile, shorter than a photo as web's 20 rem placeholder is.
+    static func tileHeight(isRegular: Bool) -> CGFloat {
+#if os(macOS)
+        280
+#else
+        isRegular ? 340 : 300
+#endif
+    }
 
     /// About half a phone's height, so the dish leads and the title still shows on the first screen.
     static func height(isRegular: Bool) -> CGFloat {

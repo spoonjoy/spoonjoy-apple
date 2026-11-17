@@ -73,12 +73,32 @@ public struct RecipeDetailSourceAttribution: Equatable, Sendable {
     public let host: String?
     public let canonicalURL: URL?
     public let chefUsername: String?
+    /// The recipe it was forked from, to open; nil once that recipe is deleted.
+    public let recipeID: String?
 
     /// Full credit line, such as "forked from chef · Lemon Herb Rice".
     public var creditLine: String {
+        return host.map { "\(forkLine) · \($0)" } ?? forkLine
+    }
+
+    /// The fork credit alone, as web's recipe header sets it under "originally from": "forked from chef · Lemon Herb
+    /// Rice". The site a recipe came from has its own line.
+    public var forkLine: String {
         let source = chefUsername.map { "\(ChefDisplayName.forUsername($0)) · \(title)" } ?? title
-        let credit = "forked from \(source)"
-        return host.map { "\(credit) · \($0)" } ?? credit
+        return "forked from \(source)"
+    }
+}
+
+/// Where an imported recipe came from, as web's recipe header names it: "originally from www.example.com", linking to
+/// the page it was imported from.
+public struct RecipeDetailSourceLink: Equatable, Sendable {
+    public let url: URL
+    /// The site's host name, or the whole address when it has none.
+    public let label: String
+
+    public init(url: URL) {
+        self.url = url
+        label = url.host() ?? url.absoluteString
     }
 }
 
@@ -245,6 +265,7 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
     public let servingsLabel: String?
     public let cover: RecipeDetailCoverViewModel
     public let sourceAttribution: RecipeDetailSourceAttribution?
+    public let sourceLink: RecipeDetailSourceLink?
     public let stepSections: [RecipeDetailStepSection]
     public let spoonSummary: RecipeDetailSpoonSummary
     public let cookbookSave: RecipeDetailCookbookSaveState
@@ -277,9 +298,11 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
                 title: sourceRecipe.title ?? "Original recipe",
                 host: recipe.attribution.sourceHost,
                 canonicalURL: sourceRecipe.safeCanonicalURL,
-                chefUsername: sourceRecipe.chef?.username
+                chefUsername: sourceRecipe.chef?.username,
+                recipeID: sourceRecipe.deleted ? nil : sourceRecipe.id
             )
         }
+        sourceLink = recipe.attribution.sourceURL.map(RecipeDetailSourceLink.init(url:))
         stepSections = recipe.steps.map(RecipeDetailStepSection.init(step:))
         spoonSummary = RecipeDetailSpoonSummary(
             rows: recipe.recentSpoons
