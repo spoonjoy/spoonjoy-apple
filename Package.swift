@@ -24,7 +24,7 @@ let package = Package(
         // 0.4.0: the cookbook theme's own tokens (every sj-* colour, radius, shadow and text role) and the font helper;
         // Ouro Reins; and Ouro Feel for the UI tests' feel checks, with its recorder loaded into the app by the UI tests
         // (no build of the app links it).
-        .package(url: "https://github.com/ourostack/ouro-ui-apple.git", exact: "1.0.0")
+        .package(url: "https://github.com/ourostack/ouro-ui-apple.git", exact: "1.1.0")
     ],
     targets: [
         .target(
