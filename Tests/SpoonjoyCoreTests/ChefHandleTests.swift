@@ -14,6 +14,16 @@ struct ChefHandleTests {
         #expect(handle.filter { $0 == "\u{200B}" }.count == "codex_native_r42".count - 1)
     }
 
+    @Test("a title handle breaks only after its separators, so a line never ends inside a word")
+    func titleHandleBreaksAtWords() {
+        let handle = ChefHandle.breakingAtWords("codex_native.r4-2")
+
+        #expect(handle == "@codex_\u{200B}native.\u{200B}r4-\u{200B}2")
+        #expect(handle.replacingOccurrences(of: "\u{200B}", with: "") == "@codex_native.r4-2")
+        #expect(ChefHandle.breakingAtWords("maya") == "@maya")
+        #expect(ChefHandle.breakingAtWords("") == "@")
+    }
+
     @Test("an empty handle is just the at sign")
     func emptyHandle() {
         #expect(ChefHandle.breakingAnywhere("") == "@")

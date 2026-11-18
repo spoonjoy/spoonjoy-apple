@@ -122,18 +122,20 @@ struct KitchenComponentParityTests {
         }
     }
 
-    @Test("a long chef handle wraps anywhere like web's, never hyphenated and never shrunk")
-    func longHandleBreaksAnywhere() throws {
+    @Test("a long chef handle breaks between its words, at most two lines, then truncates in the middle")
+    func longHandleBreaksAtWords() throws {
         let header = try Self.declaration("struct KitchenTableHeader", in: "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift")
-        #expect(header.contains("let titleBreaksAnywhere: Bool"))
-        #expect(header.contains("Text(titleBreaksAnywhere ? ChefHandle.breakingAnywhere(title) : title)"))
-        // VoiceOver reads the handle, not the break points.
-        #expect(header.contains(".accessibilityLabel(titleBreaksAnywhere ? \"@\\(title)\" : title)"))
-        #expect(!header.contains("minimumScaleFactor"), "The handle wraps; the type stays its size.")
-        #expect(header.contains(".lineLimit(titleBreaksAnywhere ? nil : 3)"), "A long handle never ends in an ellipsis.")
+        #expect(header.contains("let titleIsHandle: Bool"))
+        #expect(header.contains("Text(titleIsHandle ? ChefHandle.breakingAtWords(title) : title)"))
+        #expect(!header.contains("ChefHandle.breakingAnywhere"), "A title handle never breaks mid-word.")
+        // VoiceOver reads the whole handle, not the break points or the ellipsis.
+        #expect(header.contains(".accessibilityLabel(titleIsHandle ? \"@\\(title)\" : title)"))
+        #expect(!header.contains("minimumScaleFactor"), "The handle keeps the title size.")
+        #expect(header.contains(".lineLimit(titleIsHandle ? 2 : 3)"))
+        #expect(header.contains(".truncationMode(titleIsHandle ? .middle : .tail)"), "Past two lines the handle keeps its start and end.")
 
         let profile = try Self.source("\(Self.views)/ProfileView.swift")
-        #expect(Self.containsLines(profile, ["title: viewModel.header.username,", "subtitle: viewModel.header.joinedLabel,", "titleFont: KitchenTableTheme.recipeTitle,", "titleBreaksAnywhere: true"]), "The handle is set at web's title size, not display size.")
+        #expect(Self.containsLines(profile, ["title: viewModel.header.username,", "subtitle: viewModel.header.joinedLabel,", "titleFont: KitchenTableTheme.recipeTitle,", "titleIsHandle: true"]), "The handle is set at web's title size, not display size.")
         #expect(!profile.contains("title: \"@\\(viewModel.header.username)\""))
     }
 
