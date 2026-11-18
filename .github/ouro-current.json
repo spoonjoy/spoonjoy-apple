@@ -1,0 +1,6 @@
+{
+  "changelog": {
+    "path": "changes/ouro-ui.md",
+    "text": "---\ntestflight: Buttons, menus and sheets now come from {releases}. Check they look as in the last build.\nplatforms: [ios, mac]\norder: 90\n---\nSpoonjoy's buttons, menus and sheets are built from a shared kit of parts, and this update brings in its newest version. If a corner sits a little straighter or a label reads a little clearer, that is why.\n"
+  }
+}
