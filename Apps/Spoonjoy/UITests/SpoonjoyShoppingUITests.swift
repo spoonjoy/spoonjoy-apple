@@ -192,7 +192,10 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         // The filter line under the composer names the chosen aisle once the menu has closed and the choice applied.
         chooseAisle("Produce", in: app)
         XCTAssertTrue(app.staticTexts["Showing Produce"].waitForExistence(timeout: 10), "Choosing Produce did not update the filter line. \(app.debugDescription)")
-        XCTAssertTrue(app.buttons["Show all"].isHittable)
+        // The view menu's row sits above the filter line, so at this size Show all can start below the fold.
+        let showAll = app.buttons["Show all"]
+        scrollFullyOnScreen(showAll, in: app)
+        XCTAssertTrue(showAll.isHittable)
         tapOnceItExists(app.buttons["Add from recipe"], named: "Add from recipe", in: app)
         app.terminate()
 
