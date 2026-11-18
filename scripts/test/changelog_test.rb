@@ -28,6 +28,20 @@ class ChangelogTest < Minitest::Test
     assert_kind_of Array, fragments
   end
 
+  # Ouro Current writes this fragment into its Ouro UI update pull requests (.github/ouro-current.json), so the
+  # Changelog fragment check passes without a label. It must stay valid with the longest release names it fills in.
+  def test_the_fragment_ouro_current_writes_is_valid
+    rules = JSON.parse(File.read(File.join(ROOT, ".github/ouro-current.json")))
+    assert_equal "changes/ouro-ui.md", rules.dig("changelog", "path")
+    text = rules.dig("changelog", "text").gsub("{releases}", "Ouro UI core v10.20.30, Ouro UI for Apple v10.20.30 and Ouro UI v10.20.30")
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "ouro-ui.md"), text)
+      fragments, errors = Changelog.load(dir)
+      assert_equal [], errors
+      assert_equal 1, fragments.length
+    end
+  end
+
   def test_a_tale_needs_one_plain_testflight_line
     assert_equal ["a-tale.md: testflight needs one plain line saying what changed"], errors_for("order: 1")
     assert_match(/at most 160/, errors_for("testflight: #{'x' * 161}").first)
