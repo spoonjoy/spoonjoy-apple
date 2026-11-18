@@ -299,8 +299,9 @@ struct KitchenTableHeader<Trailing: View>: View {
     let subtitle: String?
     let hidesTitleInCompactNavigation: Bool
     let titleFont: Font
-    /// The title is a chef's handle: shown with "@" and free to break between any two characters, as web's does.
-    let titleBreaksAnywhere: Bool
+    /// The title is a chef's handle: shown with "@", breaking only between its own words, at most two lines and then
+    /// truncated in the middle. VoiceOver reads the whole handle.
+    let titleIsHandle: Bool
     @ViewBuilder let trailing: () -> Trailing
 
     /// `eyebrow` is a kicker that carries state, such as the day or a cookbook's owner; leave it empty when it would
@@ -311,11 +312,11 @@ struct KitchenTableHeader<Trailing: View>: View {
         subtitle: String? = nil,
         hidesTitleInCompactNavigation: Bool = false,
         titleFont: Font = KitchenTableTheme.displayTitle,
-        titleBreaksAnywhere: Bool = false,
+        titleIsHandle: Bool = false,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) {
         self.titleFont = titleFont
-        self.titleBreaksAnywhere = titleBreaksAnywhere
+        self.titleIsHandle = titleIsHandle
         self.eyebrow = eyebrow
         self.title = title
         self.subtitle = subtitle
@@ -346,12 +347,13 @@ struct KitchenTableHeader<Trailing: View>: View {
             }
             // A page whose title the bar already shows leaves it out, so it never reads twice.
             if !(usesCompactNavigation || barShowsPageTitle) || !hidesTitleInCompactNavigation {
-                Text(titleBreaksAnywhere ? ChefHandle.breakingAnywhere(title) : title)
+                Text(titleIsHandle ? ChefHandle.breakingAtWords(title) : title)
                     .font(titleFont)
                     .foregroundStyle(KitchenTableTheme.ink)
-                    .lineLimit(titleBreaksAnywhere ? nil : 3)
+                    .lineLimit(titleIsHandle ? 2 : 3)
+                    .truncationMode(titleIsHandle ? .middle : .tail)
                     .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityLabel(titleBreaksAnywhere ? "@\(title)" : title)
+                    .accessibilityLabel(titleIsHandle ? "@\(title)" : title)
             }
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
@@ -371,7 +373,7 @@ extension KitchenTableHeader where Trailing == EmptyView {
         subtitle: String? = nil,
         hidesTitleInCompactNavigation: Bool = false,
         titleFont: Font = KitchenTableTheme.displayTitle,
-        titleBreaksAnywhere: Bool = false
+        titleIsHandle: Bool = false
     ) {
         self.init(
             eyebrow: eyebrow,
@@ -379,7 +381,7 @@ extension KitchenTableHeader where Trailing == EmptyView {
             subtitle: subtitle,
             hidesTitleInCompactNavigation: hidesTitleInCompactNavigation,
             titleFont: titleFont,
-            titleBreaksAnywhere: titleBreaksAnywhere
+            titleIsHandle: titleIsHandle
         ) {
             EmptyView()
         }

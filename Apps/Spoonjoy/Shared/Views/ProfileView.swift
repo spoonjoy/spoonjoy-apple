@@ -172,7 +172,7 @@ private struct ProfileHero: View {
                 title: viewModel.header.username,
                 subtitle: viewModel.header.joinedLabel,
                 titleFont: KitchenTableTheme.recipeTitle,
-                titleBreaksAnywhere: true
+                titleIsHandle: true
             )
         }
     }
