@@ -168,6 +168,7 @@ enum JourneyID {
     static let recipeTabletopIngredients = "recipeTabletop.ingredients"
 
     /// Every recipe in the Kitchen's "Cooking now"; the label starts with the recipe's title and its step.
+    static let kitchenCookingNow = "kitchen.cookingNow"
     static let kitchenCookingNowCard = "kitchen.cookingNow.card"
     /// The tab bar accessory, and its button that goes back to the newest recipe in progress.
     static let cookingNowAccessoryBar = "cookingNow.accessory"

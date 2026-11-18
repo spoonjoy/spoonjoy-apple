@@ -33,11 +33,18 @@ final class CookbooksJourney: JourneyTestCase {
 
         verifyAfterRelaunch(journey) {
             journey.openLink(cookbookLink)
+            // The page opens on the title and the book's cover, as on web, so the contents start below the first
+            // screen and their lazy rows only exist once scrolled to.
             XCTAssertTrue(
-                cookbookRow(journey, titles[0]).waitForExistence(timeout: JourneyApp.networkTimeout),
-                "The cookbook page does not list its first recipe. Screen: \(journey.screen)"
+                journey.element(JourneyID.cookbookSearchField).waitForExistence(timeout: JourneyApp.networkTimeout),
+                "The cookbook page did not open. Screen: \(journey.screen)"
             )
             journey.attachScreenshot(named: "02-cookbook-top", to: self)
+            journey.swipeUpUntilHittable(cookbookRow(journey, titles[0]))
+            XCTAssertTrue(
+                cookbookRow(journey, titles[0]).waitForExistence(timeout: JourneyApp.interactionTimeout),
+                "The cookbook page does not list its first recipe. Screen: \(journey.screen)"
+            )
 
             // UI: scrolling moves the title under the solid top edge while the search field stays reachable.
             journey.app.swipeUp()
