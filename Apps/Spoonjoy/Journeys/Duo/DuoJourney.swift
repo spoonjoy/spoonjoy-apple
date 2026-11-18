@@ -63,15 +63,8 @@ final class DuoJourney: JourneyTestCase {
         journey.tap(JourneyID.cookClose)
         journey.openLink(kitchenLink)
         let chickpeasRow = journey.element(JourneyID.kitchenCookingNowCard, labelContaining: JourneyRecipes.chickpeasTitle)
-        // The Kitchen leads with the chef's header and the counter card, so Cooking now starts below the first screen
-        // and its lazy rows only exist once scrolled to.
         XCTAssertTrue(
-            journey.element(JourneyID.kitchenCookingNow).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "The Kitchen has no Cooking now section. Screen: \(journey.screen)"
-        )
-        journey.swipeUpUntilHittable(chickpeasRow)
-        XCTAssertTrue(
-            chickpeasRow.waitForExistence(timeout: JourneyApp.interactionTimeout),
+            revealCookingNow(chickpeasRow, in: journey),
             "The Kitchen has no Cooking now row for the chickpeas. Screen: \(journey.screen)"
         )
         try capture("02-closed-kitchen-cooking-now", journey)
@@ -95,7 +88,7 @@ final class DuoJourney: JourneyTestCase {
         journey.openLink(kitchenLink)
         try DuoHinge.set(.open)
         XCTAssertTrue(
-            chickpeasRow.waitForExistence(timeout: JourneyApp.networkTimeout),
+            revealCookingNow(chickpeasRow, in: journey),
             "Opening the Duo lost the Kitchen's Cooking now. Screen: \(journey.screen)"
         )
         try capture("05-open-landscape-kitchen", journey)
@@ -103,7 +96,7 @@ final class DuoJourney: JourneyTestCase {
         // Open flat, held tall.
         try DuoHinge.rotateRight()
         XCTAssertTrue(
-            chickpeasRow.waitForExistence(timeout: JourneyApp.networkTimeout),
+            revealCookingNow(chickpeasRow, in: journey),
             "Turning the open Duo upright lost the Kitchen's Cooking now. Screen: \(journey.screen)"
         )
         try capture("06-open-portrait-kitchen", journey)
@@ -186,6 +179,16 @@ final class DuoJourney: JourneyTestCase {
 
     /// Opens a recipe by link, starts cooking and turns to its second step. On the closed Duo cook mode opens as the
     /// cover glance, whose Next turns the step.
+    /// The Kitchen leads with the chef's header and the counter card, so Cooking now can start below the first
+    /// screen, and its lazy rows only exist once scrolled to. Waits for the section, then scrolls to the row.
+    private func revealCookingNow(_ row: XCUIElement, in journey: JourneyApp) -> Bool {
+        guard journey.element(JourneyID.kitchenCookingNow).waitForExistence(timeout: JourneyApp.networkTimeout) else {
+            return false
+        }
+        journey.swipeUpUntilHittable(row)
+        return row.waitForExistence(timeout: JourneyApp.interactionTimeout)
+    }
+
     private func cookToStepTwo(_ journey: JourneyApp, link: URL, stepLabel: String) throws {
         journey.openLink(link)
         journey.tap(JourneyID.recipeDetailCook)
