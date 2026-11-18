@@ -60,10 +60,8 @@ final class RecipesJourney: JourneyTestCase {
             )
             let cook = journey.element(JourneyID.kitchenRecipeCook)
             XCTAssertTrue(cook.waitForExistence(timeout: JourneyApp.interactionTimeout), "Start cooking is missing at the largest text size.")
-            // The lead grows with the text, so its buttons can sit below the first screen.
-            if !cook.isHittable {
-                journey.app.swipeUp()
-            }
+            // The lead grows with the text under the chef's header, so its buttons can sit a few screens down.
+            journey.swipeUpUntilHittable(cook)
             XCTAssertTrue(cook.isHittable, "Start cooking cannot be tapped at the largest text size. Screen: \(journey.screen)")
             XCTAssertTrue(journey.element(JourneyID.kitchenRecipeOpen).exists, "The Recipe button is missing at the largest text size.")
             journey.attachScreenshot(named: "06a-kitchen-accessibility-text-size", to: self)

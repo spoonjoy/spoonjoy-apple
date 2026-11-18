@@ -63,8 +63,15 @@ final class DuoJourney: JourneyTestCase {
         journey.tap(JourneyID.cookClose)
         journey.openLink(kitchenLink)
         let chickpeasRow = journey.element(JourneyID.kitchenCookingNowCard, labelContaining: JourneyRecipes.chickpeasTitle)
+        // The Kitchen leads with the chef's header and the counter card, so Cooking now starts below the first screen
+        // and its lazy rows only exist once scrolled to.
         XCTAssertTrue(
-            chickpeasRow.waitForExistence(timeout: JourneyApp.networkTimeout),
+            journey.element(JourneyID.kitchenCookingNow).waitForExistence(timeout: JourneyApp.networkTimeout),
+            "The Kitchen has no Cooking now section. Screen: \(journey.screen)"
+        )
+        journey.swipeUpUntilHittable(chickpeasRow)
+        XCTAssertTrue(
+            chickpeasRow.waitForExistence(timeout: JourneyApp.interactionTimeout),
             "The Kitchen has no Cooking now row for the chickpeas. Screen: \(journey.screen)"
         )
         try capture("02-closed-kitchen-cooking-now", journey)
