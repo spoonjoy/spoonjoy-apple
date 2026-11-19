@@ -177,20 +177,25 @@ final class DuoJourney: JourneyTestCase {
         }
     }
 
-    /// Opens a recipe by link, starts cooking and turns to its second step. On the closed Duo cook mode opens as the
-    /// cover glance, whose Next turns the step.
     /// The Kitchen leads with the chef's header and the counter card, so Cooking now can start below the first
-    /// screen, and its lazy rows only exist once scrolled to. Waits for the section, then scrolls to the row.
+    /// screen, and its lazy rows only exist once scrolled to. Waits for the section, then brings it on screen.
     private func revealCookingNow(_ row: XCUIElement, in journey: JourneyApp) -> Bool {
-        guard journey.element(JourneyID.kitchenCookingNow).waitForExistence(timeout: JourneyApp.networkTimeout) else {
+        let section = journey.element(JourneyID.kitchenCookingNow)
+        guard section.waitForExistence(timeout: JourneyApp.networkTimeout) else {
             return false
         }
-        // Drags on the left screen's own column: open flat, the window spans both screens and its middle is the
-        // hinge, where `swipeUp()` lands and nothing scrolls.
+        // Open flat, synthesized drags don't scroll the Kitchen (run 44485633196: six drags, scroll bar still 0%).
+        // An action on the section first scrolls it into view through accessibility, which builds its rows; the
+        // drag beside the hinge is the fallback for the rows below that.
+        if !row.exists {
+            section.swipeUp()
+        }
         journey.dragUpUntilHittable(row, column: 0.25)
         return row.waitForExistence(timeout: JourneyApp.interactionTimeout)
     }
 
+    /// Opens a recipe by link, starts cooking and turns to its second step. On the closed Duo cook mode opens as the
+    /// cover glance, whose Next turns the step.
     private func cookToStepTwo(_ journey: JourneyApp, link: URL, stepLabel: String) throws {
         journey.openLink(link)
         journey.tap(JourneyID.recipeDetailCook)
