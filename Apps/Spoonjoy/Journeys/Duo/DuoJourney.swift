@@ -185,7 +185,12 @@ final class DuoJourney: JourneyTestCase {
         guard journey.element(JourneyID.kitchenCookingNow).waitForExistence(timeout: JourneyApp.networkTimeout) else {
             return false
         }
-        journey.swipeUpUntilHittable(row)
+        // Drags on the left screen's own column: open flat, the window spans both screens and its middle is the
+        // hinge, where `swipeUp()` lands and nothing scrolls.
+        for _ in 0..<6 where !row.isHittable {
+            let start = journey.app.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.8))
+            start.press(forDuration: 0.05, thenDragTo: journey.app.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.3)))
+        }
         return row.waitForExistence(timeout: JourneyApp.interactionTimeout)
     }
 
