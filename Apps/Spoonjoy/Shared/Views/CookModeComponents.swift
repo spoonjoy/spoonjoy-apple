@@ -12,7 +12,7 @@ struct CookStepSegments: View {
     var body: some View {
         HStack(spacing: 4) {
             ForEach(0..<max(count, 1), id: \.self) { index in
-                Capsule()
+                Capsule(style: .continuous)
                     .fill(fill(for: index))
                     .frame(height: height)
                     .frame(maxWidth: .infinity)
@@ -110,7 +110,7 @@ struct CookTimerStack: View {
                 .foregroundStyle(KitchenTableTheme.ink2)
                 .padding(.horizontal, 12)
                 .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-                .glassEffect(.regular, in: Capsule())
+                .glassEffect(.regular, in: Capsule(style: .continuous))
                 .accessibilityLabel("\(timers.count - Self.visibleLimit) more timers")
         }
     }
@@ -130,7 +130,7 @@ private struct CookTimerChip: View {
         .lineLimit(1)
         .padding(.horizontal, 12)
         .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-        .glassEffect(.regular, in: Capsule())
+        .glassEffect(.regular, in: Capsule(style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(timer.label) timer")
     }

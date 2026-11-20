@@ -784,9 +784,9 @@ struct CookModeView: View {
         // At large text sizes a step runs below the fold; the indicator, flashed on arrival, says there is more.
         .scrollIndicators(.visible)
         .scrollIndicatorsFlash(onAppear: true)
-        .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel * 2))
+        .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel * 2, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel * 2)
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel * 2, style: .continuous)
                 .stroke(KitchenTableTheme.hairline, lineWidth: KitchenTableTheme.hairlineWidth)
         )
         .scaleEffect(isCurrent ? 1 : 0.965)
@@ -958,7 +958,7 @@ struct CookModeView: View {
                 ingredientChecklist(model, isCurrent: isCurrent)
             }
             .padding(16)
-            .background(KitchenTableTheme.page, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel * 2))
+            .background(KitchenTableTheme.page, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel * 2, style: .continuous))
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(isCurrent ? "cook.step.card" : "")
         }
@@ -1848,8 +1848,8 @@ extension CookModeView {
         .multilineTextAlignment(.center)
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(KitchenTableTheme.page, in: Capsule())
-        .glassEffect(.regular, in: Capsule())
+        .background(KitchenTableTheme.page, in: Capsule(style: .continuous))
+        .glassEffect(.regular, in: Capsule(style: .continuous))
     }
 
     private static var microphoneSettingsURL: URL {

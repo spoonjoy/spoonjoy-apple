@@ -106,7 +106,7 @@ struct AddRecipeSheet: View {
             .onSubmit(importLink)
             .padding(.horizontal, 16)
             .frame(minHeight: KitchenTableTheme.minimumTouchTarget + 6)
-            .background(KitchenTableTheme.vellum, in: Capsule())
+            .background(KitchenTableTheme.vellum, in: Capsule(style: .continuous))
             .accessibilityLabel("Recipe link")
             .accessibilityIdentifier("addRecipe.link")
     }

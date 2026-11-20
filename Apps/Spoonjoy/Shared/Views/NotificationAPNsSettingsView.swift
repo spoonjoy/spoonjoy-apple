@@ -226,9 +226,9 @@ struct NotificationAPNsSettingsView: View {
         .foregroundStyle(prominence.foreground)
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
-        .background(prominence.background, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .background(prominence.background, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous)
                 .strokeBorder(prominence.stroke, lineWidth: 1)
         }
     }

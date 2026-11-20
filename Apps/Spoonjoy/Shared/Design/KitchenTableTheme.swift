@@ -553,7 +553,7 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
             leading()
                 .frame(width: 56, height: 56)
                 .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
+                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover, style: .continuous))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -667,7 +667,7 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     func makeBody(configuration: Configuration) -> some View {
-        let shape = Capsule()
+        let shape = Capsule(style: .continuous)
         // At the accessibility sizes a label wraps to a second line instead of truncating.
         let label = configuration.label
             .font(KitchenTableTheme.control)

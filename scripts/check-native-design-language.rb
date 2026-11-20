@@ -262,4 +262,45 @@ fail_check("#{display_path(shell_source)} compact .searchable must sit on the Se
 fail_check("#{display_path(shell_source)} compact TabView must use .tint(KitchenTableTheme.brass) so the selected tab is visible") unless tab_shell.match?(/^        \.tint\(KitchenTableTheme\.brass\)$/)
 fail_check("#{display_path(shell_source)} each compact tab must own a NavigationStack(path:)") unless shell_source.read.include?("NavigationStack(path: compactPath(for: tab))")
 
+# Every corner is a squircle, capsules included (Ari, 2026-11-20: "ABSOLUTELY NO ROUNDED CORNERS / squircle ONLY …
+# absolutely NO regressions"). SwiftUI's Capsule, RoundedRectangle, UnevenRoundedRectangle and .rect(cornerRadius:)
+# default to circular corners, so each call names style: .continuous, read across lines to its closing parenthesis.
+# .cornerRadius(_:) can't be continuous, and style: .circular and the .capsule shorthand are circular by name.
+# True circles stay round, as in Ouro's base: Circle(), and a spinner's .progressViewStyle(.circular).
+def balanced_arguments(text, open_index)
+  depth = 0
+  text[open_index..].each_char.with_index do |char, offset|
+    depth += 1 if char == "("
+    depth -= 1 if char == ")"
+    return text[open_index, offset + 1] if depth.zero?
+  end
+  text[open_index..]
+end
+
+def circular_corners(path)
+  text = path.read
+  code = text.gsub(%r{^[ \t]*//.*$}) { |comment| " " * comment.length }
+  found = []
+  code.scan(/\b(Capsule|RoundedRectangle|UnevenRoundedRectangle)\(|\.rect\((?=\w*[Rr]adius:)/) do
+    match = Regexp.last_match
+    arguments = balanced_arguments(code, match.end(0) - 1)
+    next if arguments.include?("style: .continuous")
+
+    found << [code[0...match.begin(0)].count("\n") + 1, "#{match[1] || ".rect"}#{arguments.gsub(/\s+/, " ")}"]
+  end
+  code.each_line.with_index(1) do |line, number|
+    found << [number, ".cornerRadius("] if line.include?(".cornerRadius(")
+    found << [number, "style: .circular"] if line.match?(/style:\s*\.circular/)
+    found << [number, ".capsule"] if line.match?(/(?<![\w.])\.capsule\b(?!\(style: \.continuous)/)
+  end
+  found.sort.map { |number, what| "#{display_path(path)}:#{number}: #{what}" }
+end
+
+corner_sources = Dir.glob(ROOT.join("{Apps,Sources}/**/*.swift").to_s).sort.map { |file| Pathname.new(file) }
+fail_check("found only #{corner_sources.count} Swift sources under Apps and Sources") if corner_sources.count < 50
+circular = corner_sources.flat_map { |path| circular_corners(path) }
+unless circular.empty?
+  fail_check("circular corners; every corner is a squircle, so name style: .continuous:\n#{circular.join("\n")}")
+end
+
 puts "native design language contract ok"

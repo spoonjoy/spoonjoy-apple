@@ -588,6 +588,6 @@ struct KitchenEmptySection: View {
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
         .background(KitchenTableTheme.raised)
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
     }
 }

@@ -221,7 +221,7 @@ struct LaunchSafeModeView: View {
                         .font(KitchenTableTheme.control)
                         .foregroundStyle(KitchenTableTheme.onInk)
                         .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget)
-                        .background(KitchenTableTheme.action, in: Capsule())
+                        .background(KitchenTableTheme.action, in: Capsule(style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("launchSafeMode.tryAgain")

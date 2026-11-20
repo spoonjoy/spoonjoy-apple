@@ -202,7 +202,7 @@ private struct CookSessionTimerChip: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .background(KitchenTableTheme.vellum, in: Capsule())
+        .background(KitchenTableTheme.vellum, in: Capsule(style: .continuous))
     }
 }
 
@@ -392,7 +392,7 @@ private struct CookSessionButtons: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(KitchenTableTheme.ink)
-            .background(KitchenTableTheme.vellum, in: Capsule())
+            .background(KitchenTableTheme.vellum, in: Capsule(style: .continuous))
             .accessibilityLabel("Check off step \(snapshot.stepNumber)")
             .accessibilityIdentifier("cookSession.liveActivity.check")
 
@@ -405,7 +405,7 @@ private struct CookSessionButtons: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(KitchenTableTheme.onInk)
-                .background(KitchenTableTheme.action, in: Capsule())
+                .background(KitchenTableTheme.action, in: Capsule(style: .continuous))
                 .accessibilityLabel("Next step")
                 .accessibilityIdentifier("cookSession.liveActivity.next")
             }

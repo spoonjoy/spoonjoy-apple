@@ -228,7 +228,7 @@ struct RecipeCoverControlsView: View {
         }
         .padding()
         .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
     }
 
     private var photoUploadControl: some View {
@@ -293,7 +293,7 @@ struct RecipeCoverControlsView: View {
         }
         .padding()
         .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
     }
 
     private var placeholderGenerationControl: some View {
@@ -316,7 +316,7 @@ struct RecipeCoverControlsView: View {
         }
         .padding()
         .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
     }
 
     private var noCoverControl: some View {
@@ -339,7 +339,7 @@ struct RecipeCoverControlsView: View {
         }
         .padding()
         .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
     }
 
     @ViewBuilder private var coverList: some View {
@@ -355,7 +355,7 @@ struct RecipeCoverControlsView: View {
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.background)
-                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
             } else {
                 ForEach(data.covers) { cover in
                     coverRow(cover)
@@ -369,7 +369,7 @@ struct RecipeCoverControlsView: View {
             HStack(alignment: .top, spacing: 12) {
                 RecipeCoverImage(url: cover.thumbnailURL)
                     .frame(width: 92, height: 92)
-                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
+                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
@@ -504,7 +504,7 @@ struct RecipeCoverControlsView: View {
         }
         .padding()
         .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
     }
 
     private func replacementOptions(for cover: RecipeCoverCandidate) -> [RecipeCoverReplacementOption] {
@@ -522,7 +522,7 @@ struct RecipeCoverControlsView: View {
                     HStack(spacing: 12) {
                         RecipeCoverImage(url: spoon.photoURL)
                             .frame(width: 76, height: 76)
-                            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
+                            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover, style: .continuous))
                         VStack(alignment: .leading, spacing: 4) {
                             Text(spoon.chef.username)
                                 .font(KitchenTableTheme.bodyNote)
@@ -545,7 +545,7 @@ struct RecipeCoverControlsView: View {
                     }
                     .padding()
                     .background(.background)
-                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
                 }
             }
         }

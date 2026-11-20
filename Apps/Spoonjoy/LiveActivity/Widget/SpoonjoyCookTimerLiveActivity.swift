@@ -189,7 +189,7 @@ struct CookTimerControls: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(primaryText)
-                .background(primaryFill, in: Capsule())
+                .background(primaryFill, in: Capsule(style: .continuous))
             case .paused:
                 Button(intent: ResumeCookTimerIntent(alarmID: alarmID)) {
                     Label("Resume", systemImage: "play.fill")
@@ -198,7 +198,7 @@ struct CookTimerControls: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(primaryText)
-                .background(primaryFill, in: Capsule())
+                .background(primaryFill, in: Capsule(style: .continuous))
             case .alert:
                 Button(intent: StopCookTimerIntent(alarmID: alarmID)) {
                     Label("Stop", systemImage: "stop.fill")
@@ -207,7 +207,7 @@ struct CookTimerControls: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(primaryText)
-                .background(primaryFill, in: Capsule())
+                .background(primaryFill, in: Capsule(style: .continuous))
             @unknown default:
                 EmptyView()
             }
@@ -221,7 +221,7 @@ struct CookTimerControls: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(secondaryText)
-                .background(secondaryFill, in: Capsule())
+                .background(secondaryFill, in: Capsule(style: .continuous))
                 .accessibilityLabel("Cancel timer")
                 .accessibilityIdentifier("cookTimer.liveActivity.cancel")
             }
@@ -233,7 +233,7 @@ struct CookTimerControls: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(secondaryText)
-            .background(secondaryFill, in: Capsule())
+            .background(secondaryFill, in: Capsule(style: .continuous))
         }
     }
 }

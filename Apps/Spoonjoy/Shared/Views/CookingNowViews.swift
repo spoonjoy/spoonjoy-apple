@@ -215,7 +215,7 @@ struct CookingNowPlate: View {
                         RecipeInitialTile(title: entry.title)
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo))
+                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo, style: .continuous))
                 .accessibilityHidden(true)
             Text(entry.stepLabel)
                 .kitchenEyebrow()
@@ -242,8 +242,8 @@ struct CookingNowProgressRule: View {
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
-                Capsule().fill(KitchenTableTheme.vellum)
-                Capsule().fill(KitchenTableTheme.brass)
+                Capsule(style: .continuous).fill(KitchenTableTheme.vellum)
+                Capsule(style: .continuous).fill(KitchenTableTheme.brass)
                     .frame(width: proxy.size.width * min(max(fraction, 0), 1))
             }
         }

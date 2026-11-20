@@ -77,8 +77,8 @@ struct KitchenRecipesStructureContractTests {
         expectContent(
             shell,
             in: shellPath,
-            contains: [".padding(.vertical, 2)\n                .background(KitchenTableTheme.raised, in: Capsule())"],
-            forbids: [".padding(.vertical, 2)\n                .background(KitchenTableTheme.raised.opacity(0.94), in: Capsule())"]
+            contains: [".padding(.vertical, 2)\n                .background(KitchenTableTheme.raised, in: Capsule(style: .continuous))"],
+            forbids: [".padding(.vertical, 2)\n                .background(KitchenTableTheme.raised.opacity(0.94), in: Capsule(style: .continuous))"]
         )
     }
 
