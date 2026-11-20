@@ -169,7 +169,7 @@ struct SignedOutSetupView: View {
                     .foregroundStyle(KitchenTableTheme.herb)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(KitchenTableTheme.herb.opacity(0.12), in: Capsule())
+                    .background(KitchenTableTheme.herb.opacity(0.12), in: Capsule(style: .continuous))
             }
 
             // Guideline 4.8: Sign in with Apple comes first and at full width whenever Google or GitHub is offered,
@@ -197,7 +197,7 @@ struct SignedOutSetupView: View {
                 .signInWithAppleButtonStyle(.black)
                 .frame(maxWidth: .infinity, minHeight: 50, maxHeight: 50)
                 // A capsule, as every other control on the screen.
-                .clipShape(Capsule())
+                .clipShape(Capsule(style: .continuous))
                 .disabled(isSigningIn)
                 .accessibilityIdentifier(Self.liveAppleSignInIdentifier)
             } else {
@@ -226,7 +226,7 @@ struct SignedOutSetupView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(isSigningIn ? KitchenTableTheme.ink.opacity(0.46) : KitchenTableTheme.ink)
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
                     .disabled(isSigningIn)
                     .accessibilityIdentifier(provider.signInAccessibilityIdentifier)
                 }
@@ -293,8 +293,8 @@ struct SignedOutSetupView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(canSubmitPassword && !isSigningIn ? KitchenTableTheme.onInk : KitchenTableTheme.ink.opacity(0.46))
-            .background(passwordButtonBackground, in: Capsule())
-            .glassEffect(.regular.interactive(), in: Capsule())
+            .background(passwordButtonBackground, in: Capsule(style: .continuous))
+            .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
             .disabled(isSigningIn || !canSubmitPassword)
             .accessibilityIdentifier(Self.livePasswordSignInIdentifier)
 
@@ -923,9 +923,9 @@ private struct SignInFieldStyle: ViewModifier {
             .foregroundStyle(KitchenTableTheme.ink)
             .padding(.horizontal, 18)
             .frame(minHeight: 48)
-            .contentShape(Capsule())
+            .contentShape(Capsule(style: .continuous))
             .onTapGesture(perform: focus)
-            .glassEffect(.regular.interactive(), in: Capsule())
+            .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
     }
 }
 

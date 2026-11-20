@@ -251,7 +251,7 @@ struct ShoppingListView: View {
                 .foregroundStyle(KitchenTableTheme.ink)
                 .padding(.horizontal, 14)
                 .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-                .glassEffect(.regular.interactive(), in: Capsule())
+                .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
             }
         }
         .buttonStyle(.plain)
@@ -379,7 +379,7 @@ struct ShoppingListView: View {
             .font(KitchenTableTheme.bodyNote)
             .padding(.horizontal, 16)
             .frame(minHeight: 48)
-            .glassEffect(.regular.interactive(), in: Capsule())
+            .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
             .focused($isItemFieldFocused)
             .onSubmit(addItem)
     }
@@ -390,7 +390,7 @@ struct ShoppingListView: View {
             .font(KitchenTableTheme.bodyNote)
             .padding(.horizontal, 16)
             .frame(minHeight: 48)
-            .glassEffect(.regular.interactive(), in: Capsule())
+            .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
             .frame(maxWidth: 120)
 #if os(iOS)
             .keyboardType(.decimalPad)
@@ -403,7 +403,7 @@ struct ShoppingListView: View {
             .font(KitchenTableTheme.bodyNote)
             .padding(.horizontal, 16)
             .frame(minHeight: 48)
-            .glassEffect(.regular.interactive(), in: Capsule())
+            .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
             .frame(maxWidth: .infinity)
     }
 

@@ -923,7 +923,7 @@ private struct CookbookDetailView: View {
         }
         .padding(.horizontal, 16)
         .frame(minHeight: KitchenTableTheme.minimumTouchTarget + 2)
-        .glassEffect(.regular, in: Capsule())
+        .glassEffect(.regular, in: Capsule(style: .continuous))
     }
 
     @ViewBuilder private var ownerTools: some View {

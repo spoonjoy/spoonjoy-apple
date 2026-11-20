@@ -48,7 +48,7 @@ struct JourneyStillProgressViewStyle: ProgressViewStyle {
         VStack(spacing: 6) {
             if let fraction = configuration.fractionCompleted {
                 GeometryReader { proxy in
-                    Capsule()
+                    Capsule(style: .continuous)
                         .fill(KitchenTableTheme.brass)
                         .frame(width: proxy.size.width * fraction)
                         .frame(maxWidth: .infinity, alignment: .leading)

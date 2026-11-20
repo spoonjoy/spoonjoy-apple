@@ -147,20 +147,20 @@ struct SpoonDock: View {
         case .primary:
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.plain)
-                .glassEffect(.regular.tint(primaryTint(for: action)).interactive(), in: Capsule())
+                .glassEffect(.regular.tint(primaryTint(for: action)).interactive(), in: Capsule(style: .continuous))
                 .dockGlassID(action.id, in: glassNamespace, morphs: !reduceMotion)
         case .primaryIcon:
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.plain)
                 .frame(width: primaryIconWidth, height: toolTarget)
-                .glassEffect(.regular.tint(primaryTint(for: action)).interactive(), in: Capsule())
+                .glassEffect(.regular.tint(primaryTint(for: action)).interactive(), in: Capsule(style: .continuous))
                 .dockGlassID(action.id, in: glassNamespace, morphs: !reduceMotion)
         case .supporting:
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.plain)
                 .padding(.horizontal, 10)
                 .frame(minHeight: SpoonDockMetrics.minimumTargetSize)
-                .glassEffect(.regular.interactive(), in: Capsule())
+                .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
                 .dockGlassID(action.id, in: glassNamespace, morphs: !reduceMotion)
         case .tool:
             dockTrigger(action, prominence: prominence)

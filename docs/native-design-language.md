@@ -139,7 +139,7 @@ The glass rules:
 
 **Grid.** Spacing is a multiple of 4 pt (`KitchenTableTheme.Spacing`). Screen margins are 24 pt on iPhone, 32 pt on iPad and Mac, and 40 pt on the side of a page that meets the iPhone Duo fold. Touch targets stay at least 44 pt.
 
-**Radii.** Corners keep their meaning: 0 pt for full-bleed edges, 4 pt for media, 8 pt for panels and sheets, and 999 pt (a capsule) for controls.
+**Radii.** Corners keep their meaning: 0 pt for full-bleed edges, 4 pt for media, 8 pt for panels and sheets, and 999 pt (a capsule) for controls. Every corner is a squircle, capsules included: each `Capsule`, `RoundedRectangle`, `UnevenRoundedRectangle` and `.rect(cornerRadius:)` names `style: .continuous`, and nothing uses `.cornerRadius(_:)` (Ari, 2026-11-20: "squircle ONLY"). Only true circles stay round: `Circle()` icon buttons, check circles, round avatars, switches, presence dots and spinners. `scripts/check-native-design-language.rb` fails on any circular corner under `Apps` and `Sources`.
 
 **Motion.** Motion uses springs in SwiftUI's response and damping terms (`KitchenSpring`): snappy 0.32/0.86 for small state changes, glide 0.42/0.82 for the tab lens and glass morphs, page turn 0.5/0.88 for cook steps, zoom 0.45/0.9 for a cover opening into its recipe, and bounce 0.35/0.6 for a checked ingredient. With Reduce Motion on, every spring becomes a 0.2 s crossfade and nothing moves: `KitchenMotion.step` makes the decision, `KitchenMotion.animation` and `kitchenAnimation` animate with it, and `kitchenTransition` swaps any slide, zoom or page turn for opacity. The crossfade's length and curve and the opacity rule are Ouro HX's (`OuroMotion`); the named springs are Spoonjoy's own, since Ouro HX has one spring.
 

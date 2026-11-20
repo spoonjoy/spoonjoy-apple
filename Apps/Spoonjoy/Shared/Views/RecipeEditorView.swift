@@ -527,9 +527,9 @@ struct RecipeEditorView: View {
                     .accessibilityHidden(true)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
+            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover)
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover, style: .continuous)
                     .strokeBorder(KitchenTableTheme.lineStrong, style: StrokeStyle(lineWidth: 1, dash: hasPhoto ? [] : [5, 4]))
             )
 
@@ -1086,9 +1086,9 @@ private struct EditorInputStyle: ViewModifier {
             .padding(.vertical, 10)
             .frame(minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .topLeading)
             .background(KitchenTableTheme.raised)
-            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
+            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover)
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover, style: .continuous)
                     .strokeBorder(KitchenTableTheme.lineStrong, lineWidth: 1)
             )
             .contentShape(Rectangle())
@@ -1118,7 +1118,7 @@ private struct QuantityField: View {
         TextField("1 ½", text: $text)
             .editorInputStyle(focus: $isFocused)
             .overlay(
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover)
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover, style: .continuous)
                     .strokeBorder(KitchenTableTheme.tomato, lineWidth: invalidRows.contains(rowID) ? 2 : 0)
             )
             .accessibilityLabel("Quantity")

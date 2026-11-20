@@ -1267,7 +1267,7 @@ struct PlatformNavigationView: View {
                 .frame(minHeight: 28, alignment: .leading)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 2)
-                .background(KitchenTableTheme.raised, in: Capsule())
+                .background(KitchenTableTheme.raised, in: Capsule(style: .continuous))
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else if offlineIndicatorState.display.informationalOnly {
             OfflineStatusView(display: offlineIndicatorState.display, prominence: .quiet, onDismiss: dismissOfflineIndicator)
@@ -1277,9 +1277,9 @@ struct PlatformNavigationView: View {
             OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
                 .frame(maxWidth: 372, minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .center)
                 .padding(.horizontal, 12)
-                .background(KitchenTableTheme.raised.opacity(0.94), in: Capsule())
+                .background(KitchenTableTheme.raised.opacity(0.94), in: Capsule(style: .continuous))
                 .overlay {
-                    Capsule()
+                    Capsule(style: .continuous)
                         .strokeBorder(KitchenTableTheme.hairline.opacity(0.7), lineWidth: 1)
                 }
         }
@@ -2999,9 +2999,9 @@ private struct RecipeListAddNoticeView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-            .background(KitchenTableTheme.raised, in: Capsule())
+            .background(KitchenTableTheme.raised, in: Capsule(style: .continuous))
             .overlay {
-                Capsule().strokeBorder(KitchenTableTheme.hairline, lineWidth: 1)
+                Capsule(style: .continuous).strokeBorder(KitchenTableTheme.hairline, lineWidth: 1)
             }
             .shadow(color: KitchenTableTheme.photoCharcoal.opacity(0.12), radius: 12, y: 4)
             .accessibilityIdentifier("shell.listAddNotice")

@@ -241,9 +241,9 @@ struct AccountDeletionSheet: View {
             .foregroundStyle(KitchenTableTheme.ink)
             .padding(.horizontal, 12)
             .frame(minHeight: 46)
-            .background(KitchenTableTheme.page.opacity(0.45), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+            .background(KitchenTableTheme.page.opacity(0.45), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous)
                     .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
             }
     }

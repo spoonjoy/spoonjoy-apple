@@ -380,7 +380,7 @@ private struct SearchSurfaceThumbnail: View {
         }
         .frame(width: 56, height: 56)
         .clipped()
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover, style: .continuous))
         .recipeZoomSource(id: row.result.type == .recipe ? row.result.id : nil)
     }
 
@@ -390,7 +390,7 @@ private struct SearchSurfaceThumbnail: View {
 
     private var thumbnailFill: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover)
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover, style: .continuous)
                 .fill(accent.opacity(0.14))
             Image(systemName: row.systemImage)
                 .foregroundStyle(accent)

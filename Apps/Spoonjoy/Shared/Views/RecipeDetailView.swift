@@ -746,9 +746,9 @@ struct RecipeDetailView: View {
             .foregroundStyle(KitchenTableTheme.ink)
             .padding(.horizontal, 11)
             .padding(.vertical, 7)
-            .background(KitchenTableTheme.vellum, in: Capsule())
+            .background(KitchenTableTheme.vellum, in: Capsule(style: .continuous))
             .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-            .contentShape(Capsule())
+            .contentShape(Capsule(style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(serves.label(scale: shoppingScaleFactor))
@@ -1667,7 +1667,7 @@ extension RecipeDetailView {
             recipeHeroCover(coverImageURL: realCoverURL, underBar: false)
                 .frame(maxWidth: .infinity)
                 .frame(height: CGFloat(BookSpreadLayout.coverHeight(pageWidth: Double(pageWidth))))
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo))
+                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo, style: .continuous))
                 .accessibilityElement(children: .ignore)
                 .accessibilityAddTraits(.isImage)
                 .accessibilityLabel(coverAccessibilityLabel)
@@ -2204,7 +2204,7 @@ struct RecipeStepDurationCue: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(KitchenTableTheme.vellum.opacity(0.58))
-            .clipShape(Capsule())
+            .clipShape(Capsule(style: .continuous))
             .accessibilityLabel("\(durationLabel) timer")
     }
 }
