@@ -14,6 +14,8 @@ concurrency:
 
 permissions:
   contents: read
+  # Read: in After TestFlight, a lane c job checks whether a newer run is waiting (#413).
+  actions: read
 
 jobs:
   app-intents-xray-behaviour:
@@ -35,8 +37,11 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
+      - uses: ./.github/actions/skip-if-superseded
       - uses: ./.github/actions/select-xcode
+        if: env.SPOONJOY_SUPERSEDED != 'true'
       - name: Build the iOS app and ouro-ax-xray at the pinned version
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         run: |
           set -euo pipefail
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
@@ -45,6 +50,7 @@ jobs:
           swift package resolve
           swift build -c release --package-path .build/checkouts/ouro-ui-apple --product ouro-ax-xray
       - name: X-ray behaviour stage (signed out)
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         run: |
           set -euo pipefail
           cd .build/checkouts/ouro-ui-apple
@@ -52,7 +58,7 @@ jobs:
             --app "$RUNNER_TEMP/dd/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app" \
             --out "$RUNNER_TEMP/xray-behaviour" --platform ios --runtime 27.1 --name Spoonjoy --commit "${GITHUB_SHA::7}"
       - name: Upload the behaviour report
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: app-intents-xray-behaviour-${{ github.sha }}

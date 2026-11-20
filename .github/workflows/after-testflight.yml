@@ -13,6 +13,8 @@ on:
 
 permissions:
   contents: read
+  # Read: each lane c job checks whether a newer After TestFlight run is waiting (#413).
+  actions: read
 
 # One run at a time, never cancelled once it runs; a newer main commit's run replaces one still waiting. Its jobs wait
 # one at a time in macOS lane c (native.yml), so a run takes hours, longer than main goes between merges. Without this,
@@ -21,6 +23,10 @@ permissions:
 # commit's run covers the ones it replaces, as the commit check below already assumes. A run after a dispatched
 # TestFlight (a rollback, a release branch) skips itself, so it takes a group of its own and never replaces main's.
 # No queue: the default (one waiting) is the point; queue: max would bring the pile back.
+# A run that has started is never cancelled, but once main has moved past its commit and a newer run is waiting, each of
+# its lane c jobs skips its steps right after checkout (.github/actions/skip-if-superseded), so it drains in minutes and
+# the newer run takes the group. Before that, d1b6a94's run held the group for over four hours on 2026-11-20 while the
+# run for main's head waited (#413). The run for main's head never skips.
 concurrency:
   group: after-testflight-${{ github.event.workflow_run.event == 'workflow_run' && 'main' || github.run_id }}
   cancel-in-progress: false
