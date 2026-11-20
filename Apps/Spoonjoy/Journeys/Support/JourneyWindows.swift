@@ -11,11 +11,20 @@ extension JourneyApp {
             .compactMap { $0.value as? String }
     }
 
-    /// Waits until `count` windows of the app are connected, and returns their probes.
-    func waitForWindows(_ count: Int, timeout: TimeInterval = JourneyApp.networkTimeout) -> [String] {
-        let probes = app.descendants(matching: .any).matching(identifier: "journey.window")
-        let enough = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in probes.count >= count }, object: nil)
-        _ = XCTWaiter().wait(for: [enough], timeout: timeout)
+    /// Waits until `count` windows of the app are connected and their probes satisfy `settled`, and returns the probes.
+    /// A new window connects before the system names it and before it opens the page it was opened for, so a check
+    /// on what it shows passes `settled` instead of reading the probes the moment the window appears.
+    func waitForWindows(
+        _ count: Int,
+        timeout: TimeInterval = JourneyApp.networkTimeout,
+        settled: @escaping @Sendable ([String]) -> Bool = { _ in true }
+    ) -> [String] {
+        let windows = app.descendants(matching: .any).matching(identifier: "journey.window")
+        let ready = NSPredicate { _, _ in
+            let probes = windows.allElementsBoundByIndex.compactMap { $0.value as? String }
+            return probes.count >= count && settled(probes)
+        }
+        _ = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: ready, object: nil)], timeout: timeout)
         return windowProbes
     }
 

@@ -152,12 +152,15 @@ final class DuoJourney: JourneyTestCase {
         )
         try captureScreen("10-open-in-new-window-menu", journey)
         openInNewWindow.tap()
-        let windows = journey.waitForWindows(2)
+        let holdsChickpeasBesideKitchen: @Sendable ([String]) -> Bool = { windows in
+            windows.contains { $0.contains(chickpeasID) } && windows.contains { $0.hasSuffix(" kitchen") }
+        }
+        let windows = journey.waitForWindows(2, settled: holdsChickpeasBesideKitchen)
         try captureScreen("11-two-windows", journey)
         attachText("11-two-windows-probes", windows.joined(separator: "\n"))
         XCTAssertGreaterThanOrEqual(windows.count, 2, "Open in New Window did not open a second window. Screen: \(journey.screen)")
         XCTAssertTrue(
-            windows.contains { $0.contains(chickpeasID) } && windows.contains { $0.hasSuffix(" kitchen") },
+            holdsChickpeasBesideKitchen(windows),
             "The new window is not the chickpeas beside the Kitchen: \(windows). Screen: \(journey.screen)"
         )
 
@@ -178,20 +181,16 @@ final class DuoJourney: JourneyTestCase {
     }
 
     /// The Kitchen leads with the chef's header and the counter card, so Cooking now can start below the first
-    /// screen, and its lazy rows only exist once scrolled to. Waits for the section, then brings it on screen.
+    /// screen. Its rows are built whole, so they exist there; this waits for them and, closed, swipes them into view.
+    /// Open flat, synthesized swipes don't scroll the Kitchen (run 44485633196), so the row may stay below the fold
+    /// there; a tap on it still scrolls it into view first.
     private func revealCookingNow(_ row: XCUIElement, in journey: JourneyApp) -> Bool {
-        let section = journey.element(JourneyID.kitchenCookingNow)
-        guard section.waitForExistence(timeout: JourneyApp.networkTimeout) else {
+        guard journey.element(JourneyID.kitchenCookingNow).waitForExistence(timeout: JourneyApp.networkTimeout),
+              row.waitForExistence(timeout: JourneyApp.interactionTimeout) else {
             return false
         }
-        // Open flat, synthesized drags don't scroll the Kitchen (run 44485633196: six drags, scroll bar still 0%).
-        // An action on the section first scrolls it into view through accessibility, which builds its rows; the
-        // drag beside the hinge is the fallback for the rows below that.
-        if !row.exists {
-            section.swipeUp()
-        }
-        journey.dragUpUntilHittable(row, column: 0.25)
-        return row.waitForExistence(timeout: JourneyApp.interactionTimeout)
+        journey.swipeUpUntilHittable(row)
+        return row.exists
     }
 
     /// Opens a recipe by link, starts cooking and turns to its second step. On the closed Duo cook mode opens as the

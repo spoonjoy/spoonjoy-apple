@@ -658,17 +658,6 @@ final class JourneyApp {
         swipeUpUntilHittable(element, swipesLeft: swipesLeft - 1)
     }
 
-    /// Drags up at `column` (a fraction of the window's width) until `element` can be tapped, for a window whose middle
-    /// is not the page, such as a Duo open flat, where the middle is the hinge. Stops after a few drags either way.
-    func dragUpUntilHittable(_ element: XCUIElement, column: CGFloat, dragsLeft: Int = 6) {
-        guard !element.isHittable, dragsLeft > 0 else {
-            return
-        }
-        let start = app.coordinate(withNormalizedOffset: CGVector(dx: column, dy: 0.8))
-        start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: column, dy: 0.3)))
-        dragUpUntilHittable(element, column: column, dragsLeft: dragsLeft - 1)
-    }
-
     /// Drags until `element` sits fully below the navigation bar and above the tab bar or keyboard, for a control
     /// the status bar or a translucent bar can cover while it still reads as hittable.
     func scrollClearOfBars(_ element: XCUIElement) {
