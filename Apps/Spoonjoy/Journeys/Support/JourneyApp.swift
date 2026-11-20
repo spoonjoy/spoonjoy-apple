@@ -670,7 +670,7 @@ final class JourneyApp {
     }
 
     /// Drags until `element` sits fully below the navigation bar and above the tab bar or keyboard, for a control
-    /// a translucent bar can cover while it still reads as hittable.
+    /// the status bar or a translucent bar can cover while it still reads as hittable.
     func scrollClearOfBars(_ element: XCUIElement) {
         scrollIntoView(element, dragsLeft: Self.scrollDrags)
     }
