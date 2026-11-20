@@ -123,7 +123,8 @@ extension CookingNowEntry {
 
 /// The Kitchen's "Cooking now": every recipe the chef is part-way through, newest first, each one tap from cook mode
 /// on its saved step. On a phone the recipes are index rows like the rest of the page; on a wide page they are open
-/// plates, photo over title, with no box around them.
+/// plates, photo over title, with no box around them. The list is only what's on the stove, so it is built whole, not
+/// lazily: under the Kitchen's header it starts below the first screen, and every row stays reachable from there.
 struct CookingNowSection: View {
     let entries: [CookingNowEntry]
     let isWide: Bool
@@ -134,11 +135,7 @@ struct CookingNowSection: View {
     var body: some View {
         KitchenTableSection(eyebrow: "On the stove", title: "Cooking now", meta: meta) {
             if isWide {
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 200, maximum: 300), spacing: 24, alignment: .top)],
-                    alignment: .leading,
-                    spacing: 24
-                ) {
+                CookingNowPlateGrid(minimum: 200, maximum: 300, spacing: 24) {
                     ForEach(entries) { entry in
                         CookingNowPlate(entry: entry) {
                             resume(entry.recipeID)
@@ -146,7 +143,7 @@ struct CookingNowSection: View {
                     }
                 }
             } else {
-                LazyVStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
                     ForEach(entries) { entry in
                         if entry.id != entries.first?.id {
                             RecipeIndexRowSeparator()
@@ -332,3 +329,50 @@ struct CookingNowAccessory: View {
     }
 }
 #endif
+
+/// Cooking now's plates on a wide page: as many columns of 200 to 300 pt as fit, 24 pt apart, filled left to right
+/// and top-aligned, like an adaptive grid, but every plate is laid out at once rather than as it scrolls into view.
+struct CookingNowPlateGrid: Layout {
+    let minimum: CGFloat
+    let maximum: CGFloat
+    let spacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? maximum
+        let rows = rowHeights(width: width, subviews: subviews)
+        let height = rows.reduce(0, +) + spacing * CGFloat(max(rows.count - 1, 0))
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let (columns, cell) = grid(width: bounds.width)
+        let rows = rowHeights(width: bounds.width, subviews: subviews)
+        var y = bounds.minY
+        for (row, height) in rows.enumerated() {
+            for column in 0..<columns {
+                let index = row * columns + column
+                guard index < subviews.count else { break }
+                let x = bounds.minX + CGFloat(column) * (cell + spacing)
+                subviews[index].place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: ProposedViewSize(width: cell, height: nil))
+            }
+            y += height + spacing
+        }
+    }
+
+    /// The column count and each column's width for `width`: as many minimum-width columns as fit, then widened to
+    /// share the row, but never past the maximum.
+    private func grid(width: CGFloat) -> (columns: Int, cell: CGFloat) {
+        let columns = max(1, Int((width + spacing) / (minimum + spacing)))
+        let shared = (width - spacing * CGFloat(columns - 1)) / CGFloat(columns)
+        return (columns, min(max(shared, 0), maximum))
+    }
+
+    private func rowHeights(width: CGFloat, subviews: Subviews) -> [CGFloat] {
+        let (columns, cell) = grid(width: width)
+        return stride(from: 0, to: subviews.count, by: columns).map { start in
+            subviews[start..<min(start + columns, subviews.count)]
+                .map { $0.sizeThatFits(ProposedViewSize(width: cell, height: nil)).height }
+                .max() ?? 0
+        }
+    }
+}
