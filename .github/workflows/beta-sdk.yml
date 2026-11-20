@@ -11,6 +11,8 @@ on:
 
 permissions:
   contents: read
+  # Read: in After TestFlight, a lane c job checks whether a newer run is waiting (#413).
+  actions: read
 
 concurrency:
   # A new push to a pull request cancels its superseded run, so stale runs stop holding the few xcode-27 runners.
@@ -79,11 +81,14 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
+      - uses: ./.github/actions/skip-if-superseded
       - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         with:
           ruby-version: '3.3'
           bundler-cache: true
       - name: Select the beta Xcode
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         run: |
           set -euo pipefail
           # Resolve this runner's bundle for the version: the newest build among the Xcodes reporting it.
@@ -105,18 +110,21 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphonesimulator --show-sdk-version
       - name: Check the hinge guard is on for this SDK
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         run: |
           set -euo pipefail
           conditions="$(xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -sdk iphonesimulator -showBuildSettings 2>/dev/null | grep ' SWIFT_ACTIVE_COMPILATION_CONDITIONS = ')"
           echo "$conditions"
           grep -q SPOONJOY_IOS_27_1_SDK <<<"$conditions"
       - name: Build the iOS app with the hinge code
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         run: |
           set -euo pipefail
           log="$RUNNER_TEMP/beta-ios-build.log"
           xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/beta-dd" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$log"
           ruby scripts/fail-on-warning.rb --log "$log"
       - name: Check the hinge code is in the built app
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         run: |
           set -euo pipefail
           app="$(find "$RUNNER_TEMP/beta-dd" -name 'Spoonjoy.app' -type d | head -1)"

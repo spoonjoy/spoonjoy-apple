@@ -17,6 +17,8 @@ on:
 
 permissions:
   contents: read
+  # Read: in After TestFlight, a lane c job checks whether a newer run is waiting (#413).
+  actions: read
 
 concurrency:
   # Pull requests share a group so a new push cancels the old run; every main commit gets its own run.
@@ -47,18 +49,23 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
+      - uses: ./.github/actions/skip-if-superseded
       - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         with:
           ruby-version: '3.3'
           bundler-cache: true
       - uses: ./.github/actions/select-xcode
+        if: env.SPOONJOY_SUPERSEDED != 'true'
       - name: Require DEBUG in the journeys build configuration
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         run: |
           set -euo pipefail
           settings="$(xcodebuild -project Spoonjoy.xcodeproj -target 'Spoonjoy iOS' -configuration BootstrapDebug -sdk iphonesimulator -showBuildSettings)"
           printf '%s\n' "$settings" | grep -Eq '^[[:space:]]*SWIFT_ACTIVE_COMPILATION_CONDITIONS = (.* )?DEBUG( |$)' \
             || { echo "::error::BootstrapDebug does not define DEBUG; SPOONJOY_API_BASE_URL would be ignored and the app would talk to production."; exit 1; }
       - name: Resolve iPhone simulator
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         id: sim
         run: |
           set -euo pipefail
@@ -67,6 +74,7 @@ jobs:
           [[ "$destination" == "platform=iOS Simulator,arch="*",id="* ]] || { echo "::error::Unexpected simulator destination: $destination"; exit 1; }
           echo "destination=$destination" >> "$GITHUB_OUTPUT"
       - name: Boot the simulator
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         id: boot
         # Same guard as the Shopping UI tests job: the first journey launches the app on a simulator that may
         # still be booting, and two runs on the hosted runner lost it (the test runner crashed while
@@ -82,6 +90,7 @@ jobs:
           echo "booted-at=$booted_at" >> "$GITHUB_OUTPUT"
           xcrun simctl bootstatus "$udid" -b
       - name: Build for testing
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         # 12 minutes is typical on hosted runners; a saturated pool pushed one past 15 (#232).
         timeout-minutes: 25
         run: |
@@ -93,6 +102,7 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/journeys/DerivedData" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$log"
           ruby scripts/fail-on-warning.rb --log "$log"
       - name: Wait for the simulator to settle
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         # A terminate during the poster burst fails with "Failed to terminate app.spoonjoy"; see the script.
         timeout-minutes: 8
         run: |
@@ -100,8 +110,10 @@ jobs:
           destination="${{ steps.sim.outputs.destination }}"
           python3 .github/scripts/wait-for-simulator-settle.py "${destination##*,id=}" --booted-at "${{ steps.boot.outputs.booted-at }}"
       - name: Create disposable QA accounts
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 4 --out "$RUNNER_TEMP/journeys-secrets/accounts.json"
       - name: Run live journeys
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         id: attempt1
         timeout-minutes: 40
         run: |
@@ -123,10 +135,10 @@ jobs:
             -collect-test-diagnostics never \
             -resultBundlePath "$RUNNER_TEMP/journeys/SpoonjoyJourneys.xcresult"
       - name: Create fresh QA accounts for the retry
-        if: contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)) }}
         run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 4 --out "$RUNNER_TEMP/journeys-secrets/retry-accounts.json"
       - name: Reboot the simulator for the retry
-        if: contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)) }}
         timeout-minutes: 12
         run: |
           set -euo pipefail
@@ -140,7 +152,7 @@ jobs:
           python3 .github/scripts/wait-for-simulator-settle.py "$udid" --booted-at "$booted_at"
       - name: Retry live journeys after an infrastructure failure
         id: attempt2
-        if: contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)) }}
         timeout-minutes: 40
         run: |
           set -euo pipefail
@@ -159,15 +171,15 @@ jobs:
       - name: Print app crash reports
         # When the app dies mid-journey XCTest reports only "Lost connection to the application"; this puts
         # the crash report's exception and crashing thread in the job log.
-        if: failure() || steps.attempt1.outputs.class == 'launch'
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (failure() || steps.attempt1.outputs.class == 'launch') }}
         run: python3 .github/scripts/print-crash-reports.py "$HOME/Library/Logs/DiagnosticReports"
       - name: Rotate journey account passwords
         id: rotate
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: scripts/journey-qa-accounts.sh rotate --base-url "$SPOONJOY_QA_BASE_URL" --accounts "$RUNNER_TEMP/journeys-secrets/accounts.json"
       - name: Scan journey artifacts for passwords
         id: scan
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: |
           scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/journeys-secrets/accounts.json" \
             "$RUNNER_TEMP/journeys/build.log" \
@@ -177,11 +189,11 @@ jobs:
             "$RUNNER_TEMP/journeys/SpoonjoyJourneys-retry.xcresult"
       - name: Rotate retry account passwords
         id: rotate-attempt2
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: scripts/journey-qa-accounts.sh rotate --base-url "$SPOONJOY_QA_BASE_URL" --accounts "$RUNNER_TEMP/journeys-secrets/retry-accounts.json"
       - name: Scan journey artifacts for retry passwords
         id: scan-attempt2
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: |
           scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/journeys-secrets/retry-accounts.json" \
             "$RUNNER_TEMP/journeys/build.log" \
@@ -190,11 +202,11 @@ jobs:
             "$RUNNER_TEMP/journeys/test-retry.log" \
             "$RUNNER_TEMP/journeys/SpoonjoyJourneys-retry.xcresult"
       - name: Remove credentials
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: rm -rf "$RUNNER_TEMP/journeys-secrets"
       - name: Upload journeys result bundle
         # Only after every old password is proven dead and no password was found in these files.
-        if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' && steps.rotate-attempt2.outcome == 'success' && steps.scan-attempt2.outcome == 'success' }}
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (!cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' && steps.rotate-attempt2.outcome == 'success' && steps.scan-attempt2.outcome == 'success') }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: journeys-xcresult-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_attempt }}
@@ -225,12 +237,16 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
+      - uses: ./.github/actions/skip-if-superseded
       - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         with:
           ruby-version: '3.3'
           bundler-cache: true
       - uses: ./.github/actions/select-xcode
+        if: env.SPOONJOY_SUPERSEDED != 'true'
       - name: Create and boot an iPhone Duo
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         id: sim
         timeout-minutes: 6
         run: |
@@ -244,6 +260,7 @@ jobs:
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
       - name: Build the Duo journey for testing
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         timeout-minutes: 20
         run: |
           set -euo pipefail
@@ -254,9 +271,11 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/duo/DerivedData" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$log"
           ruby scripts/fail-on-warning.rb --log "$log"
       - name: Wait for the simulator to settle
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         timeout-minutes: 8
         run: python3 .github/scripts/wait-for-simulator-settle.py "${{ steps.sim.outputs.udid }}" --booted-at "${{ steps.sim.outputs.booted-at }}"
       - name: Start Device Hub and the posture driver
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         timeout-minutes: 6
         run: |
           set -euo pipefail
@@ -267,9 +286,11 @@ jobs:
           nohup "$RUNNER_TEMP/duo/posture-driver" "$RUNNER_TEMP/duo/posture" "${{ steps.sim.outputs.udid }}" "$RUNNER_TEMP/duo/screens" > "$RUNNER_TEMP/duo/driver.log" 2>&1 &
           echo "posture driver started"
       - name: Create disposable QA accounts
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         # One for DuoJourney, one for the parity capture (DuoCanonicalScreensJourney).
         run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 2 --out "$RUNNER_TEMP/duo-secrets/accounts.json"
       - name: Run the Duo journeys
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         timeout-minutes: 60
         run: |
           set -euo pipefail
@@ -286,18 +307,18 @@ jobs:
             -collect-test-diagnostics never \
             -resultBundlePath "$RUNNER_TEMP/duo/SpoonjoyDuoJourneys.xcresult" 2>&1 | tee "$RUNNER_TEMP/duo/test.log"
       - name: Print the posture driver log
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: cat "$RUNNER_TEMP/duo/driver.log"
       - name: Print app crash reports
-        if: failure()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (failure()) }}
         run: python3 .github/scripts/print-crash-reports.py "$HOME/Library/Logs/DiagnosticReports"
       - name: Rotate the QA account passwords
         id: rotate
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: scripts/journey-qa-accounts.sh rotate --base-url "$SPOONJOY_QA_BASE_URL" --accounts "$RUNNER_TEMP/duo-secrets/accounts.json"
       - name: Scan the Duo journey artifacts for passwords
         id: scan
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: |
           scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/duo-secrets/accounts.json" \
             "$RUNNER_TEMP/duo/build.log" \
@@ -305,11 +326,11 @@ jobs:
             "$RUNNER_TEMP/duo/driver.log" \
             "$RUNNER_TEMP/duo/SpoonjoyDuoJourneys.xcresult"
       - name: Remove credentials
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: rm -rf "$RUNNER_TEMP/duo-secrets"
       - name: Upload the Duo journey result bundle
         # Only after the old password is proven dead and no password was found in these files.
-        if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (!cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success') }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: duo-journeys-xcresult-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_attempt }}
@@ -323,11 +344,11 @@ jobs:
           retention-days: 30
       - name: Check the Duo parity shots switched scheme
         # As the iPhone/iPad export does: fails when a dark shot is missing or byte-identical to its light shot.
-        if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (!cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success') }}
         run: ruby scripts/parity-sheet.rb --check-shots "$RUNNER_TEMP/duo/screens"
       - name: Upload the Duo parity shots
         # The posture driver's screenshots of the parity capture, for scripts/parity-sheet.rb. Same gate as the bundle.
-        if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (!cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success') }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: parity-shots-duo
@@ -357,11 +378,14 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
+      - uses: ./.github/actions/skip-if-superseded
       - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         with:
           ruby-version: '3.3'
           bundler-cache: true
       - name: Select an Xcode with a runtime of its own version, and boot an iPhone on it
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         id: sim
         timeout-minutes: 8
         run: |
@@ -378,6 +402,7 @@ jobs:
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
       - name: Build the Siri journey for testing
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         timeout-minutes: 25
         run: |
           set -euo pipefail
@@ -389,9 +414,11 @@ jobs:
             PROVISIONING_PROFILE_SPECIFIER= GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$log"
           ruby scripts/fail-on-warning.rb --log "$log"
       - name: Wait for the simulator to settle
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         timeout-minutes: 8
         run: python3 .github/scripts/wait-for-simulator-settle.py "${{ steps.sim.outputs.udid }}" --booted-at "${{ steps.sim.outputs.booted-at }}"
       - name: Install the app and launch it once, so App Intents knows it
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         # Installed only by the test run, the app was "not present" to AppIntentsServices (MetadataErrorDomain 400).
         # As ouro-ui-apple's X-ray probe does: install with simctl, launch once, stop it so XCTest launches it fresh.
         timeout-minutes: 4
@@ -404,8 +431,10 @@ jobs:
           xcrun simctl terminate "${{ steps.sim.outputs.udid }}" app.spoonjoy
           sleep 3
       - name: Create a disposable QA account
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 1 --out "$RUNNER_TEMP/siri-secrets/accounts.json"
       - name: Run the Siri journey
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         timeout-minutes: 30
         run: |
           set -euo pipefail
@@ -421,22 +450,22 @@ jobs:
             -resultBundlePath "$RUNNER_TEMP/siri/SpoonjoySiriJourneys.xcresult" 2>&1 | tee "$RUNNER_TEMP/siri/test.log"
       - name: Keep the app's log
         # Siri's recipe query reads only what sync stored, and sync records each page it applies in this log.
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: |
           xcrun simctl spawn "${{ steps.sim.outputs.udid }}" log show --last 30m --info --debug --style compact \
             --predicate 'subsystem == "app.spoonjoy"' > "$RUNNER_TEMP/siri/app.log" 2>&1 || true
           [ -s "$RUNNER_TEMP/siri/app.log" ] || echo "::warning::The app's log came back empty, so it says nothing about sync."
           grep -E 'native_sync_|app\.bootstrap' "$RUNNER_TEMP/siri/app.log" | tail -n 80 || true
       - name: Print app crash reports
-        if: failure()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (failure()) }}
         run: python3 .github/scripts/print-crash-reports.py "$HOME/Library/Logs/DiagnosticReports"
       - name: Rotate the QA account password
         id: rotate
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: scripts/journey-qa-accounts.sh rotate --base-url "$SPOONJOY_QA_BASE_URL" --accounts "$RUNNER_TEMP/siri-secrets/accounts.json"
       - name: Scan the Siri journey artifacts for passwords
         id: scan
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: |
           scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/siri-secrets/accounts.json" \
             "$RUNNER_TEMP/siri/build.log" \
@@ -444,11 +473,11 @@ jobs:
             "$RUNNER_TEMP/siri/app.log" \
             "$RUNNER_TEMP/siri/SpoonjoySiriJourneys.xcresult"
       - name: Remove credentials
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: rm -rf "$RUNNER_TEMP/siri-secrets"
       - name: Upload the Siri journey result bundle
         # Only after the old password is proven dead and no password was found in these files.
-        if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (!cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success') }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: siri-journey-xcresult-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_attempt }}
@@ -485,12 +514,16 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
+      - uses: ./.github/actions/skip-if-superseded
       - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         with:
           ruby-version: '3.3'
           bundler-cache: true
       - uses: ./.github/actions/select-xcode
+        if: env.SPOONJOY_SUPERSEDED != 'true'
       - name: Resolve the simulator
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         id: sim
         env:
           SPOONJOY_IOS_SIMULATOR_FAMILY: ${{ matrix.device }}
@@ -500,6 +533,7 @@ jobs:
           [[ "$destination" == "platform=iOS Simulator,arch="*",id="* ]] || { echo "::error::Unexpected simulator destination: $destination"; exit 1; }
           echo "destination=$destination" >> "$GITHUB_OUTPUT"
       - name: Boot the simulator
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         id: boot
         # Booted before the build, as in the Live journeys job, so the lock screen poster burst runs while it builds.
         timeout-minutes: 4
@@ -511,6 +545,7 @@ jobs:
           echo "booted-at=$booted_at" >> "$GITHUB_OUTPUT"
           xcrun simctl bootstatus "$udid" -b
       - name: Build for testing
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         timeout-minutes: 20
         run: |
           set -euo pipefail
@@ -521,20 +556,23 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/parity/DerivedData" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$log"
           ruby scripts/fail-on-warning.rb --log "$log"
       - name: Wait for the simulator to settle
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         timeout-minutes: 8
         run: |
           set -euo pipefail
           destination="${{ steps.sim.outputs.destination }}"
           python3 .github/scripts/wait-for-simulator-settle.py "${destination##*,id=}" --booted-at "${{ steps.boot.outputs.booted-at }}"
       - name: Set the largest accessibility text size
-        if: ${{ inputs.ax5 }}
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (inputs.ax5) }}
         run: |
           set -euo pipefail
           destination="${{ steps.sim.outputs.destination }}"
           xcrun simctl ui "${destination##*,id=}" content_size accessibility-extra-extra-extra-large
       - name: Create a disposable QA account
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 1 --out "$RUNNER_TEMP/parity-secrets/accounts.json"
       - name: Run the parity capture
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         id: attempt1
         timeout-minutes: 25
         run: |
@@ -555,10 +593,10 @@ jobs:
             -collect-test-diagnostics never \
             -resultBundlePath "$RUNNER_TEMP/parity/ParityJourneys.xcresult"
       - name: Create a fresh QA account for the retry
-        if: contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)) }}
         run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 1 --out "$RUNNER_TEMP/parity-secrets/retry-accounts.json"
       - name: Reboot the simulator for the retry
-        if: contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)) }}
         timeout-minutes: 12
         run: |
           set -euo pipefail
@@ -575,7 +613,7 @@ jobs:
           fi
       - name: Retry the parity capture after an infrastructure failure
         id: attempt2
-        if: contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)) }}
         timeout-minutes: 25
         run: |
           set -euo pipefail
@@ -592,15 +630,15 @@ jobs:
             -collect-test-diagnostics never \
             -resultBundlePath "$RUNNER_TEMP/parity/ParityJourneys-attempt2.xcresult"
       - name: Print app crash reports
-        if: failure() || steps.attempt1.outputs.class == 'launch'
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (failure() || steps.attempt1.outputs.class == 'launch') }}
         run: python3 .github/scripts/print-crash-reports.py "$HOME/Library/Logs/DiagnosticReports"
       - name: Rotate the QA account password
         id: rotate
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: scripts/journey-qa-accounts.sh rotate --base-url "$SPOONJOY_QA_BASE_URL" --accounts "$RUNNER_TEMP/parity-secrets/accounts.json"
       - name: Scan the parity artifacts for passwords
         id: scan
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: |
           scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/parity-secrets/accounts.json" \
             "$RUNNER_TEMP/parity/build.log" \
@@ -610,11 +648,11 @@ jobs:
             "$RUNNER_TEMP/parity/ParityJourneys-attempt2.xcresult"
       - name: Rotate the retry QA account password
         id: rotate-attempt2
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: scripts/journey-qa-accounts.sh rotate --base-url "$SPOONJOY_QA_BASE_URL" --accounts "$RUNNER_TEMP/parity-secrets/retry-accounts.json"
       - name: Scan the parity artifacts for the retry password
         id: scan-attempt2
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: |
           scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/parity-secrets/retry-accounts.json" \
             "$RUNNER_TEMP/parity/build.log" \
@@ -623,12 +661,12 @@ jobs:
             "$RUNNER_TEMP/parity/test-attempt2.log" \
             "$RUNNER_TEMP/parity/ParityJourneys-attempt2.xcresult"
       - name: Remove credentials
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: rm -rf "$RUNNER_TEMP/parity-secrets"
       - name: Collect the parity shots
         # Only after every old password is proven dead and no password was found in these files. The shots come from
         # the attempt that ran last: the retry when there was one.
-        if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' && steps.rotate-attempt2.outcome == 'success' && steps.scan-attempt2.outcome == 'success' }}
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (!cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' && steps.rotate-attempt2.outcome == 'success' && steps.scan-attempt2.outcome == 'success') }}
         run: |
           set -euo pipefail
           bundle="$RUNNER_TEMP/parity/ParityJourneys.xcresult"
@@ -637,7 +675,7 @@ jobs:
           fi
           ruby scripts/parity-sheet.rb --export-xcresult "$bundle" --out "$RUNNER_TEMP/parity/shots"
       - name: Upload the parity result bundle
-        if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' && steps.rotate-attempt2.outcome == 'success' && steps.scan-attempt2.outcome == 'success' }}
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (!cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' && steps.rotate-attempt2.outcome == 'success' && steps.scan-attempt2.outcome == 'success') }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: parity-xcresult-${{ matrix.device }}-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_attempt }}
@@ -650,7 +688,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
       - name: Upload the parity shots
-        if: ${{ !inputs.ax5 && !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' && steps.rotate-attempt2.outcome == 'success' && steps.scan-attempt2.outcome == 'success' }}
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (!inputs.ax5 && !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' && steps.rotate-attempt2.outcome == 'success' && steps.scan-attempt2.outcome == 'success') }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: parity-shots-${{ matrix.device }}
@@ -659,7 +697,7 @@ jobs:
           retention-days: 30
       - name: Name the AX5 shots
         # A name of their own and an artifact of their own, so parity-sheet.rb never pairs an AX5 shot with a web one.
-        if: ${{ inputs.ax5 && !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' && steps.rotate-attempt2.outcome == 'success' && steps.scan-attempt2.outcome == 'success' }}
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (inputs.ax5 && !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' && steps.rotate-attempt2.outcome == 'success' && steps.scan-attempt2.outcome == 'success') }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/parity/ax5"
@@ -668,7 +706,7 @@ jobs:
             cp "$shot" "$RUNNER_TEMP/parity/ax5/$name-ax5.png"
           done
       - name: Upload the AX5 shots
-        if: ${{ inputs.ax5 && !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' && steps.rotate-attempt2.outcome == 'success' && steps.scan-attempt2.outcome == 'success' }}
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (inputs.ax5 && !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' && steps.rotate-attempt2.outcome == 'success' && steps.scan-attempt2.outcome == 'success') }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: parity-ax5-shots-${{ matrix.device }}
@@ -692,12 +730,16 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
+      - uses: ./.github/actions/skip-if-superseded
       - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         with:
           ruby-version: '3.3'
           bundler-cache: true
       - uses: ./.github/actions/select-xcode
+        if: env.SPOONJOY_SUPERSEDED != 'true'
       - name: Resolve iPhone simulator
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         id: sim
         run: |
           set -euo pipefail
@@ -706,6 +748,7 @@ jobs:
           [[ "$destination" == "platform=iOS Simulator,arch="*",id="* ]] || { echo "::error::Unexpected simulator destination: $destination"; exit 1; }
           echo "destination=$destination" >> "$GITHUB_OUTPUT"
       - name: Boot the simulator
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         id: boot
         # The first test turns the simulator upright before launching the app. On a simulator that is still
         # booting, SpringBoard can miss that orientation change (run 36983006897 attempt 1), so the tests start
@@ -721,6 +764,7 @@ jobs:
           echo "booted-at=$booted_at" >> "$GITHUB_OUTPUT"
           xcrun simctl bootstatus "$udid" -b
       - name: Build shopping UI tests
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         # Step limits sum to 57 of the job's 60 minutes, leaving room for checkout, setup and the upload. The settle
         # wait ends 8 minutes after boot at the latest, so most of it overlaps this build. The build takes 4 to 11.5
         # minutes on hosted runners, so it gets the same 25 minutes as the journeys build (#232).
@@ -734,6 +778,7 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/shopping/DerivedData" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$log"
           ruby scripts/fail-on-warning.rb --log "$log"
       - name: Wait for the simulator to settle
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         # A terminate during the poster burst fails with "Failed to terminate app.spoonjoy"; see the script.
         timeout-minutes: 8
         run: |
@@ -741,6 +786,7 @@ jobs:
           destination="${{ steps.sim.outputs.destination }}"
           python3 .github/scripts/wait-for-simulator-settle.py "${destination##*,id=}" --booted-at "${{ steps.boot.outputs.booted-at }}"
       - name: Run shopping UI tests
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         timeout-minutes: 20
         # The warning gate covers the build above. The test log carries simulator runtime noise (for
         # example "Failed to send CA Event for app launch measurements"), and test failures fail xcodebuild.
@@ -754,7 +800,7 @@ jobs:
             -resultBundlePath "$RUNNER_TEMP/shopping/SpoonjoyShoppingUITests.xcresult" 2>&1 | tee "$RUNNER_TEMP/shopping/test.log"
       - name: Upload shopping UI test result bundle
         # The fixture tests use no credentials, so the bundle is always safe to upload.
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: shopping-uitests-xcresult-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_attempt }}

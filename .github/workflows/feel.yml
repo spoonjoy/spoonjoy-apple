@@ -12,6 +12,8 @@ on:
 
 permissions:
   contents: read
+  # Read: in After TestFlight, a lane c job checks whether a newer run is waiting (#413).
+  actions: read
 
 concurrency:
   group: feel-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
@@ -73,8 +75,11 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
+      - uses: ./.github/actions/skip-if-superseded
       - uses: ./.github/actions/select-xcode
+        if: env.SPOONJOY_SUPERSEDED != 'true'
       - name: Create an iPhone on the newest iOS runtime
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         id: sim
         timeout-minutes: 26
         run: |
@@ -82,12 +87,14 @@ jobs:
           .github/scripts/create-and-boot-simulator.sh "iPhone" "feel" "$RUNNER_TEMP/sim.udid"
           echo "udid=$(cat "$RUNNER_TEMP/sim.udid")" >> "$GITHUB_OUTPUT"
       - name: Build for testing
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         timeout-minutes: 35
         run: |
           set -euo pipefail
           xcodebuild build-for-testing -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/feel-dd" 2>&1 | tail -20
       - name: Every screen lands still
+        if: env.SPOONJOY_SUPERSEDED != 'true'
         timeout-minutes: 25
         env:
           UDID: ${{ steps.sim.outputs.udid }}
@@ -98,7 +105,7 @@ jobs:
       # artifact. Remove continue-on-error once those are fixed.
       - name: The way back from every screen
         id: wayback
-        if: always() && steps.sim.outcome == 'success'
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always() && steps.sim.outcome == 'success') }}
         continue-on-error: true
         # A hosted walk of 18 screens took 27.5 minutes, then over 30 on the next run.
         timeout-minutes: 45
@@ -107,11 +114,11 @@ jobs:
           FEEL_REPORT_DIR: ${{ runner.temp }}/feel-reports/way-back
         run: scripts/check-feel.sh "$UDID" "$RUNNER_TEMP/feel-dd" testTheWayBackFromEveryScreen
       - name: Say so when the way back misses
-        if: always() && steps.wayback.outcome == 'failure'
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always() && steps.wayback.outcome == 'failure') }}
         run: |
           echo "::warning title=The way back::The way-back walk failed (report only until #225, #226, #227 and ourostack/ouro-ui-apple#60 are fixed); see its step log and the feel-reports artifact."
       - name: Keep the reports
-        if: always()
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         continue-on-error: true
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:

@@ -48,6 +48,8 @@ concurrency:
 
 permissions:
   contents: read
+  # Read: the optional workflows it calls declare it for After TestFlight's superseded check (#413).
+  actions: read
 
 jobs:
   ruby-advisory-scan:
@@ -96,6 +98,8 @@ jobs:
         run: python3 -I .github/scripts/test_export_store_scenes.py
       - name: The Siri journey picker pairs an Xcode with a runtime of its own version (offline)
         run: python3 -I .github/scripts/test_pick_matching_xcode.py
+      - name: A stale After TestFlight run skips its jobs once a newer run waits (offline)
+        run: python3 -I .github/scripts/test_superseded_run.py
       - name: Check native design-language contract
         run: ruby scripts/check-native-design-language.rb --web-design-doc docs/source/spoonjoy-v2-design-language.md
       - name: Check web palette contract

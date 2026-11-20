@@ -104,6 +104,34 @@ class MacosLanesTest < Minitest::Test
     end
   end
 
+  # A run for a commit main has moved past kept After TestFlight's group for hours while the newest commit's run
+  # waited (#413). So every lane c job it calls checks, right after checkout, whether it is superseded, and then
+  # skips every later step. Beta SDK's discover job has no checkout and runs in seconds, so it needs no check.
+  SKIP_STEP = "./.github/actions/skip-if-superseded"
+  SKIP_GUARD = "env.SPOONJOY_SUPERSEDED != 'true'"
+  QUICK_JOBS = { "beta-sdk.yml" => %w[discover] }.freeze
+
+  def test_after_testflight_lane_c_jobs_skip_once_superseded
+    callers = all_workflows.select { |name| triggers(workflow(name)).include?("workflow_run") }
+    callers.each do |caller|
+      called_workflows(caller).each do |name|
+        macos_jobs(name).each do |id, job|
+          next if QUICK_JOBS.fetch(name, []).include?(id)
+
+          steps = job.fetch("steps")
+          assert_match %r{\Aactions/checkout@}, steps[0]["uses"].to_s, "#{name} job #{id}: checkout comes first"
+          assert_equal SKIP_STEP, steps[1]["uses"], "#{name} job #{id}: check whether the run is superseded after checkout"
+          steps.drop(2).each do |step|
+            assert_includes step["if"].to_s, SKIP_GUARD,
+                            "#{name} job #{id} step #{step['name'] || step['uses']}: skip it once the run is superseded"
+          end
+        end
+        assert_includes workflow(name).dig("permissions", "actions").to_s, "read",
+                        "#{name}: the superseded check lists After TestFlight's runs"
+      end
+    end
+  end
+
   def test_required_checks_take_lanes_a_and_b_and_optional_work_takes_lane_c
     macos_jobs("native.yml").each do |id, job|
       assert_equal REQUIRED_LANES.fetch(id, "c"), lane_of(job), "native.yml job #{id}"

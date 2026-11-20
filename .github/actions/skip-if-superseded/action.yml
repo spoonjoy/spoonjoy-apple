@@ -1,0 +1,15 @@
+name: Skip if superseded
+description: In an After TestFlight run, marks the job superseded (SPOONJOY_SUPERSEDED=true) when main has moved past the run's commit and a newer After TestFlight run is waiting, so its remaining steps skip (#413). Elsewhere it does nothing.
+runs:
+  using: composite
+  steps:
+    - name: Skip if main has moved past this commit and a newer After TestFlight run is waiting
+      # Reusable workflows see their caller's event: only After TestFlight calls them from workflow_run.
+      if: github.event_name == 'workflow_run'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        RUN_ID: ${{ github.run_id }}
+        RUN_SHA: ${{ github.sha }}
+      run: python3 -I "$GITHUB_WORKSPACE/.github/scripts/superseded-run.py"
