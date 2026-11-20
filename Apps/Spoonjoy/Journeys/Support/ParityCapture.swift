@@ -205,9 +205,10 @@ struct ParityCapture {
         rice.tap()
         wait(journey.element(JourneyID.recipeDetailClearProgress), "Checking \(Self.shoppingItem) did not show Clear progress.")
         try shootBothSchemes("recipe-checked")
-        // Clear progress sits in the Steps heading, above the row, so a long page may have scrolled it off the top.
+        // Clear progress sits in the Steps heading, above the row, so a long page may have scrolled it off the top
+        // or under the navigation bar, where it still reads as hittable but the tap lands on the bar.
         let clear = journey.element(JourneyID.recipeDetailClearProgress)
-        journey.swipeDownUntilHittable(clear)
+        journey.scrollClearOfBars(clear)
         clear.tap()
         XCTAssertTrue(
             clear.waitForNonExistence(timeout: JourneyApp.interactionTimeout),

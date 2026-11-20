@@ -669,14 +669,10 @@ final class JourneyApp {
         dragUpUntilHittable(element, column: column, dragsLeft: dragsLeft - 1)
     }
 
-    /// Swipes down until `element` can be tapped, for a control a long page has scrolled off the top. Stops after a
-    /// few swipes either way.
-    func swipeDownUntilHittable(_ element: XCUIElement, swipesLeft: Int = 6) {
-        guard !element.isHittable, swipesLeft > 0 else {
-            return
-        }
-        app.swipeDown()
-        swipeDownUntilHittable(element, swipesLeft: swipesLeft - 1)
+    /// Drags until `element` sits fully below the navigation bar and above the tab bar or keyboard, for a control
+    /// a translucent bar can cover while it still reads as hittable.
+    func scrollClearOfBars(_ element: XCUIElement) {
+        scrollIntoView(element, dragsLeft: Self.scrollDrags)
     }
 
     /// Drags the form until `field` sits fully between the navigation bar and whatever covers the bottom of the
