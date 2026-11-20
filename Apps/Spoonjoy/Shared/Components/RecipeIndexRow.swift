@@ -282,7 +282,7 @@ struct RecipeInitialTile: View {
                 // recipe page with no photo stays as crisp as a row's thumbnail.
                 Text(initial)
                     .font(KitchenTypeRole.largeTitle.fixedFont(size: Double(max(proxy.size.height, 1)) * 0.42))
-                    .foregroundStyle(KitchenTableTheme.brass)
+                    .foregroundStyle(KitchenTableTheme.coverInk)
                     .frame(width: proxy.size.width, height: proxy.size.height)
             }
         }
