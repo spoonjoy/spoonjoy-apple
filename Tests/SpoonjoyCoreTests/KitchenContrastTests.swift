@@ -71,6 +71,49 @@ struct KitchenContrastTests {
         #expect(KitchenContrast.ratio(foreground: try #require(tokens["onPhotoNight"]), background: try #require(tokens["photoCharcoalNight"])) >= 4.5)
     }
 
+    /// A recipe cover without a photo sets its letter in brass mixed 40% toward the text colour, as web's Ouro UI Cover
+    /// does (`color-mix(in oklab, var(--primary) 60%, var(--foreground))`, spoonjoy-v2#806). The letter is small on a
+    /// row's thumbnail, so it needs 4.5:1 on both ends of the wash: vellum, and brass at 32% over the page or panel.
+    @Test("the cover letter matches web's OKLab mix and meets AA across the cover's wash in both appearances")
+    func coverLetterMatchesWebAndMeetsAAOnTheWash() throws {
+        let tokens = try themeTokens()
+        let modes: [(scheme: ColorScheme, text: OuroExtraColor, vellum: String, surfaces: [String], web: UInt32)] = [
+            (.light, .sjCharcoal, "vellum", ["bone", "paper"], 0x6A4B2C),
+            (.dark, .sjBone, "vellumNight", ["pageNight", "paperNight"], 0xD7B894)
+        ]
+        for mode in modes {
+            let brass = try #require(OuroTokens.cookbook.extras.color(.sjBrass, mode.scheme))
+            let text = try #require(OuroTokens.cookbook.extras.color(mode.text, mode.scheme))
+            let ink = KitchenPaletteOuroTests.hex(brass.mix(with: text, by: 0.4, in: .perceptual).resolve(in: EnvironmentValues()))
+            let brassHex = KitchenPaletteOuroTests.hex(brass.resolve(in: EnvironmentValues()))
+            // Within 2 of 255 per channel of web's value: the two sides round OKLab differently.
+            #expect([16, 8, 0].allSatisfy { abs(Int(ink >> $0 & 0xFF) - Int(mode.web >> $0 & 0xFF)) <= 2 },
+                    "\(mode.scheme) cover ink #\(String(format: "%06X", ink)), web #\(String(format: "%06X", mode.web))")
+            let onVellum = KitchenContrast.ratio(foreground: ink, background: try #require(tokens[mode.vellum]))
+            #expect(onVellum >= 4.5, "\(mode.scheme) cover ink on vellum is \(onVellum):1")
+            for surface in mode.surfaces {
+                let washEnd = Self.composite(brassHex, opacity: 0.32, over: try #require(tokens[surface]))
+                let onBrass = KitchenContrast.ratio(foreground: ink, background: washEnd)
+                #expect(onBrass >= 4.5, "\(mode.scheme) cover ink on the brass end over \(surface) is \(onBrass):1")
+            }
+        }
+        let theme = try KitchenPaletteOuroTests.themeSource()
+        #expect(theme.contains("static let coverInk = dynamic(coverInkMix(Day.brass, Day.charcoal), coverInkMix(Night.brassNight, Night.boneNight))"))
+        #expect(theme.contains("brass.mix(with: text, by: 0.4, in: .perceptual)"))
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let tile = try String(contentsOf: root.appendingPathComponent("Apps/Spoonjoy/Shared/Components/RecipeIndexRow.swift"), encoding: .utf8)
+        #expect(tile.contains(".foregroundStyle(KitchenTableTheme.coverInk)"))
+    }
+
+    /// `color` at `opacity` over `background`, as sRGB bytes blend on screen.
+    private static func composite(_ color: UInt32, opacity: Double, over background: UInt32) -> UInt32 {
+        [16, 8, 0].reduce(UInt32(0)) { result, shift in
+            let top = Double(color >> UInt32(shift) & 0xFF)
+            let bottom = Double(background >> UInt32(shift) & 0xFF)
+            return result | UInt32((top * opacity + bottom * (1 - opacity)).rounded()) << UInt32(shift)
+        }
+    }
+
     /// The theme's colours as the app resolves them: each name's cookbook token, read live from OuroHX.
     private func themeTokens() throws -> [String: UInt32] {
         var tokens: [String: UInt32] = [:]

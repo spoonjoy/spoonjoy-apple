@@ -69,6 +69,10 @@ enum KitchenTableTheme {
     static let lineStrong = dynamic(Day.borderStrong, Night.borderStrongNight)
     static let vellum = dynamic(Day.vellum, Night.vellumNight)
     static let brass = dynamic(Day.brass, Night.brassNight)
+    /// The letter on a recipe cover without a photo: brass mixed 40% toward ink in OKLab, as web's Ouro UI Cover
+    /// draws it (`color-mix(in oklab, var(--primary) 60%, var(--foreground))`). Plain brass on the cover's wash from
+    /// vellum to brass reads only 3:1 by day and 3.5:1 at night; this reads 5:1 at the wash's brass end.
+    static let coverInk = dynamic(coverInkMix(Day.brass, Day.charcoal), coverInkMix(Night.brassNight, Night.boneNight))
     static let action = dynamic(Day.action, Night.actionNight)
     static let actionDeep = dynamic(Day.actionDeep, Night.actionDeepNight)
     static let tomato = dynamic(Day.tomato, Night.tomatoNight)
@@ -180,6 +184,12 @@ enum KitchenTableTheme {
             traits.userInterfaceStyle == .dark ? UIColor(night) : UIColor(light)
         })
         #endif
+    }
+
+    /// Brass mixed 40% toward the text colour in OKLab (SwiftUI's perceptual space), resolved once: both inputs are
+    /// fixed cookbook colours, so the result is too.
+    private static func coverInkMix(_ brass: Color, _ text: Color) -> Color {
+        Color(brass.mix(with: text, by: 0.4, in: .perceptual).resolve(in: EnvironmentValues()))
     }
 
     /// A cookbook colour by day.
