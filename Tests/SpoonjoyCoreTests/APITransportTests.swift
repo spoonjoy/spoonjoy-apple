@@ -1779,6 +1779,32 @@ struct APITransportTests {
         #expect(await refresher.capturedErrors().count == 1)
     }
 
+    /// A prebuilt request that carries no Authorization header (a public read) has no token to refresh: its 401 comes
+    /// back as is, and the refresher is never asked.
+    @Test("a prebuilt request with no Authorization header keeps its 401 and never asks for a refresh")
+    func prebuiltRequestWithoutAuthorizationHeaderSurfacesTheRejection() async throws {
+        let session = RecordingURLSession(responses: [Self.unauthorizedResponse()])
+        let refresher = RecordingAuthenticationRefresher(
+            refreshedConfiguration: Self.configuration(bearerToken: "sj_access_refreshed")
+        )
+        let transport = URLSessionAPITransport(session: session, authenticationRefresher: refresher)
+        let configuration = Self.configuration(bearerToken: "sj_access_expired")
+        let request = try APIRequestBuilder(
+            method: .get,
+            pathComponents: ["api", "v1", "recipes"],
+            queryItems: [],
+            defaultAuthorization: .omit,
+            responseCachePolicy: .privateNoStore
+        ).urlRequest(configuration: configuration)
+        #expect(request.headers.keys.allSatisfy { $0.caseInsensitiveCompare("Authorization") != .orderedSame })
+
+        await #expect(throws: APITransportError.self) {
+            _ = try await transport.send(request, configuration: configuration, decode: TransportPayload.self)
+        }
+        #expect(await session.capturedRequests().map { $0.value(forHTTPHeaderField: "Authorization") } == [nil])
+        #expect(await refresher.capturedErrors().isEmpty)
+    }
+
     private static func renamingHeader(_ request: APIRequest, to name: String, value: String? = nil) -> APIRequest {
         var headers = request.headers
         let original = headers.removeValue(forKey: "Authorization")
