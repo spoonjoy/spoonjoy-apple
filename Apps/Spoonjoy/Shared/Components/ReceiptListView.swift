@@ -1,3 +1,4 @@
+import OuroHX
 import SpoonjoyCore
 import SwiftUI
 
@@ -217,7 +218,6 @@ struct LargeCheckToggleStyle: ToggleStyle {
         } label: {
             HStack(spacing: 8) {
                 KitchenCheckMark(isChecked: configuration.isOn)
-                    .font(.title3)
                     .frame(width: Self.minimumCheckTarget, height: Self.minimumCheckTarget)
 
                 configuration.label
@@ -225,7 +225,8 @@ struct LargeCheckToggleStyle: ToggleStyle {
             .frame(minHeight: Self.minimumCheckTarget)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(OuroCheckboxPressStyle())
+        .kitchenHaptic(.ingredientChecked, trigger: configuration.isOn)
         .accessibilityValue(configuration.isOn ? "checked" : "unchecked")
     }
 }

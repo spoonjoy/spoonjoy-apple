@@ -1,3 +1,4 @@
+import OuroHX
 import SpoonjoyCore
 import SwiftUI
 
@@ -37,12 +38,10 @@ struct CookStepSegments: View {
     }
 }
 
-/// An ingredient row in cook mode's step card: the whole 60 pt row is the target, the tick bounces in and the name is
-/// struck through. Reduce Motion shows the tick and strike at once.
+/// An ingredient row in cook mode's step card: the whole 60 pt row is the target, the box fills and draws its tick (it
+/// fades under Reduce Motion) and the name is struck through.
 struct CookIngredientCheckStyle: ToggleStyle {
     static let rowHeight: CGFloat = 60
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {
         Button {
@@ -50,10 +49,6 @@ struct CookIngredientCheckStyle: ToggleStyle {
         } label: {
             HStack(spacing: 12) {
                 KitchenCheckMark(isChecked: configuration.isOn)
-                    .font(.title2)
-                    .imageScale(.large)
-                    .symbolEffect(.bounce, options: .nonRepeating, value: reduceMotion ? false : configuration.isOn)
-                    .contentTransition(.symbolEffect(.replace))
                     .frame(minWidth: KitchenTableTheme.minimumTouchTarget)
 
                 configuration.label
@@ -64,7 +59,8 @@ struct CookIngredientCheckStyle: ToggleStyle {
             .contentShape(Rectangle())
             .kitchenAnimation(.bounce, value: configuration.isOn)
         }
-        .buttonStyle(.plain)
+        // Cook mode plays the check's haptic itself (`.kitchenHaptic(.ingredientChecked)` on the view), once per check.
+        .buttonStyle(OuroCheckboxPressStyle())
         .accessibilityValue(configuration.isOn ? "checked" : "unchecked")
         .accessibilityAddTraits(configuration.isOn ? .isSelected : [])
     }

@@ -10,15 +10,17 @@ struct KitchenComponentParityTests {
     static let views = "Apps/Spoonjoy/Shared/Views"
     static let components = "Apps/Spoonjoy/Shared/Components"
 
-    @Test("a checked ingredient is a brass circle with a bone tick, on every checklist")
+    /// Web's checklist box is Ouro's `Checkbox` box in the cookbook theme (`--primary: var(--sj-brass)`): a squircle that
+    /// fills with brass, then draws its tick along its path. Native draws the same box, OuroHX's `OuroCheckboxMark`,
+    /// which takes its brass and paper from the cookbook theme and its motion from core's tokens, never an SF Symbol swap.
+    @Test("a checked ingredient is Ouro's brass box with a drawn tick, on every checklist")
     func testCheckedIngredientUsesBrass() throws {
         let mark = try Self.source("\(Self.components)/KitchenCheckMark.swift")
-        #expect(mark.contains(#"isChecked ? "checkmark.circle.fill" : "circle""#))
-        #expect(mark.contains(".symbolRenderingMode(.palette)"))
-        // Palette layers: the tick (bone once checked) first, then the brass disc.
-        #expect(mark.contains(".foregroundStyle(isChecked ? KitchenTableTheme.onInk : KitchenTableTheme.brass, KitchenTableTheme.brass)"))
+        #expect(mark.contains("OuroCheckboxMark(isOn: isChecked)"))
+        #expect(!mark.contains("Image(systemName:"), "The box is drawn, not an SF Symbol.")
+        #expect(!mark.contains("circle"), "The box is a squircle, as web's is.")
         #expect(!mark.contains("herb"), "Herb is for cooked and finished, not a checked ingredient.")
-        #expect(!mark.contains(".opacity("), "The mark takes palette colours as they are.")
+        #expect(!mark.contains(".opacity("), "The mark takes the theme's colours as they are.")
 
         let rows = [
             try Self.declaration("struct RecipeSpreadIngredientRow", in: "\(Self.views)/RecipeDetailView.swift"),
@@ -29,6 +31,9 @@ struct KitchenComponentParityTests {
         ]
         for row in rows {
             #expect(row.contains("KitchenCheckMark("), "\(row.prefix(60))")
+            // The box presses in under the finger, as web's does; the row itself stays still.
+            #expect(row.contains(".buttonStyle(OuroCheckboxPressStyle())"), "\(row.prefix(60))")
+            #expect(!row.contains("symbolEffect"), "\(row.prefix(60)) animates a symbol, not the box")
             #expect(!row.contains("KitchenTableTheme.herb"), "\(row.prefix(60))")
             #expect(!row.contains("checkmark.circle.fill"), "\(row.prefix(60)) draws its own check")
         }
