@@ -351,7 +351,7 @@ final class SpoonjoyShoppingUITests: XCTestCase {
 
     /// Waits for a segment of the Need, Basket and All control to show as chosen.
     private func waitForSelectedSegment(_ option: String, in app: XCUIApplication) {
-        let segment = app.segmentedControls["shopping.mode"].buttons[option]
+        let segment = app.descendants(matching: .any)["shopping.segments"].buttons[option]
         let selected = expectation(for: NSPredicate(format: "isSelected == true"), evaluatedWith: segment)
         wait(for: [selected], timeout: 5)
     }
@@ -359,8 +359,9 @@ final class SpoonjoyShoppingUITests: XCTestCase {
     /// Picks Need, Basket or All: a segment of the control under the composer, or at accessibility sizes an item of
     /// the menu that stands in for it.
     private func chooseShoppingView(_ option: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
-        let segment = app.segmentedControls["shopping.mode"].buttons[option]
-        if app.segmentedControls["shopping.mode"].waitForExistence(timeout: 3) {
+        let segments = app.descendants(matching: .any)["shopping.segments"]
+        let segment = segments.buttons[option]
+        if segments.waitForExistence(timeout: 3) {
             tapOnceItExists(segment, named: "The \(option) segment", in: app, file: file, line: line)
         } else {
             tapOnceItExists(app.buttons["shopping.mode"], named: "The view menu", in: app, file: file, line: line)
