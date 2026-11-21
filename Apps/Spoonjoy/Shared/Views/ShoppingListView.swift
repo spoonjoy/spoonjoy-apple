@@ -267,27 +267,28 @@ struct ShoppingListView: View {
         viewModel.presentation(mode: viewMode, activeCategory: activeCategory)
     }
 
-    /// Need, Basket and All, as web's filter: the platform's capsule segmented control under the composer. At
-    /// the largest text sizes three counted labels can't share a phone's row, so it becomes a menu showing the view.
+    /// Need, Basket and All, as web's filter: Ouro's segmented control, full width up to web's 40rem column
+    /// (`<SegmentedControl label="View" hideLabel fullWidth>`). At the largest text sizes three counted labels can't
+    /// share a phone's row, so it becomes a menu showing the view.
     @ViewBuilder private func shoppingModeStrip(_ presentation: ShoppingPresentationModel) -> some View {
-        let picker = Picker("Show", selection: modeSelection) {
-            ForEach(presentation.modeOptions, id: \.mode) { option in
-                Text(option.label).tag(option.mode)
-            }
-        }
         Group {
             if dynamicTypeSize >= .xxxLarge {
-                picker
-                    .pickerStyle(.menu)
-                    .tint(KitchenTableTheme.ink)
+                Picker("Show", selection: modeSelection) {
+                    ForEach(presentation.modeOptions, id: \.mode) { option in
+                        Text(option.label).tag(option.mode)
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(KitchenTableTheme.ink)
+                .accessibilityIdentifier("shopping.mode")
             } else {
-                picker
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(maxWidth: 420)
+                OuroSegmentedControl("View", selection: modeSelection, hideLabel: true, fullWidth: true,
+                                     items: presentation.modeOptions.map { OuroSegment($0.label, value: $0.mode) })
+                    .frame(maxWidth: 640)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("shopping.segments")
             }
         }
-        .accessibilityIdentifier("shopping.mode")
     }
 
     /// The aisle filter, as a submenu in the ⋯ menu; a list with one aisle has nothing to filter.
