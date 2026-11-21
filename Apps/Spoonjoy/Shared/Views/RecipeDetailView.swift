@@ -1,4 +1,5 @@
 import Foundation
+import OuroHX
 import SpoonjoyCore
 import SwiftUI
 
@@ -1949,7 +1950,6 @@ private struct RecipeSpreadIngredientRow: View {
         Button(action: toggle) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 KitchenCheckMark(isChecked: isChecked)
-                    .font(.body.weight(.semibold))
                     .frame(width: 24)
                 if amountPlacement == .column {
                     amountText
@@ -1968,7 +1968,8 @@ private struct RecipeSpreadIngredientRow: View {
             .contentShape(Rectangle())
             .background(alignment: .topLeading) { amountWordProbe }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(OuroCheckboxPressStyle())
+        .kitchenHaptic(.ingredientChecked, trigger: isChecked)
         .accessibilityLabel([name, amount, note ?? ""].filter { !$0.isEmpty }.joined(separator: ", "))
         .accessibilityValue(isChecked ? "used" : "not used")
         // The same identifier as the single page's rows, so a journey finds an ingredient in either layout.
@@ -2128,7 +2129,6 @@ private struct RecipeStepChecklistRow: View {
         Button(action: toggle) {
             HStack(alignment: .firstTextBaseline, spacing: KitchenTableTheme.Checklist.columnGap) {
                 KitchenCheckMark(isChecked: isChecked)
-                    .font(.title3.weight(.semibold))
                     .frame(width: checkColumn, alignment: .center)
 
                 rowText
@@ -2145,7 +2145,8 @@ private struct RecipeStepChecklistRow: View {
             .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(OuroCheckboxPressStyle())
+        .kitchenHaptic(.ingredientChecked, trigger: isChecked)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(isChecked ? "used" : "not used")
         .accessibilityIdentifier(accessibilityID)
