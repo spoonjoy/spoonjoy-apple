@@ -1,5 +1,5 @@
 ---
-testflight: Buttons, menus, sheets and checkboxes now come from Ouro UI for Apple v1.4.0. Check the corners are squircles and ticking an ingredient draws its tick.
+testflight: Buttons, menus, sheets and checkboxes now come from Ouro UI for Apple v1.5.0. Check the corners are squircles and ticking an ingredient draws its tick.
 platforms: [ios, mac]
 order: 90
 ---

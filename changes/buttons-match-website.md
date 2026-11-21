@@ -3,4 +3,4 @@ testflight: Buttons now match the website: the main one solid, others outlined. 
 platforms: [ios, mac]
 order: 25
 ---
-Every button is now the same one the website uses. The main action on a screen is solid, charcoal by day and amber at night. The others are outlined in ink, and a delete is solid tomato. Press one and it springs back as it does on the web.
+Every button is now the same one the website uses. The main action on a screen is solid, charcoal by day and amber at night. Secondary ones are outlined in ink, the quietest are plain text, and a delete is solid tomato. Press one and it springs back as it does on the web.
