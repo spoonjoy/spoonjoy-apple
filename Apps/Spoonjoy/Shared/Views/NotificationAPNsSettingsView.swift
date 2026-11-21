@@ -67,7 +67,7 @@ struct NotificationAPNsSettingsView: View {
 
     private var notificationPreferencesSection: some View {
         KitchenTableSection(title: "Notifications", subtitle: "Activity worth interrupting dinner prep") {
-            SettingsPanel {
+            OuroCard {
                 notificationToggle("Spoons", isOn: $notifySpoonOnMyRecipe)
                 notificationToggle("Forks", isOn: $notifyForkOfMyRecipe)
                 notificationToggle("Cookbook saves", isOn: $notifyCookbookSaveOfMine)
@@ -91,12 +91,13 @@ struct NotificationAPNsSettingsView: View {
                     .buttonStyle(.plain)
                 }
             }
+            .settingsCardText()
         }
     }
 
     private var deviceNotificationsSection: some View {
         KitchenTableSection(title: "This Device", subtitle: "Permission and delivery on this device") {
-            SettingsPanel {
+            OuroCard {
                 if let banner = viewModel.permissionDeniedBanner {
                     VStack(alignment: .leading, spacing: 8) {
                         Label(banner.title, systemImage: "bell.slash")
@@ -158,13 +159,14 @@ struct NotificationAPNsSettingsView: View {
                     .buttonStyle(.plain)
                 }
             }
+            .settingsCardText()
         }
         .id(notificationAPNsDeviceFocusID)
     }
 
     private var apnsDeliverySection: some View {
         KitchenTableSection(title: "Push Delivery", subtitle: "What will arrive on this build") {
-            SettingsPanel {
+            OuroCard {
                 switch deliveryBlockerState {
                 case .developmentOnly(let blocker):
                     AppleDeveloperProgramBlockerView(
@@ -178,12 +180,13 @@ struct NotificationAPNsSettingsView: View {
                     )
                 }
             }
+            .settingsCardText()
         }
     }
 
     private var notificationSyncSection: some View {
         KitchenTableSection(title: "Notification Sync", subtitle: "Queued changes and offline state") {
-            SettingsPanel {
+            OuroCard {
                 if let summary = viewModel.queuedWorkSummary {
                     Label(summary, systemImage: "arrow.triangle.2.circlepath")
                         .font(KitchenTableTheme.bodyNote)
@@ -197,6 +200,7 @@ struct NotificationAPNsSettingsView: View {
                 notificationActionFailureBanner
                 OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
             }
+            .settingsCardText()
         }
     }
 

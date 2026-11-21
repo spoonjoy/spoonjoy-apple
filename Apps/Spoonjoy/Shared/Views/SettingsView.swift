@@ -226,7 +226,7 @@ struct SettingsView: View {
     @ViewBuilder private func nativeSettings(surface: SettingsSurfaceViewModel) -> some View {
         if let profile = surface.profileDraft {
             KitchenTableSection(title: "Account") {
-                SettingsPanel {
+                OuroCard {
                     VStack(alignment: .leading, spacing: 4) {
                         settingsFact("Email", value: profile.email, valueIdentifier: "settings.profile.email")
                         Button {
@@ -276,10 +276,11 @@ struct SettingsView: View {
                     .disabled(onlineOnlyActionsDisabled(surface))
                     .accessibilityIdentifier("settings.signout")
                 }
+                .settingsCardText()
             }
 
             KitchenTableSection(title: "Profile") {
-                SettingsPanel {
+                OuroCard {
                     settingsTextField("Username", text: $profileUsername)
 
                     Button {
@@ -318,6 +319,7 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                .settingsCardText()
             }
             .task(id: profileIdentity(profile)) {
                 hydrateProfileDraft(profile)
@@ -338,7 +340,7 @@ struct SettingsView: View {
                 }
             } else if let notifications = surface.notificationDraft {
                 KitchenTableSection(title: "Notifications") {
-                    SettingsPanel {
+                    OuroCard {
                         Toggle("Spoons", isOn: $notifySpoonOnMyRecipe)
                         Toggle("Forks", isOn: $notifyForkOfMyRecipe)
                         Toggle("Cookbook saves", isOn: $notifyCookbookSaveOfMine)
@@ -364,6 +366,7 @@ struct SettingsView: View {
                             .buttonStyle(.plain)
                         }
                     }
+                    .settingsCardText()
                 }
                 .task(id: notificationIdentity(notifications)) {
                     hydrateNotificationDraft(notifications)
@@ -373,7 +376,7 @@ struct SettingsView: View {
 
             if surface.data.tokenManagementAvailability == .available {
                 KitchenTableSection(title: "Connected") {
-                    SettingsPanel {
+                    OuroCard {
                         DisclosureGroup(isExpanded: $isConnectionsExpanded) {
                             connectedAppsContent(surface: surface)
                         } label: {
@@ -391,11 +394,12 @@ struct SettingsView: View {
                         }
                         .accessibilityIdentifier("settings.connected")
                     }
+                    .settingsCardText()
                 }
             }
         } else if let primaryAuthAction = surface.primaryAuthAction {
             KitchenTableSection(title: "Session") {
-                SettingsPanel {
+                OuroCard {
                     Button {
                         openSecureHandoff(primaryAuthAction)
                     } label: {
@@ -403,10 +407,11 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                .settingsCardText()
             }
         } else {
             KitchenTableSection(title: "Account") {
-                SettingsPanel {
+                OuroCard {
                     Text("Account sync has not finished yet.")
                         .font(KitchenTableTheme.objectTitle)
                         .foregroundStyle(KitchenTableTheme.ink)
@@ -426,6 +431,7 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.ouro(.solid, fullWidth: true))
                 }
+                .settingsCardText()
             }
         }
 
@@ -439,15 +445,16 @@ struct SettingsView: View {
         // Diagnostics for builds that point at a non-production environment. Journeys read this row
         // to prove they are on the QA mirror. Release builds keep the account screen to settings only.
         KitchenTableSection(title: "Environment") {
-            SettingsPanel {
+            OuroCard {
                 settingsFact("Environment", value: surface.data.environment.rawValue, valueIdentifier: "settings.environment.value")
                 settingsFact("Source", value: sourceLabel(surface.data.source))
             }
+            .settingsCardText()
         }
 #endif
 
         KitchenTableSection(title: "Offline") {
-            SettingsPanel {
+            OuroCard {
                 if let summary = surface.queuedWorkSummary {
                     Label(summary, systemImage: "arrow.triangle.2.circlepath")
                         .font(KitchenTableTheme.bodyNote)
@@ -477,29 +484,32 @@ struct SettingsView: View {
                     onDismissOfflineIndicator()
                 }
             }
+            .settingsCardText()
         }
     }
 
     @ViewBuilder private var legacySettings: some View {
 #if DEBUG
         KitchenTableSection(title: "Status", subtitle: "Live session snapshot") {
-            SettingsPanel {
+            OuroCard {
                 ForEach(settings.statusRows, id: \.id) { row in
                     settingsFact(row.title, value: row.value)
                 }
             }
+            .settingsCardText()
         }
 #endif
 
         KitchenTableSection(title: "Session") {
-            SettingsPanel {
+            OuroCard {
                 settingsFact("Auth", value: authSummary)
                 settingsFact("Environment", value: viewModel.environmentSwitcher.rawValue, valueIdentifier: "settings.environment.value")
             }
+            .settingsCardText()
         }
 
         KitchenTableSection(title: "Shopping") {
-            SettingsPanel {
+            OuroCard {
                 Label(
                     settings.canReadShoppingList ? "Shopping read enabled" : "Shopping read unavailable",
                     systemImage: settings.canReadShoppingList ? "checkmark.circle" : "xmark.circle"
@@ -511,15 +521,17 @@ struct SettingsView: View {
                 )
                 .foregroundStyle(settings.canWriteShoppingList ? KitchenTableTheme.herb : KitchenTableTheme.tomato)
             }
+            .settingsCardText()
         }
 
         KitchenTableSection(title: "Offline") {
-            SettingsPanel {
+            OuroCard {
                 OfflineStatusView(display: effectiveOfflineIndicator(viewModel.offlineIndicatorDisplay)) {
                     _ = viewModel.dismissOfflineIndicator
                     onDismissOfflineIndicator()
                 }
             }
+            .settingsCardText()
         }
         aboutSection
     }
@@ -605,7 +617,7 @@ struct SettingsView: View {
     /// Blocked chefs (App Review guideline 1.2) and the AI-features consent (guideline 5.1.2(i)).
     private var safetySection: some View {
         KitchenTableSection(title: "Safety & privacy") {
-            SettingsPanel {
+            OuroCard {
                 Button {
                     isBlockedChefsPresented = true
                 } label: {
@@ -634,6 +646,7 @@ struct SettingsView: View {
                 .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
                 .accessibilityIdentifier("settings.aiConsent")
             }
+            .settingsCardText()
         }
         .sheet(isPresented: $isBlockedChefsPresented) {
             NavigationStack {
@@ -650,7 +663,7 @@ struct SettingsView: View {
     /// Privacy policy, terms, support and contact (App Review guideline 5.1.1(i)).
     private var aboutSection: some View {
         KitchenTableSection(title: "About") {
-            SettingsPanel {
+            OuroCard {
                 ForEach(SettingsAboutLink.allCases) { link in
                     Link(destination: link.url) {
                         settingsRowLabel(link.title, systemImage: link.systemImage, prominence: .secondary, opensElsewhere: true)
@@ -666,6 +679,7 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("settings.about.fontLicences")
             }
+            .settingsCardText()
         }
         .sheet(isPresented: $isFontLicencesPresented) {
             NavigationStack {
@@ -681,7 +695,7 @@ struct SettingsView: View {
 
     private func yourDataSection(surface: SettingsSurfaceViewModel) -> some View {
         KitchenTableSection(title: "Your data") {
-            SettingsPanel {
+            OuroCard {
                 Button {
                     downloadAccountData(using: surface)
                 } label: {
@@ -722,6 +736,7 @@ struct SettingsView: View {
                         .foregroundStyle(KitchenTableTheme.ink2)
                 }
             }
+            .settingsCardText()
         }
         .id(Self.yourDataFocusID)
     }
@@ -1186,20 +1201,13 @@ private enum SettingsRowProminence {
     }
 }
 
-struct SettingsPanel<Content: View>: View {
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            content()
-        }
-        .font(KitchenTableTheme.bodyNote)
-        .foregroundStyle(KitchenTableTheme.ink)
-        .tint(KitchenTableTheme.herb)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
+extension View {
+    /// The settings panels' words: the body-note face in ink, with herb toggles and links, inside an `OuroCard`, as
+    /// web's settings sections are Ouro `Card`s.
+    func settingsCardText() -> some View {
+        font(KitchenTableTheme.bodyNote)
+            .foregroundStyle(KitchenTableTheme.ink)
+            .tint(KitchenTableTheme.herb)
     }
 }
 
