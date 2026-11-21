@@ -1745,7 +1745,7 @@ wait_for_accessibility_proof() {
           "keyboardNavigationTargets" => ["profile form fields", "security token controls", "session handoff controls"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass label on bone"],
-          "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel"],
+          "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "OuroCard"],
           "declaredLayoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
         },
         "recipe-detail" => {

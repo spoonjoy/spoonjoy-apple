@@ -116,7 +116,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "keyboardNavigationTargets" => ["profile form fields", "security token controls", "APNs device controls", "notification sync status", "session handoff controls"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass label on bone"],
-    "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "NotificationAPNsSettingsView"],
+    "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "OuroCard", "NotificationAPNsSettingsView"],
     "declaredLayoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
   },
   "recipe-detail" => {

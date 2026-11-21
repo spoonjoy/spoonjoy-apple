@@ -266,7 +266,7 @@ enum ScreenshotAccessibilityProofWriter {
                 keyboardNavigationTargets: ["profile form fields", "security token controls", "session handoff controls", "APNs device controls", "notification toggles", "notification sync status", "offline status dismiss"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
                 contrastPairs: ["charcoal on bone", "brass label on bone", "destructive action role"],
-                hierarchyAnchors: ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "NotificationAPNsSettingsView", "AppleDeveloperProgramBlockerView", "NotificationDiagnosticsDisclosure", "OfflineStatusView"],
+                hierarchyAnchors: ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "OuroCard", "NotificationAPNsSettingsView", "AppleDeveloperProgramBlockerView", "NotificationDiagnosticsDisclosure", "OfflineStatusView"],
                 declaredLayoutGuards: ["kitchen-table-page", "text-fit", "no-tiny-clusters", "bottom-offline-row"]
             )
         case ("recipe-detail", "RecipeDetailView"):

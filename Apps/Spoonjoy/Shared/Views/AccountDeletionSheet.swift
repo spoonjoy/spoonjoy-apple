@@ -82,7 +82,7 @@ struct AccountDeletionSheet: View {
     }
 
     private var consequences: some View {
-        SettingsPanel {
+        OuroCard {
             sheetFact(
                 title: "Deleted for good",
                 body: "Your account, your recipes, cookbooks, shopping list, cooks and photos, and every app and agent you connected."
@@ -101,10 +101,11 @@ struct AccountDeletionSheet: View {
             .foregroundStyle(KitchenTableTheme.herb)
             .disabled(isOffline || isDeleting)
         }
+        .settingsCardText()
     }
 
     private var confirmation: some View {
-        SettingsPanel {
+        OuroCard {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Type your username, \(form.username), to confirm")
                     .font(KitchenTableTheme.uiLabel)
@@ -160,6 +161,7 @@ struct AccountDeletionSheet: View {
             .opacity(form.action == nil || isOffline ? 0.45 : 1)
             .accessibilityIdentifier(Self.confirmButtonIdentifier)
         }
+        .settingsCardText()
     }
 
     @ViewBuilder private var appleConfirmation: some View {
@@ -200,13 +202,14 @@ struct AccountDeletionSheet: View {
     }
 
     private func webOnly(url: URL) -> some View {
-        SettingsPanel {
+        OuroCard {
             Text("Your account signs in with Google or GitHub, so the app can't confirm it's you. Delete it in Account settings on the web.")
                 .font(KitchenTableTheme.bodyNote)
                 .foregroundStyle(KitchenTableTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
             webLink(url: url)
         }
+        .settingsCardText()
     }
 
     private func webLink(url: URL) -> some View {
