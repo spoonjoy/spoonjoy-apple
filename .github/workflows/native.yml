@@ -138,6 +138,7 @@ jobs:
           ruby scripts/test/xray_expectations_test.rb
           ruby scripts/test/ouro_ui_pin_test.rb
           ruby scripts/test/live_journey_failure_test.rb
+          ruby scripts/test/journey_time_allowance_test.rb
           ruby scripts/test/parity_sheet_test.rb
           ruby scripts/test/release_branch_workflow_test.rb
           ruby scripts/test/optional_checks_wait_test.rb
