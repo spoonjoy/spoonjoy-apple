@@ -3,4 +3,4 @@ testflight: Settings sections now sit in cards like the website's. Open Settings
 platforms: [ios, mac]
 order: 28
 ---
-Each section of Settings, Notifications and account deletion now sits in the same outlined card the website uses, with the website's roomier padding.
+Settings sections now sit in the website's outlined cards.
