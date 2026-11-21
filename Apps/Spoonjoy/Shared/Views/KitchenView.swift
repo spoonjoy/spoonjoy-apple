@@ -570,25 +570,3 @@ struct RecipeIndex: View {
     }
 }
 
-struct KitchenEmptySection: View {
-    let title: String
-    let systemImage: String
-    let tint: Color
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .foregroundStyle(tint)
-                .frame(width: 28)
-            Text(title)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.ink.opacity(0.72))
-            Spacer(minLength: 0)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-        .background(KitchenTableTheme.raised)
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
-    }
-}

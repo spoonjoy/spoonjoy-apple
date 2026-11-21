@@ -156,10 +156,11 @@ struct CookbooksView: View {
     }
 
     private func cookbookEmptyState(_ emptyState: CookbookSurfaceEmptyState) -> some View {
-        KitchenTableEmptyTile(
-            systemImage: emptyState.systemImage,
-            title: emptyState.title,
-            message: emptyState.message
+        OuroEmptyState(
+            emptyState.title,
+            description: emptyState.message,
+            alignment: .leading,
+            variant: .outline
         ) {
             if canCreateCookbook {
                 newCookbookButton
@@ -292,10 +293,11 @@ struct CookbookShelf: View {
     var body: some View {
         KitchenTableSection(title: "Cookbook Shelf", meta: "\(rows.count) \(rows.count == 1 ? "shelf" : "shelves")") {
             if rows.isEmpty {
-                KitchenTableEmptyTile(
-                    systemImage: "books.vertical",
-                    title: "No cookbooks saved yet",
-                    message: "Cookbooks you make or save gather here."
+                OuroEmptyState(
+                    "No cookbooks saved yet",
+                    description: "Cookbooks you make or save gather here.",
+                    alignment: .leading,
+                    variant: .outline
                 )
             } else {
                 LazyVStack(alignment: .leading, spacing: 0) {
@@ -830,10 +832,11 @@ private struct CookbookDetailView: View {
         // The header already says how many recipes the book holds, so Contents does not repeat the count.
         KitchenTableSection(title: "Contents") {
             if viewModel.recipes.isEmpty {
-                KitchenTableEmptyTile(
-                    systemImage: "text.book.closed",
-                    title: "No recipes yet",
-                    message: viewModel.ownerTools.isVisible ? "Add the first recipe from your kitchen." : "This cookbook is empty."
+                OuroEmptyState(
+                    "No recipes yet",
+                    description: viewModel.ownerTools.isVisible ? "Add the first recipe from your kitchen." : "This cookbook is empty.",
+                    alignment: .leading,
+                    variant: .outline
                 ) {
                     if viewModel.ownerTools.isVisible, !viewModel.ownerTools.availableRecipes.isEmpty {
                         Button {

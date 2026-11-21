@@ -65,10 +65,11 @@ struct ProfileView: View {
                     ProfileHero(viewModel: viewModel, openRoute: openRoute, moderationChef: moderationChef, moderationPrompt: $moderationPrompt)
                     statusBanner
                     if isEmptyKitchen {
-                        KitchenTableEmptyTile(
-                            systemImage: "fork.knife",
-                            title: "Nothing on the shelf yet",
-                            message: "Recipes, cookbooks and cooks from this kitchen will gather here."
+                        OuroEmptyState(
+                            "Nothing on the shelf yet",
+                            description: "Recipes, cookbooks and cooks from this kitchen will gather here.",
+                            alignment: .leading,
+                            variant: .outline
                         ) {
                             Button {
                                 openRoute(.everyoneRecipes)

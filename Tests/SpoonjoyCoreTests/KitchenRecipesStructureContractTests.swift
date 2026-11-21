@@ -206,9 +206,8 @@ struct KitchenRecipesStructureContractTests {
                 "RecipeCatalogEmptyState",
                 "emptyState.title",
                 "emptyState.message",
-                "emptyState.systemImage",
                 "recipeIndex(rows: state.rows)",
-                "KitchenTableEmptyTile(",
+                "OuroEmptyState(",
                 "RecipeCoverPrefetcher.prefetch"
             ],
             forbids: [
