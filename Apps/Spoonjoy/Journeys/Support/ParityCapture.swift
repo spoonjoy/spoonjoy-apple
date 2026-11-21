@@ -314,8 +314,12 @@ struct ParityCapture {
         guard device == "ipad" else { return }
         journey.openLink(try link("kitchen"))
         let row = journey.element(JourneyID.kitchenRecipe, labelContaining: Self.soupTitle)
+        // At AX5 the hero pushes the index below the first screen, and the row isn't in the tree until the page scrolls
+        // to it: Journeys 44940158906 on the iPad showed the page at 0% of 2 with no soup row. Scroll first, then wait.
+        if !row.waitForExistence(timeout: JourneyApp.interactionTimeout) {
+            journey.swipeUpUntilHittable(row)
+        }
         wait(row, "The kitchen does not list \(Self.soupTitle).")
-        // At AX5 the hero can push the index row below the first screen.
         journey.swipeUpUntilHittable(row)
         row.press(forDuration: 1.2)
         let openInNewWindow = journey.copy(JourneyCopy.openInNewWindow)
