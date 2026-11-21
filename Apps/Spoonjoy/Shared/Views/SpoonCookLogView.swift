@@ -335,7 +335,7 @@ struct SpoonCookLogView: View {
     @ViewBuilder private var rows: some View {
         if let emptyState = viewModel.emptyState {
             if !isLogging {
-                KitchenTableEmptyTile(systemImage: emptyState.systemImage, title: emptyState.title, message: emptyState.message) {
+                OuroEmptyState(emptyState.title, description: emptyState.message, alignment: .leading, variant: .outline) {
                     logThisCookButton
                 }
             }

@@ -593,7 +593,7 @@ struct ShoppingListView: View {
     }
 
     private func shoppingMarketEmptyState(title: String, message: String) -> some View {
-        KitchenTableEmptyTile(systemImage: "basket", title: title, message: message)
+        OuroEmptyState(title, description: message, alignment: .leading, variant: .outline)
     }
 
     @ViewBuilder private var statusBanner: some View {
@@ -890,11 +890,11 @@ private struct ShoppingReceiptStateView: View {
     /// Clear checked when everything is in the basket, and otherwise no button: the composer above already offers
     /// both typing an item and the recipe action, so repeating "Add a recipe" here showed it twice.
     var body: some View {
-        KitchenTableEmptyTile(
-            systemImage: state.systemImage,
-            title: state.title,
-            message: state.message,
-            tint: state.isSuccess ? KitchenTableTheme.herb : KitchenTableTheme.brass
+        OuroEmptyState(
+            state.title,
+            description: state.message,
+            alignment: .leading,
+            variant: .outline
         ) {
             if state.action == .clearChecked {
                 Button(action: clearChecked) {

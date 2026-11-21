@@ -106,7 +106,7 @@ REQUIRED_TOKENS = {
     "RecipeCatalogEmptyState",
     "emptyState.title",
     "emptyState.message",
-    "emptyState.systemImage",
+    "OuroEmptyState(",
     "KitchenTablePage",
     "KitchenTableHeader",
     "KitchenTableObjectRow",

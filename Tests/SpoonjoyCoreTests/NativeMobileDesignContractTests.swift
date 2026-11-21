@@ -363,7 +363,8 @@ struct NativeMobileDesignContractTests {
                 "shoppingCategoryFilters",
                 "shoppingReceiptComposer",
                 "viewModel.presentation(mode: viewMode, activeCategory: activeCategory)",
-                "state.isSuccess ? KitchenTableTheme.herb : KitchenTableTheme.brass"
+                // Web's shopping list draws its empty states as Ouro's Empty, start-aligned and outlined.
+                "OuroEmptyState(\n            state.title,\n            description: state.message,\n            alignment: .leading,\n            variant: .outline"
             ],
             forbids: [
                 "if viewModel.shoppingReceiptState == nil {\n                shoppingReceiptComposer"
@@ -1856,7 +1857,7 @@ struct NativeMobileDesignContractTests {
                 "CookbookRecipeIndexRow(\n                                recipe: recipe,\n                                ordinal: index + 1",
                 "let firstVisibleID = visibleRecipeIDs.firstID(in: viewModel.recipes)",
                 "private struct CookbookRecipeIndexRow",
-                "KitchenTableEmptyTile(",
+                "OuroEmptyState(",
                 "DisclosureGroup(isExpanded: $isOwnerToolsExpanded)",
                 "Label(\"Owner tools\", systemImage: \"wrench.and.screwdriver\")",
                 "Button(role: .destructive, action: remove)",

@@ -105,10 +105,11 @@ struct RecipesView: View {
     }
 
     private func recipesEmptyState(_ emptyState: RecipeCatalogEmptyState) -> some View {
-        KitchenTableEmptyTile(
-            systemImage: emptyState.systemImage,
-            title: emptyState.title,
-            message: emptyState.message
+        OuroEmptyState(
+            emptyState.title,
+            description: emptyState.message,
+            alignment: .leading,
+            variant: .outline
         ) {
             if emptyState == .noMatches {
                 Button {
@@ -300,10 +301,11 @@ struct ChefsView: View {
     @ViewBuilder
     private func fellowChefsSection(_ resolved: ChefsSurfaceContent) -> some View {
         if resolved.fellowChefs.isEmpty {
-            KitchenTableEmptyTile(
-                systemImage: "person.2",
-                title: "No fellow chefs yet",
-                message: "Cook, save, or fork another chef's recipe to start building your kitchen."
+            OuroEmptyState(
+                "No fellow chefs yet",
+                description: "Cook, save, or fork another chef's recipe to start building your kitchen.",
+                alignment: .leading,
+                variant: .outline
             ) {
                 Button {
                     openRoute(.everyoneRecipes)
