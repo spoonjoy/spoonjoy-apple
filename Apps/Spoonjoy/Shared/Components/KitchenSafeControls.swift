@@ -1,3 +1,4 @@
+import OuroHX
 import SwiftUI
 
 struct KitchenSafeControls: View {
@@ -35,7 +36,7 @@ struct KitchenSafeControlDeck: View {
         Button(action: markComplete) {
             Label("Mark done", systemImage: "checkmark.circle.fill")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        .buttonStyle(.ouro(.solid, fullWidth: true))
         .accessibilityLabel("Mark the current step done")
         .accessibilityHint("Mark this cooking step complete.")
     }
@@ -45,7 +46,7 @@ struct KitchenSafeControlDeck: View {
             Button(action: advance) {
                 Label("Next step", systemImage: "arrow.forward.circle")
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
             .disabled(!canAdvance)
             .accessibilityLabel("Move to the next step")
             .accessibilityIdentifier("cookMode.next")
@@ -53,7 +54,7 @@ struct KitchenSafeControlDeck: View {
             Button(action: close) {
                 Label("Close", systemImage: "text.book.closed")
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+            .buttonStyle(.ouro(.plain, tone: .secondary, fullWidth: true))
             .accessibilityLabel("Return to recipe detail")
         }
     }

@@ -1,5 +1,6 @@
 import PhotosUI
 import SpoonjoyCore
+import OuroHX
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -154,7 +155,7 @@ struct SpoonCookLogView: View {
                 Button(conflictBanner.actionTitle) {
                     runConflictAction(clientMutationID: conflictBanner.localClientMutationID)
                 }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
                 .disabled(actionInFlight)
             }
         }
@@ -187,7 +188,7 @@ struct SpoonCookLogView: View {
             Label("I cooked this", systemImage: "fork.knife")
         }
         // On the recipe page Cook is the one filled button; the sheet has only this one.
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: showsHeader ? .secondary : .primary))
+        .buttonStyle(.ouro(showsHeader ? .outline : .solid, tone: showsHeader ? .secondary : .primary, fullWidth: true))
         // At accessibility sizes the 320 pt cap wraps "I cooked this" to two lines, which pushes it off a phone sheet.
         .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : 320, alignment: .leading)
         .accessibilityIdentifier("cookLog.start")
@@ -326,7 +327,7 @@ struct SpoonCookLogView: View {
                     .minimumScaleFactor(0.82)
             }
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        .buttonStyle(.ouro(.solid, fullWidth: true))
         .disabled(actionInFlight)
         .accessibilityLabel("Log cook")
     }

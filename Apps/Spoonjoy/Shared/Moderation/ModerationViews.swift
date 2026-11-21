@@ -1,4 +1,5 @@
 import SpoonjoyCore
+import OuroHX
 import SwiftUI
 
 // `ModerationPrompt` lives in SpoonjoyCore.
@@ -241,7 +242,7 @@ struct BlockedChefsView: View {
                     Button("Unblock") {
                         Task { await unblock(chef) }
                     }
-                    .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                    .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
                     .accessibilityLabel("Unblock \(chef.name)")
                     .accessibilityIdentifier("blockedChefs.unblock")
                 }
@@ -298,7 +299,7 @@ struct ModerationHiddenView: View {
                 Button("Unblock \(unblockChef.name)") {
                     Task { try? await moderation.unblock(chefID: unblockChef.id) }
                 }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
             }
         }
         .padding(KitchenTableTheme.pagePadding)

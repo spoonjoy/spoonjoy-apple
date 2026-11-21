@@ -1,6 +1,7 @@
 import SpoonjoyCore
 import Foundation
 import PhotosUI
+import OuroHX
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -423,7 +424,7 @@ struct SettingsView: View {
                     } label: {
                         Label("Try Sync Again", systemImage: "arrow.clockwise")
                     }
-                    .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+                    .buttonStyle(.ouro(.solid, fullWidth: true))
                 }
             }
         }

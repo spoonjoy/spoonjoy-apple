@@ -1,4 +1,5 @@
 import SpoonjoyCore
+import OuroHX
 import SwiftUI
 
 struct ProfileRouteView: View {
@@ -74,7 +75,7 @@ struct ProfileView: View {
                             } label: {
                                 Label("Browse everyone's recipes", systemImage: "fork.knife")
                             }
-                            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                            .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
                             .accessibilityIdentifier("profile.empty.browse")
                         }
                     } else {
@@ -188,7 +189,7 @@ private struct ProfileHero: View {
             } label: {
                 Label("Edit Profile", systemImage: "pencil")
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
         }
         if let moderationChef {
             Menu {
@@ -201,7 +202,7 @@ private struct ProfileHero: View {
             } label: {
                 Label("More", systemImage: "ellipsis.circle")
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
             .accessibilityLabel("More for \(moderationChef.name)")
             .accessibilityIdentifier("profile.moderationMenu")
         }

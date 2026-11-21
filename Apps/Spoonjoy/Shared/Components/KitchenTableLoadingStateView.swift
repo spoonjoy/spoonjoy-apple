@@ -1,4 +1,5 @@
 import SpoonjoyCore
+import OuroHX
 import SwiftUI
 
 struct KitchenTableLoadingStateView: View {
@@ -144,7 +145,7 @@ struct KitchenTableRouteErrorView: View {
                 Button(action: backToRecipes) {
                     Label("Back to recipes", systemImage: "book")
                 }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+                .buttonStyle(.ouro(.solid, fullWidth: true))
                 .frame(maxWidth: 260)
                 .accessibilityIdentifier("route.error.back")
             }

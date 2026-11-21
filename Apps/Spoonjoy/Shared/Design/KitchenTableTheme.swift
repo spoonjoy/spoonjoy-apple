@@ -195,6 +195,19 @@ enum KitchenTableTheme {
     /// A cookbook colour by day.
     private static func cookbookDay(_ token: OuroExtraColor) -> Color { cookbookColor(token, .light) }
 
+    /// The main action for Ouro's solid primary buttons, as web's tailwind.css sets `--ouro-action` from `--sj-action`:
+    /// charcoal by day, amber at night, with their foregrounds and disabled colours. Brass stays the theme's primary.
+    static let ouroAction = OuroActionColors(light: action(.light), dark: action(.dark))
+
+    private static func action(_ scheme: ColorScheme) -> OuroAction {
+        OuroAction(
+            fill: cookbookColor(.sjAction, scheme),
+            foreground: cookbookColor(.sjOnAction, scheme),
+            disabledFill: cookbookColor(.sjActionDisabled, scheme),
+            disabledForeground: cookbookColor(.sjOnActionDisabled, scheme)
+        )
+    }
+
     /// A cookbook colour at night.
     private static func cookbookNight(_ token: OuroExtraColor) -> Color { cookbookColor(token, .dark) }
 
@@ -648,64 +661,6 @@ extension KitchenTableReceiptRow where Leading == EmptyView {
         self.init(name: name, amount: amount) {
             EmptyView()
         }
-    }
-}
-
-/// Kitchen action buttons on Liquid Glass. `.primary` is the screen's one filled action, in `action` (charcoal by day,
-/// amber at night, as web's `--sj-action`); `.destructive` is the same shape in tomato for a confirmed delete;
-/// `.secondary` is clear glass; `.quiet` is text only. The fills sit on interactive glass, so every glass-backed button
-/// gets the system press response.
-struct KitchenTableActionButtonStyle: ButtonStyle {
-    enum Prominence {
-        case primary
-        case secondary
-        case quiet
-        case destructive
-    }
-
-    let prominence: Prominence
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    func makeBody(configuration: Configuration) -> some View {
-        let shape = Capsule(style: .continuous)
-        // At the accessibility sizes a label wraps to a second line instead of truncating.
-        let label = configuration.label
-            .font(KitchenTableTheme.control)
-            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
-            .minimumScaleFactor(0.74)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget + 2)
-            .padding(.horizontal, 14)
-            .foregroundStyle(foreground)
-            .contentShape(shape)
-
-        switch prominence {
-        case .primary, .destructive:
-            // A tinted glass fill reads grey over the bone page, so the fill is solid and the glass under it supplies
-            // the interactive press response.
-            label
-                .background(fill, in: shape)
-                .glassEffect(.regular.interactive(), in: shape)
-        case .secondary:
-            label
-                .glassEffect(.regular.interactive(), in: shape)
-        case .quiet:
-            label
-                .opacity(configuration.isPressed ? 0.6 : 1)
-        }
-    }
-
-    private var foreground: Color {
-        switch prominence {
-        case .primary, .destructive:
-            KitchenTableTheme.onInk
-        case .secondary, .quiet:
-            KitchenTableTheme.ink
-        }
-    }
-
-    private var fill: Color {
-        prominence == .destructive ? KitchenTableTheme.tomato : KitchenTableTheme.action
     }
 }
 

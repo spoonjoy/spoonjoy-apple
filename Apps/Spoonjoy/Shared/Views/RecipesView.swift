@@ -1,5 +1,6 @@
 import SpoonjoyCore
 import Foundation
+import OuroHX
 import SwiftUI
 
 struct RecipesView: View {
@@ -116,13 +117,13 @@ struct RecipesView: View {
                 } label: {
                     Label("Clear search", systemImage: "xmark.circle")
                 }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
                 .accessibilityIdentifier("recipes.empty.clearSearch")
             } else if let emptyAction {
                 Button(action: emptyAction.perform) {
                     Label(emptyAction.title, systemImage: emptyAction.systemImage)
                 }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+                .buttonStyle(.ouro(.solid, fullWidth: true))
                 .accessibilityIdentifier("recipes.empty.action")
             }
         }
@@ -309,7 +310,7 @@ struct ChefsView: View {
                 } label: {
                     Label("Browse everyone's recipes", systemImage: "fork.knife")
                 }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
                 .accessibilityIdentifier("chefs.empty.browse")
             }
         } else {

@@ -139,7 +139,7 @@ struct CookTimerLiveActivityWiringTests {
     @Test("the recipe page keeps one filled button: the embedded I cooked this is secondary (final review I4)")
     func embeddedCookLogButtonIsSecondary() throws {
         let log = try source("Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift")
-        #expect(log.contains(".buttonStyle(KitchenTableActionButtonStyle(prominence: showsHeader ? .secondary : .primary))"))
+        #expect(log.contains(".buttonStyle(.ouro(showsHeader ? .outline : .solid, tone: showsHeader ? .secondary : .primary, fullWidth: true))"))
     }
 
     @Test("switching recipes re-registers the cook-mode session so commands act on the new recipe")

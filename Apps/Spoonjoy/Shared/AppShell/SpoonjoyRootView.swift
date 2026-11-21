@@ -145,6 +145,8 @@ struct SpoonjoyRootView: View {
             .environment(\.moderation, moderation)
             // Ouro UI's components draw in Spoonjoy's own Cookbook theme: brass, tomato and paper instead of Pearl's blue.
             .ouroTheme(.cookbook)
+            // A solid primary button, the screen's main action, is charcoal by day and amber at night, as on web.
+            .environment(\.ouroAction, KitchenTableTheme.ouroAction)
             .onChange(of: liveStore.bootstrapState.contentState.trustedAccountID, initial: true) { _, accountID in
                 moderation.useAccount(accountID)
             }
@@ -308,7 +310,7 @@ struct SpoonjoyRootView: View {
                 Button("Sign In") {
                     showsReauthSheet = true
                 }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+                .buttonStyle(.ouro(.solid, fullWidth: true))
                 .accessibilityIdentifier("session.signIn")
             }
             .padding(.horizontal, 16)
@@ -718,14 +720,14 @@ struct SpoonjoyRootView: View {
                 } label: {
                     Label("Try Again", systemImage: "arrow.clockwise")
                 }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+                .buttonStyle(.ouro(.solid, fullWidth: true))
 
                 Button {
                     navigation.navigate(to: .settings)
                 } label: {
                     Label("Settings", systemImage: "gearshape")
                 }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
             }
             OfflineStatusView(display: contentState.offlineIndicatorState.display, onDismiss: liveStore.dismissOfflineIndicator)
         }

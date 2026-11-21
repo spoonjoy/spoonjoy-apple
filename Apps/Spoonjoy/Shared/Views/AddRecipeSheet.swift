@@ -1,5 +1,6 @@
 import Foundation
 import SpoonjoyCore
+import OuroHX
 import SwiftUI
 
 /// Where a new recipe comes from. Spoonjoy has no recipe form: this sheet teaches the ways in and takes a pasted
@@ -115,7 +116,7 @@ struct AddRecipeSheet: View {
         Button(action: importLink) {
             Label("Import", systemImage: "tray.and.arrow.down")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        .buttonStyle(.ouro(.solid, fullWidth: true))
         .disabled(AddRecipeCopy.recipeLink(from: link) == nil)
         .accessibilityIdentifier("addRecipe.import")
     }

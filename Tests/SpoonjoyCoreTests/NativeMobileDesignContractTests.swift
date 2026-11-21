@@ -801,7 +801,7 @@ struct NativeMobileDesignContractTests {
                 "cookLogActionBar",
                 "Image(systemName: hasStagedPhoto ? \"photo.fill\" : \"photo.badge.plus\")",
                 "if hasStagedPhoto",
-                "KitchenTableActionButtonStyle(prominence: .primary)"
+                ".buttonStyle(.ouro(.solid, fullWidth: true))"
             ],
             forbids: [
                 "Label(hasStagedPhoto ? \"Ready\" : \"Photo\"",
@@ -919,7 +919,7 @@ struct NativeMobileDesignContractTests {
                 "@Environment(\\.horizontalSizeClass)",
                 "usesCompactRecipeDock",
                 "Menu",
-                "KitchenTableActionButtonStyle(prominence: .primary)",
+                ".buttonStyle(.ouro(.solid, fullWidth: true))",
                 ".recipeGlassCircle()",
                 "Label(\"Cook\", systemImage: \"play.fill\")",
                 "Label(\"Save\", systemImage: \"bookmark\")",
@@ -1300,7 +1300,7 @@ struct NativeMobileDesignContractTests {
                 "private var cookLogPhotoSlot",
                 "private var cookLogActionBar",
                 "Image(systemName: hasStagedPhoto ? \"photo.fill\" : \"photo.badge.plus\")",
-                "KitchenTableActionButtonStyle(prominence: .primary)",
+                ".buttonStyle(.ouro(.solid, fullWidth: true))",
                 "accessibilityLabel(hasStagedPhoto ? \"Cook photo ready\" : \"Add cook photo\")"
             ],
             forbids: [
