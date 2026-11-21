@@ -1,4 +1,5 @@
 import SpoonjoyCore
+import OuroHX
 import SwiftUI
 
 struct CookbooksView: View {
@@ -91,7 +92,7 @@ struct CookbooksView: View {
         } label: {
             Label("New Cookbook", systemImage: "plus")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        .buttonStyle(.ouro(.solid, fullWidth: true))
     }
 
     private var usesCompactCookbookLayout: Bool {
@@ -792,7 +793,7 @@ private struct CookbookDetailView: View {
         ShareLink(item: shareURL) {
             Label(dynamicTypeSize.isAccessibilitySize ? "Share" : "Share Cookbook", systemImage: "square.and.arrow.up")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
         .accessibilityLabel("Share Cookbook")
         .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : 220)
     }
@@ -840,7 +841,7 @@ private struct CookbookDetailView: View {
                         } label: {
                             Label(viewModel.ownerTools.addRecipeActionTitle, systemImage: "plus")
                         }
-                        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                        .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
                         .accessibilityIdentifier("cookbook.empty.addRecipe")
                     }
                 }
@@ -951,7 +952,7 @@ private struct CookbookDetailView: View {
                         } label: {
                             Label(viewModel.ownerTools.editTitleActionTitle, systemImage: "pencil")
                         }
-                        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                        .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
                         .frame(maxWidth: 220)
                     }
 
@@ -975,7 +976,7 @@ private struct CookbookDetailView: View {
                             } label: {
                                 Label(viewModel.ownerTools.addRecipeActionTitle, systemImage: "plus.circle")
                             }
-                            .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+                            .buttonStyle(.ouro(.solid, fullWidth: true))
                             .frame(maxWidth: 220)
                         }
                     }
@@ -988,7 +989,7 @@ private struct CookbookDetailView: View {
                     } label: {
                         Label("Delete Cookbook", systemImage: "trash")
                     }
-                    .buttonStyle(KitchenTableActionButtonStyle(prominence: .destructive))
+                    .buttonStyle(.ouro(.solid, tone: .destructive, fullWidth: true))
                     .frame(maxWidth: 220)
                 }
                 .padding(.top, 10)

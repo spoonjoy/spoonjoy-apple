@@ -124,7 +124,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "keyboardNavigationTargets" => ["recipe primary actions", "recipe secondary menu", "inline serves control", "step ingredient rows"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
-    "hierarchyAnchors" => ["RecipeDetailView", "recipeServesControl", "RecipeServesPopover", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
+    "hierarchyAnchors" => ["RecipeDetailView", "recipeServesControl", "RecipeServesPopover", "OuroButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
     "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "cook-log" => {

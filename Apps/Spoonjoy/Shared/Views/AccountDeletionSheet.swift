@@ -1,5 +1,6 @@
 import AuthenticationServices
 import SpoonjoyCore
+import OuroHX
 import SwiftUI
 
 /// The confirmation sheet for Delete account. It says what goes and what stays, asks the person to type their
@@ -154,7 +155,7 @@ struct AccountDeletionSheet: View {
                     Text("Delete account")
                 }
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .destructive))
+            .buttonStyle(.ouro(.solid, tone: .destructive, fullWidth: true))
             .disabled(form.action == nil || isOffline || isDeleting)
             .opacity(form.action == nil || isOffline ? 0.45 : 1)
             .accessibilityIdentifier(Self.confirmButtonIdentifier)
@@ -214,7 +215,7 @@ struct AccountDeletionSheet: View {
         } label: {
             Label("Delete on \(url.host() ?? "the web")", systemImage: "arrow.up.right.square")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
     }
 
     private func sheetFact(title: String, body: String) -> some View {

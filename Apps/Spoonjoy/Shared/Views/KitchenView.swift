@@ -1,5 +1,6 @@
 import SpoonjoyCore
 import Foundation
+import OuroHX
 import SwiftUI
 
 struct KitchenView: View {
@@ -217,7 +218,7 @@ struct KitchenEmptyHero: View {
         Button(action: createRecipe) {
             Label("Add a recipe", systemImage: "plus")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        .buttonStyle(.ouro(.solid, fullWidth: true))
         .accessibilityIdentifier("kitchen.emptyHero.create")
     }
 
@@ -225,7 +226,7 @@ struct KitchenEmptyHero: View {
         Button(action: importRecipe) {
             Label("Import", systemImage: "tray.and.arrow.down")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
         .accessibilityIdentifier("kitchen.emptyHero.import")
     }
 }
@@ -514,7 +515,7 @@ struct RecipeLead: View {
         } label: {
             Label(counterCook == nil ? "Start cooking" : "Keep cooking", systemImage: "play.fill")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        .buttonStyle(.ouro(.solid, fullWidth: true))
         .accessibilityIdentifier("kitchen.recipe.cook")
 
         Button {
@@ -522,7 +523,7 @@ struct RecipeLead: View {
         } label: {
             Label("Recipe", systemImage: "book")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
         .accessibilityIdentifier("kitchen.recipe.open")
     }
 

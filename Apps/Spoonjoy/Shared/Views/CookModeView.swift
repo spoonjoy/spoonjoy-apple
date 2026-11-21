@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import SpoonjoyCore
+import OuroHX
 import SwiftUI
 #if os(iOS)
 import UIKit
@@ -1002,14 +1003,14 @@ struct CookModeView: View {
             Button(action: close) {
                 Label("Done", systemImage: "checkmark")
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+            .buttonStyle(.ouro(.solid, fullWidth: true))
             .accessibilityHint("Returns to where you started cooking.")
             .accessibilityIdentifier("cook.finish.done")
         } else {
             Button(action: markCurrentStepComplete) {
                 Label("Finish cooking", systemImage: "checkmark.circle")
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+            .buttonStyle(.ouro(.solid, fullWidth: true))
             .accessibilityHint("Marks the last step done.")
             .accessibilityIdentifier("cook.finish")
         }
@@ -1343,7 +1344,7 @@ extension CookModeView {
         } label: {
             Label("Show step", systemImage: "text.alignleft")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+        .buttonStyle(.ouro(.plain, tone: .secondary, fullWidth: true))
         .accessibilityHint("Shows the whole step and its checklist.")
         .accessibilityIdentifier("cookMode.coverGlance.showStep")
     }
@@ -1362,7 +1363,7 @@ extension CookModeView {
         Button(action: advance) {
             Label("Next step", systemImage: "arrow.forward.circle.fill")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        .buttonStyle(.ouro(.solid, fullWidth: true))
         .disabled(!canAdvance)
         .accessibilityLabel("Move to the next step")
         .accessibilityIdentifier(identifier)
@@ -1372,7 +1373,7 @@ extension CookModeView {
         Button(action: markCurrentStepComplete) {
             Label("Mark done", systemImage: "checkmark.circle.fill")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
         .accessibilityLabel("Mark the current step done")
         .accessibilityIdentifier(identifier)
     }
@@ -1381,7 +1382,7 @@ extension CookModeView {
         Button(action: previous) {
             Label("Back step", systemImage: "chevron.backward.circle")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+        .buttonStyle(.ouro(.plain, tone: .secondary, fullWidth: true))
         .disabled(!canGoBack)
         .accessibilityIdentifier(identifier)
     }
@@ -1715,7 +1716,7 @@ extension CookModeView {
         Button(action: close) {
             Label("Close", systemImage: "text.book.closed")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+        .buttonStyle(.ouro(.plain, tone: .secondary, fullWidth: true))
         .accessibilityLabel("Return to recipe detail")
         .accessibilityIdentifier("cookSpread.close")
     }
@@ -2356,7 +2357,7 @@ private struct CookModeSystemTimer: View {
                 Label(title, systemImage: "xmark.circle")
             }
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+        .buttonStyle(.ouro(.plain, tone: .secondary, fullWidth: true))
         .fixedSize()
         .accessibilityLabel("Cancel the \(timer.durationLabel) timer")
         .accessibilityIdentifier("cookMode.timer.cancel")

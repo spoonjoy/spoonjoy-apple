@@ -117,7 +117,7 @@ struct CaptureDraftView: View {
                 Link(destination: shortcutsURL) {
                     Label("Open Shortcuts", systemImage: "square.2.layers.3d")
                 }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
                 .frame(maxWidth: 320, alignment: .leading)
                 .accessibilityIdentifier("capture.empty.openShortcuts")
             }
@@ -179,7 +179,7 @@ struct CaptureDraftView: View {
                 } label: {
                     Label(actionInFlight ? "Submitting import" : submitButtonTitle, systemImage: "tray.and.arrow.up")
                 }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+                .buttonStyle(.ouro(.solid, fullWidth: true))
                 .disabled(!draft.canCreateServerRecipe || actionInFlight || hasPendingImport)
                 Button {
                     Task { await discard(draft) }

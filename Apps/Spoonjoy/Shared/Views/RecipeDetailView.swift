@@ -1,6 +1,7 @@
 import Foundation
 import OuroHX
 import SpoonjoyCore
+import OuroHX
 import SwiftUI
 
 private enum RecipeDetailRouteState {
@@ -955,7 +956,7 @@ struct RecipeDetailView: View {
         } label: {
             Label("Cook", systemImage: "play.fill")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        .buttonStyle(.ouro(.solid, fullWidth: true))
         .accessibilityHint("Opens cook mode at this recipe's servings.")
         .accessibilityIdentifier("recipeDetail.cook")
 #if os(iOS)

@@ -275,7 +275,7 @@ enum ScreenshotAccessibilityProofWriter {
                 keyboardNavigationTargets: ["recipe primary actions", "recipe secondary menu", "inline serves control", "step ingredient rows", "duration cues"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
-                hierarchyAnchors: ["RecipeDetailView", "RecipeDetailHeroMedia", "RecipeDetailMasthead", "recipeIdentityAndProvenance", "recipeMastheadActions", "recipeMastheadLogCookAction", "recipeServesControl", "RecipeServesPopover", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepDurationCue", "RecipeStepChecklistRow", "SpoonCookLogView"],
+                hierarchyAnchors: ["RecipeDetailView", "RecipeDetailHeroMedia", "RecipeDetailMasthead", "recipeIdentityAndProvenance", "recipeMastheadActions", "recipeMastheadLogCookAction", "recipeServesControl", "RecipeServesPopover", "OuroButtonStyle", "stepsSection", "RecipeStepDurationCue", "RecipeStepChecklistRow", "SpoonCookLogView"],
                 declaredLayoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("cook-log", "SpoonCookLogView"):

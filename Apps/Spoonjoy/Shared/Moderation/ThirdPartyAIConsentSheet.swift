@@ -1,4 +1,5 @@
 import SpoonjoyCore
+import OuroHX
 import SwiftUI
 
 /// A feature that sends the person's content to an AI service, waiting for their consent.
@@ -62,7 +63,7 @@ struct ThirdPartyAIConsentSheet: View {
             } label: {
                 Text("Allow AI features").frame(maxWidth: .infinity)
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+            .buttonStyle(.ouro(.solid, fullWidth: true))
             .accessibilityIdentifier("aiConsent.allow")
             Button {
                 dismiss()
@@ -70,7 +71,7 @@ struct ThirdPartyAIConsentSheet: View {
             } label: {
                 Text("Not now").frame(maxWidth: .infinity)
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
             .accessibilityIdentifier("aiConsent.decline")
         }
         .padding(KitchenTableTheme.pagePadding)

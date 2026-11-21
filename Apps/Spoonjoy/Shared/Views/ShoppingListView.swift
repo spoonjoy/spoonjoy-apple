@@ -1,5 +1,6 @@
 import Foundation
 import SpoonjoyCore
+import OuroHX
 import SwiftUI
 
 struct ShoppingListView: View {
@@ -442,7 +443,7 @@ struct ShoppingListView: View {
         addItemControl {
             Label(Self.addItemLabel, systemImage: "plus.circle")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        .buttonStyle(.ouro(.solid, fullWidth: true))
     }
 
     private var compactAddItemButton: some View {
@@ -462,14 +463,14 @@ struct ShoppingListView: View {
         Button(action: openSearch) {
             Label("Add from recipe", systemImage: "book")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
     }
 
     private var createRecipeButton: some View {
         Button(action: createRecipe) {
             Label("Add a recipe", systemImage: "plus")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
         .accessibilityIdentifier("shopping.createRecipe")
     }
 
@@ -504,13 +505,13 @@ struct ShoppingListView: View {
             Button(action: openSearch) {
                 Label("Recipes", systemImage: "book")
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
             .accessibilityLabel("Add from recipe")
         } else if isAccessibilityLayout {
             Button(action: createRecipe) {
                 Label("Add a recipe", systemImage: "plus")
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
             .accessibilityIdentifier("shopping.createRecipe")
         } else if hasRecipes {
             addFromRecipeButton
@@ -898,7 +899,7 @@ private struct ShoppingReceiptStateView: View {
                 Button(action: clearChecked) {
                     Label(ShoppingReceiptAction.clearChecked.title, systemImage: "checkmark.circle")
                 }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
             }
         }
     }
