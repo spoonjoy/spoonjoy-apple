@@ -13,7 +13,9 @@ struct KitchenCheckMark: View {
     @ScaledMetric(relativeTo: .body) private var capHalf: CGFloat = 6
 
     var body: some View {
-        OuroCheckboxMark(isOn: isChecked)
+        // Read on the main actor: the alignment guide's closure is Sendable.
+        let capHalf = capHalf
+        return OuroCheckboxMark(isOn: isChecked)
             .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + capHalf }
             .accessibilityHidden(true)
     }
