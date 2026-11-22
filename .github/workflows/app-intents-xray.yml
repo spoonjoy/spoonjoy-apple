@@ -20,9 +20,10 @@ permissions:
 jobs:
   app-intents-xray-behaviour:
     # The X-ray's behaviour stage runs the app's intents and queries in an iOS 27.1 simulator with AppIntentsTesting.
-    # It needs the billed xcode-27 runner, so it runs only on main. Signed out and read-only: BootstrapDebug talks to
-    # production, so no refusal runs (no --disposable). Its report is evidence: it is a workflow of its own so it
-    # never holds up or fails Native, which TestFlight waits for.
+    # It needs the billed xcode-27 runner, so it runs only on main. The app is signed in as a disposable QA chef with a
+    # synthetic kitchen and talks only to the QA mirror, so the stage is --disposable: its queries have content to
+    # suggest, and refusal runs and import read-backs may write there. Its report is evidence: it is a workflow of its
+    # own so it never holds up or fails Native, which TestFlight waits for.
     name: App Intents X-ray (behaviour, main)
     runs-on: xcode-27
     # Lane c of 3: see the note on macOS lanes at the top of native.yml.
@@ -33,6 +34,11 @@ jobs:
         || 'spoonjoy-macos-lane-c2' }}
       queue: max
     timeout-minutes: 45
+    env:
+      SPOONJOY_QA_BASE_URL: https://spoonjoy-v2-qa.mendelow-studio.workers.dev
+      # The X-ray tooling, pinned on its own until a release carries the probe's --prepare and --app-env
+      # (ourostack/ouro-ui-apple#278); then it goes back to the Package.swift pin. The app's Ouro UI doesn't move.
+      XRAY_TOOLING_REVISION: 68041c31012e41a530cd512df1cdcb21fd380a09
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -47,16 +53,49 @@ jobs:
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
           xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -20
-          swift package resolve
-          swift build -c release --package-path .build/checkouts/ouro-ui-apple --product ouro-ax-xray
-      - name: X-ray behaviour stage (signed out)
+          git init -q "$RUNNER_TEMP/xray-tooling"
+          git -C "$RUNNER_TEMP/xray-tooling" fetch -q --depth 1 https://github.com/ourostack/ouro-ui-apple.git "$XRAY_TOOLING_REVISION"
+          git -C "$RUNNER_TEMP/xray-tooling" checkout -q FETCH_HEAD
+          swift build -c release --package-path "$RUNNER_TEMP/xray-tooling" --product ouro-ax-xray
+      - name: Create a disposable QA chef and its kitchen
         if: env.SPOONJOY_SUPERSEDED != 'true'
         run: |
           set -euo pipefail
-          cd .build/checkouts/ouro-ui-apple
+          scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 1 --out "$RUNNER_TEMP/xray-secrets/accounts.json"
+          scripts/xray-qa-kitchen.sh --accounts "$RUNNER_TEMP/xray-secrets/accounts.json" --vault "$RUNNER_TEMP/xray-secrets/debug-auth-session.json"
+      - name: X-ray behaviour stage (signed in to QA, disposable)
+        if: env.SPOONJOY_SUPERSEDED != 'true'
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/xray-tooling"
           XRAY="$PWD/.build/release/ouro-ax-xray" sh scripts/xray-probe.sh \
             --app "$RUNNER_TEMP/dd/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app" \
-            --out "$RUNNER_TEMP/xray-behaviour" --platform ios --runtime 27.1 --name Spoonjoy --commit "${GITHUB_SHA::7}"
+            --out "$RUNNER_TEMP/xray-behaviour" --platform ios --runtime 27.1 --name Spoonjoy --commit "${GITHUB_SHA::7}" \
+            --disposable --app-env "SPOONJOY_API_BASE_URL=$SPOONJOY_QA_BASE_URL" \
+            --prepare "sh '$GITHUB_WORKSPACE/scripts/xray-install-session.sh' '$RUNNER_TEMP/xray-secrets/debug-auth-session.json'"
+      - name: Rotate the QA chef's password
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
+        run: |
+          [ -s "$RUNNER_TEMP/xray-secrets/accounts.json" ] || exit 0
+          scripts/journey-qa-accounts.sh rotate --base-url "$SPOONJOY_QA_BASE_URL" --accounts "$RUNNER_TEMP/xray-secrets/accounts.json"
+      - name: Scan the report for the chef's password and token
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
+        run: |
+          set -euo pipefail
+          [ -s "$RUNNER_TEMP/xray-secrets/accounts.json" ] || exit 0
+          mkdir -p "$RUNNER_TEMP/xray-behaviour"
+          scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/xray-secrets/accounts.json" "$RUNNER_TEMP/xray-behaviour"
+          if [ -s "$RUNNER_TEMP/xray-secrets/debug-auth-session.json" ]; then
+            jq -j '.session.accessToken, "\n", .session.refreshToken' "$RUNNER_TEMP/xray-secrets/debug-auth-session.json" > "$RUNNER_TEMP/xray-secrets/tokens"
+            if grep -rqFf "$RUNNER_TEMP/xray-secrets/tokens" "$RUNNER_TEMP/xray-behaviour"; then
+              echo "::error::the X-ray report holds the QA chef's session token; it is not uploaded"
+              rm -rf "$RUNNER_TEMP/xray-behaviour"
+              exit 1
+            fi
+          fi
+      - name: Remove credentials
+        if: ${{ always() }}
+        run: rm -rf "$RUNNER_TEMP/xray-secrets"
       - name: Upload the behaviour report
         if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
