@@ -48,7 +48,7 @@ struct XrayExpectationTests {
     func fixedClaimsAreHeld() throws {
         let held = Set(try Self.expected().hold)
         for claim in ["intent.title", "intent.description", "intent.parameter-title", "intent.parameter-description", "entity.findable",
-                      "skill.bundle-shape", "skill.names", "skill.frontmatter", "skill.body"] {
+                      "skill.bundle-shape", "skill.names", "skill.frontmatter", "skill.body", "entity.properties", "entity.transferable"] {
             #expect(held.contains(claim), "\(claim) must be under hold")
         }
     }

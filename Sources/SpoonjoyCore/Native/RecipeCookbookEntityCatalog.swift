@@ -163,6 +163,10 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
     public let canonicalURL: URL
     public let imageURL: URL?
     public let transferValue: RecipeCookbookEntityTransferValue
+    /// What a person asks about a recipe beyond its title and chef; the App Entity exposes them as properties.
+    public let servings: String?
+    public let stepCount: Int
+    public let cookbookTitles: [String]
     public var isPlaceholder: Bool { id == Self.placeholder.id }
 
     public static let placeholder = RecipeEntityDescriptor(
@@ -222,7 +226,10 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
                 canonicalURL: canonicalURL,
                 imageURL: recipe.coverImageURL,
                 userVisibleSummary: "\(recipe.title) by \(recipe.chef.username)"
-            )
+            ),
+            servings: recipe.servings.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap { $0.isEmpty ? nil : $0 },
+            stepCount: recipe.steps.count,
+            cookbookTitles: recipe.cookbooks.map(\.title)
         )
         _ = NativeSharePayload.publicRoute(route)
     }
@@ -238,7 +245,10 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
         route: AppRoute,
         canonicalURL: URL,
         imageURL: URL?,
-        transferValue: RecipeCookbookEntityTransferValue
+        transferValue: RecipeCookbookEntityTransferValue,
+        servings: String? = nil,
+        stepCount: Int = 0,
+        cookbookTitles: [String] = []
     ) {
         self.id = id
         self.entityIdentifier = entityIdentifier ?? id
@@ -251,6 +261,9 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
         self.canonicalURL = canonicalURL
         self.imageURL = imageURL
         self.transferValue = transferValue
+        self.servings = servings
+        self.stepCount = stepCount
+        self.cookbookTitles = cookbookTitles
     }
 
     private static func recipeSubtitle(chefUsername: String, servings: String?) -> String {

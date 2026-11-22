@@ -3,6 +3,7 @@ import SpoonjoyCore
 
 #if canImport(AppIntents)
 import AppIntents
+import UniformTypeIdentifiers
 import CoreSpotlight
 import CoreTransferable
 
@@ -13,18 +14,55 @@ struct SpoonjoySpoonEntity: AppEntity, IndexedEntity, Transferable {
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Cook Log")
     static let defaultQuery = SpoonjoySpoonEntityQuery()
 
+    // Only the app needs the descriptor's ids, route and photo URL, so they stay plain members, hidden from Siri.
     let descriptor: SpoonEntityDescriptor
 
+    // What a person asks about a cook log. Descriptions need the Siri AI SDK (27.3), behind ouro-ui-apple's fence.
+    #if OURO_SIRI_AI_SDK || canImport(AppIntents, _version: 301.2)
+    @Property(title: "Recipe", description: "The recipe that was cooked.")
+    var recipe: String
+    @Property(title: "Chef", description: "The username of the chef who cooked it.")
+    var chef: String
+    @Property(title: "Cooked", description: "When it was cooked.")
+    var cooked: Date?
+    @Property(title: "Note", description: "What the cook wrote about how it went.")
+    var note: String?
+    @Property(title: "Next time", description: "What the cook wants to change next time.")
+    var nextTime: String?
+    @Property(title: "Link", description: "The cooked recipe's page on spoonjoy.app.")
+    var link: URL
+    #else
+    @Property(title: "Recipe")
+    var recipe: String
+    @Property(title: "Chef")
+    var chef: String
+    @Property(title: "Cooked")
+    var cooked: Date?
+    @Property(title: "Note")
+    var note: String?
+    @Property(title: "Next time")
+    var nextTime: String?
+    @Property(title: "Link")
+    var link: URL
+    #endif
+
     var id: String { descriptor.id }
+    var shareText: String { "\(descriptor.transferValue.userVisibleSummary)\n\(link.absoluteString)" }
     var transferValue: SpoonEntityTransferValue { descriptor.transferValue }
     var deepLinkURL: URL { DeepLinkURLBuilder.url(for: descriptor.route) }
 
     init() {
-        descriptor = .placeholder
+        self.init(descriptor: .placeholder)
     }
 
     init(descriptor: SpoonEntityDescriptor) {
         self.descriptor = descriptor
+        recipe = descriptor.recipeTitle
+        chef = descriptor.chefUsername
+        cooked = descriptor.cookedDate
+        note = descriptor.note
+        nextTime = descriptor.nextTime
+        link = NativeEntityWebLink.url(for: descriptor.route)
     }
 
     var displayRepresentation: DisplayRepresentation {
@@ -48,8 +86,11 @@ struct SpoonjoySpoonEntity: AppEntity, IndexedEntity, Transferable {
         return attributes
     }
 
+    // Spelled inline with a literal content type: Xcode 27.1's App Intents metadata recorded no content type for the
+    // ProxyRepresentation this replaced, so Siri saw the entity as not Transferable.
     static var transferRepresentation: some TransferRepresentation {
-        ProxyRepresentation(exporting: \.descriptor.transferValue.userVisibleSummary)
+        DataRepresentation(exportedContentType: .utf8PlainText) { entity in Data(entity.shareText.utf8) }
+        ProxyRepresentation(exporting: \.link)
     }
 
     func resolvedSpoonID() throws -> String {

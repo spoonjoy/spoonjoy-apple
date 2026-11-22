@@ -3,27 +3,51 @@ import SpoonjoyCore
 
 #if canImport(AppIntents)
 import AppIntents
+import CoreTransferable
+import UniformTypeIdentifiers
 
 private let spoonjoySettingsAuthProviderOptionContract = "struct SpoonjoySettingsAuthProviderOption: AppEnum"
 
 @available(iOS 27.0, macOS 27.0, *)
-struct SpoonjoyAPITokenEntity: AppEntity {
+struct SpoonjoyAPITokenEntity: AppEntity, Transferable {
     typealias DefaultQuery = SpoonjoyAPITokenEntityQuery
 
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Access Key")
     static let defaultQuery = SpoonjoyAPITokenEntityQuery()
 
+    // Only the app needs the descriptor's ids, credential id and key prefix, so they stay plain members, hidden from Siri.
     let descriptor: APITokenEntityDescriptor
 
+    // What a person asks about an access key. Descriptions need the Siri AI SDK (27.3), behind ouro-ui-apple's fence.
+    #if OURO_SIRI_AI_SDK || canImport(AppIntents, _version: 301.2)
+    @Property(title: "Name", description: "The name given to the access key when it was made.")
+    var name: String
+    @Property(title: "Permissions", description: "What the access key lets an agent do, such as read recipes.")
+    var scopes: [String]
+    @Property(title: "Link", description: "The settings page on spoonjoy.app where access keys are managed.")
+    var link: URL
+    #else
+    @Property(title: "Name")
+    var name: String
+    @Property(title: "Permissions")
+    var scopes: [String]
+    @Property(title: "Link")
+    var link: URL
+    #endif
+
     var id: String { descriptor.id }
+    var shareText: String { "Spoonjoy access key \(descriptor.name)\n\(link.absoluteString)" }
     var tokenPrefix: String { descriptor.tokenPrefix }
 
     init() {
-        descriptor = .placeholder
+        self.init(descriptor: .placeholder)
     }
 
     init(descriptor: APITokenEntityDescriptor) {
         self.descriptor = descriptor
+        name = descriptor.name
+        scopes = descriptor.scopes
+        link = NativeEntityWebLink.url(for: descriptor.route)
     }
 
     var displayRepresentation: DisplayRepresentation {
@@ -31,6 +55,13 @@ struct SpoonjoyAPITokenEntity: AppEntity {
             title: "\(descriptor.name)",
             subtitle: "\(descriptor.subtitle)"
         )
+    }
+
+    // Carries the name and the settings page only: never the key or a token, which must not leave the app.
+    // Spelled inline with a literal content type, which Xcode 27.1's App Intents metadata records.
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .utf8PlainText) { entity in Data(entity.shareText.utf8) }
+        ProxyRepresentation(exporting: \.link)
     }
 
     func resolvedCredentialID() throws -> String {
@@ -81,22 +112,49 @@ struct SpoonjoyAPITokenEntityQuery: EntityQuery, EntityStringQuery {
 }
 
 @available(iOS 27.0, macOS 27.0, *)
-struct SpoonjoyAccountConnectionEntity: AppEntity {
+struct SpoonjoyAccountConnectionEntity: AppEntity, Transferable {
     typealias DefaultQuery = SpoonjoyAccountConnectionEntityQuery
 
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Account Connection")
     static let defaultQuery = SpoonjoyAccountConnectionEntityQuery()
 
+    // Only the app needs the descriptor's ids and connection id, so they stay plain members, hidden from Siri.
     let descriptor: AccountConnectionEntityDescriptor
 
+    // What a person asks about an account connection. Descriptions need the Siri AI SDK (27.3), behind ouro-ui-apple's fence.
+    #if OURO_SIRI_AI_SDK || canImport(AppIntents, _version: 301.2)
+    @Property(title: "App", description: "The app or agent connected to the Spoonjoy account.")
+    var app: String
+    @Property(title: "Resource", description: "What the connection was granted access to, when it names one.")
+    var resource: String?
+    @Property(title: "Permissions", description: "What the connection lets the app do, such as read recipes.")
+    var scopes: [String]
+    @Property(title: "Link", description: "The settings page on spoonjoy.app where connections are managed.")
+    var link: URL
+    #else
+    @Property(title: "App")
+    var app: String
+    @Property(title: "Resource")
+    var resource: String?
+    @Property(title: "Permissions")
+    var scopes: [String]
+    @Property(title: "Link")
+    var link: URL
+    #endif
+
     var id: String { descriptor.id }
+    var shareText: String { "Spoonjoy connection \(descriptor.clientName)\n\(link.absoluteString)" }
 
     init() {
-        descriptor = .placeholder
+        self.init(descriptor: .placeholder)
     }
 
     init(descriptor: AccountConnectionEntityDescriptor) {
         self.descriptor = descriptor
+        app = descriptor.clientName
+        resource = descriptor.resource
+        scopes = descriptor.scopes
+        link = NativeEntityWebLink.url(for: descriptor.route)
     }
 
     var displayRepresentation: DisplayRepresentation {
@@ -104,6 +162,13 @@ struct SpoonjoyAccountConnectionEntity: AppEntity {
             title: "\(descriptor.clientName)",
             subtitle: "\(descriptor.subtitle)"
         )
+    }
+
+    // Carries the name and the settings page only: never the key or a token, which must not leave the app.
+    // Spelled inline with a literal content type, which Xcode 27.1's App Intents metadata records.
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .utf8PlainText) { entity in Data(entity.shareText.utf8) }
+        ProxyRepresentation(exporting: \.link)
     }
 
     func resolvedConnectionID() throws -> String {

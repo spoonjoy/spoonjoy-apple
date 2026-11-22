@@ -3,6 +3,7 @@ import SpoonjoyCore
 
 #if canImport(AppIntents)
 import AppIntents
+import UniformTypeIdentifiers
 import CoreSpotlight
 import CoreTransferable
 
@@ -13,18 +14,40 @@ struct SpoonjoyShoppingListEntity: AppEntity, IndexedEntity, Transferable {
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Shopping List")
     static let defaultQuery = SpoonjoyShoppingListEntityQuery()
 
+    // Only the app needs the descriptor's ids and route, so they stay plain members, hidden from Siri.
     let descriptor: ShoppingListEntityDescriptor
 
+    // What a person asks about a shopping list. Descriptions need the Siri AI SDK (27.3), behind ouro-ui-apple's fence.
+    #if OURO_SIRI_AI_SDK || canImport(AppIntents, _version: 301.2)
+    @Property(title: "Title", description: "The shopping list's name.")
+    var title: String
+    @Property(title: "Items to buy", description: "How many items on the list aren't checked off yet.")
+    var activeItemCount: Int
+    @Property(title: "Link", description: "The shopping list's page on spoonjoy.app, which only its owner can open.")
+    var link: URL
+    #else
+    @Property(title: "Title")
+    var title: String
+    @Property(title: "Items to buy")
+    var activeItemCount: Int
+    @Property(title: "Link")
+    var link: URL
+    #endif
+
     var id: String { descriptor.id }
+    var shareText: String { "\(descriptor.transferValue.userVisibleSummary)\n\(link.absoluteString)" }
     var transferValue: ShoppingEntityTransferValue { descriptor.transferValue }
     var deepLinkURL: URL { DeepLinkURLBuilder.url(for: descriptor.route) }
 
     init() {
-        descriptor = .placeholder
+        self.init(descriptor: .placeholder)
     }
 
     init(descriptor: ShoppingListEntityDescriptor) {
         self.descriptor = descriptor
+        title = descriptor.title
+        activeItemCount = descriptor.activeItemCount
+        link = NativeEntityWebLink.url(for: descriptor.route)
     }
 
     var displayRepresentation: DisplayRepresentation {
@@ -47,8 +70,11 @@ struct SpoonjoyShoppingListEntity: AppEntity, IndexedEntity, Transferable {
         return attributes
     }
 
+    // Spelled inline with a literal content type: Xcode 27.1's App Intents metadata recorded no content type for the
+    // ProxyRepresentation this replaced, so Siri saw the entity as not Transferable.
     static var transferRepresentation: some TransferRepresentation {
-        ProxyRepresentation(exporting: \.descriptor.transferValue.userVisibleSummary)
+        DataRepresentation(exportedContentType: .utf8PlainText) { entity in Data(entity.shareText.utf8) }
+        ProxyRepresentation(exporting: \.link)
     }
 }
 
@@ -59,18 +85,45 @@ struct SpoonjoyShoppingItemEntity: AppEntity, IndexedEntity, Transferable {
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Shopping Item")
     static let defaultQuery = SpoonjoyShoppingItemEntityQuery()
 
+    // Only the app needs the descriptor's ids and route, so they stay plain members, hidden from Siri.
     let descriptor: ShoppingItemEntityDescriptor
 
+    // What a person asks about a shopping item. Descriptions need the Siri AI SDK (27.3), behind ouro-ui-apple's fence.
+    #if OURO_SIRI_AI_SDK || canImport(AppIntents, _version: 301.2)
+    @Property(title: "Name", description: "The item to buy, such as eggs or flour.")
+    var name: String
+    @Property(title: "Amount", description: "How much to buy, such as 2 cups.")
+    var amount: String
+    @Property(title: "Checked", description: "Whether the item is checked off the list.")
+    var checked: Bool
+    @Property(title: "Link", description: "The shopping list's page on spoonjoy.app, which only its owner can open.")
+    var link: URL
+    #else
+    @Property(title: "Name")
+    var name: String
+    @Property(title: "Amount")
+    var amount: String
+    @Property(title: "Checked")
+    var checked: Bool
+    @Property(title: "Link")
+    var link: URL
+    #endif
+
     var id: String { descriptor.id }
+    var shareText: String { "\(descriptor.transferValue.userVisibleSummary)\n\(link.absoluteString)" }
     var transferValue: ShoppingEntityTransferValue { descriptor.transferValue }
     var deepLinkURL: URL { DeepLinkURLBuilder.url(for: descriptor.route) }
 
     init() {
-        descriptor = .placeholder
+        self.init(descriptor: .placeholder)
     }
 
     init(descriptor: ShoppingItemEntityDescriptor) {
         self.descriptor = descriptor
+        name = descriptor.title
+        amount = descriptor.subtitle
+        checked = descriptor.checked
+        link = NativeEntityWebLink.url(for: descriptor.route)
     }
 
     var displayRepresentation: DisplayRepresentation {
@@ -93,8 +146,11 @@ struct SpoonjoyShoppingItemEntity: AppEntity, IndexedEntity, Transferable {
         return attributes
     }
 
+    // Spelled inline with a literal content type: Xcode 27.1's App Intents metadata recorded no content type for the
+    // ProxyRepresentation this replaced, so Siri saw the entity as not Transferable.
     static var transferRepresentation: some TransferRepresentation {
-        ProxyRepresentation(exporting: \.descriptor.transferValue.userVisibleSummary)
+        DataRepresentation(exportedContentType: .utf8PlainText) { entity in Data(entity.shareText.utf8) }
+        ProxyRepresentation(exporting: \.link)
     }
 
     func resolvedShoppingItemID() throws -> String {
