@@ -127,15 +127,20 @@ struct KitchenComponentParityTests {
         }
     }
 
-    @Test("a long chef handle breaks between its words, at most two lines, then truncates in the middle")
+    @Test("a long chef handle breaks between its words: two lines then a middle cut, or at the accessibility sizes whole words that scale")
     func longHandleBreaksAtWords() throws {
         let header = try Self.declaration("struct KitchenTableHeader", in: "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift")
         #expect(header.contains("let titleIsHandle: Bool"))
-        #expect(header.contains("Text(titleIsHandle ? ChefHandle.breakingAtWords(title) : title)"))
+        #expect(header.contains("WholeWordText(title, isHandle: titleIsHandle)"))
         #expect(!header.contains("ChefHandle.breakingAnywhere"), "A title handle never breaks mid-word.")
+        let wholeWords = try Self.declaration("struct WholeWordText", in: "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift")
+        #expect(wholeWords.contains("plainText = ChefHandle.breakingAtWords(text)"), "Below the accessibility sizes the handle is plain text.")
+        #expect(wholeWords.contains("words = ChefHandle.words(text)"), "At the accessibility sizes it wraps whole words.")
+        #expect(wholeWords.contains(".minimumScaleFactor(minimumScaleFactor)"), "A word too wide for its line scales down whole.")
+        #expect(!wholeWords.contains("truncationMode"))
         // VoiceOver reads the whole handle, not the break points or the ellipsis.
         #expect(header.contains(".accessibilityLabel(titleIsHandle ? \"@\\(title)\" : title)"))
-        #expect(!header.contains("minimumScaleFactor"), "The handle keeps the title size.")
+        #expect(!header.contains("minimumScaleFactor"), "Below the accessibility sizes the handle keeps the title size.")
         #expect(header.contains(".lineLimit(titleIsHandle ? 2 : 3)"))
         #expect(header.contains(".truncationMode(titleIsHandle ? .middle : .tail)"), "Past two lines the handle keeps its start and end.")
 

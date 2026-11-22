@@ -14,6 +14,33 @@ public enum ChefHandle {
         "@" + username.map { "_.-".contains($0) ? "\($0)\u{200B}" : String($0) }.joined()
     }
 
+    /// The handle as a page title's words at the accessibility text sizes: "@" and the handle, cut after its
+    /// separators ("_", ".", "-"). A piece of one or two characters stays with the piece before it, so no line holds
+    /// a lone "1". A word too wide for its line is scaled down whole rather than broken.
+    public static func words(_ username: String) -> [String] {
+        var pieces: [String] = []
+        var current = "@"
+        for character in username {
+            current.append(character)
+            if "_.-".contains(character) {
+                pieces.append(current)
+                current = ""
+            }
+        }
+        if !current.isEmpty || pieces.isEmpty {
+            pieces.append(current)
+        }
+        var words: [String] = []
+        for piece in pieces {
+            if let last = words.last, piece.count < 3 {
+                words[words.count - 1] = last + piece
+            } else {
+                words.append(piece)
+            }
+        }
+        return words
+    }
+
     /// The handle as it reads in a byline ("by maya"): no "@", breakable between any two characters.
     /// VoiceOver should be given the plain handle, not this text.
     public static func wrapping(_ username: String) -> String {
