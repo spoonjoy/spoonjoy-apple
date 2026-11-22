@@ -1693,20 +1693,21 @@ extension RecipeDetailView {
 
     @ViewBuilder private func spreadIngredientList(index: RecipeSpreadIngredientIndex) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            // The heading and Clear progress share a line while they fit; at the largest sizes in the narrow
-            // ingredient column Clear progress drops under the heading, which as one word scales down on its line
-            // rather than breaking into "Ingredie / nts".
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    spreadIngredientHeading
-                    Spacer(minLength: 0)
-                    stepsClearProgress
-                }
+            // The heading and Clear progress share a line; at the accessibility sizes, in the narrow ingredient
+            // column, Clear progress drops under the heading, which as one word scales down on its line rather than
+            // breaking into "Ingredie / nts".
+            if dynamicTypeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 4) {
                     spreadIngredientHeading
                     if hasRecipeProgress {
                         stepsClearProgress
                     }
+                }
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    spreadIngredientHeading
+                    Spacer(minLength: 0)
+                    stepsClearProgress
                 }
             }
             Text(index.isEmpty ? "No ingredients added yet" : "Grouped by the step that uses them")
