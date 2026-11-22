@@ -27,7 +27,7 @@ public enum ChefHandle {
                 current = ""
             }
         }
-        if !current.isEmpty || pieces.isEmpty {
+        if !current.isEmpty {
             pieces.append(current)
         }
         var words: [String] = []
