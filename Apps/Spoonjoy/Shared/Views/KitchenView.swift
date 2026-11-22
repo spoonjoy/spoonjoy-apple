@@ -344,7 +344,7 @@ struct KitchenIdentityLine: View {
                         .strokeBorder(KitchenTableTheme.hairline, lineWidth: 1)
                 )
                 .accessibilityHidden(true)
-            Text(ChefHandle.breakingAnywhere(chef.username))
+            WholeWordText(chef.username, isHandle: true)
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.brass)
                 .fixedSize(horizontal: false, vertical: true)
@@ -486,12 +486,12 @@ struct RecipeLead: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             if let meta {
-                Text(meta)
+                // The handle breaks after its separators, never inside a word.
+                WholeWordText(line: meta)
                     .font(KitchenTableTheme.meta)
                     .foregroundStyle(KitchenTableTheme.onPhotoMuted)
                     .fixedSize(horizontal: false, vertical: true)
-                    // The handle's break points are for layout; VoiceOver reads the plain text.
-                    .accessibilityLabel(meta.replacingOccurrences(of: "\u{200B}", with: ""))
+                    .accessibilityLabel(meta)
             }
         }
         .frame(maxWidth: 640, alignment: .leading)
@@ -502,7 +502,7 @@ struct RecipeLead: View {
         let parts = [
             RecipeCookTime.label(stepDurations: recipe.steps.map(\.duration)),
             RecipeServingsLabel.label(recipe.servings),
-            "by \(ChefHandle.wrapping(recipe.chef.username))"
+            "by \(recipe.chef.username)"
         ]
         .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }

@@ -664,9 +664,10 @@ struct RecipeDetailView: View {
             HStack(spacing: 10) {
                 ChefAvatar(url: chef.photoURL, name: chef.displayName)
                     .frame(width: bylineAvatarSize, height: bylineAvatarSize)
-                // A long handle wraps anywhere, as web's does, instead of ending in an ellipsis.
-                Text("\(Text("By ").foregroundStyle(KitchenTableTheme.ink2))\(Text(ChefHandle.wrapping(chef.displayName)).foregroundStyle(KitchenTableTheme.ink).bold())")
+                // A long handle wraps after its separators instead of ending in an ellipsis, never inside a word.
+                WholeWordText(line: chef.displayName, lead: "By", leadColor: KitchenTableTheme.ink2)
                     .font(KitchenTableTheme.uiLabel.weight(.semibold))
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
