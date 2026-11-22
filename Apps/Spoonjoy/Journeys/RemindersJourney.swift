@@ -45,7 +45,11 @@ final class RemindersJourney: JourneyTestCase {
         journey.tap(JourneyID.recipeDetailRemindersSend)
         journey.allowRemindersAccessIfAsked()
         journey.attachScreenshot(named: "02-choose-list", to: self)
-        journey.enterText("Journey \(token) Groceries", into: JourneyID.remindersNewListName)
+        // The list's name must not contain "grocer". With no list remembered, a send goes straight to any list named
+        // like Groceries (ReminderListSummary.preferredDefault), and the simulator's Reminders outlive the app's reset.
+        // So a retry on the same simulator found this journey's own earlier list, sent to it, and never showed the
+        // picker (#429, Journeys 44952749169).
+        journey.enterText("Journey \(token) Picnic", into: JourneyID.remindersNewListName)
         journey.tap(JourneyID.remindersCreateList)
         // OS: the send reached EventKit and reported back.
         XCTAssertTrue(
