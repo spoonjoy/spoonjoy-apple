@@ -1,5 +1,5 @@
 ---
-testflight: Buttons, menus, sheets and checkboxes come from Ouro UI for Apple v1.7.0. Press a button: it dips and springs back with no bounce, as on the website.
+testflight: Buttons, menus and sheets now come from Ouro UI for Apple v1.8.0. Check they look as in the last build.
 platforms: [ios, mac]
 order: 90
 ---
