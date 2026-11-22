@@ -165,6 +165,11 @@ public struct ProfileCookbookSummary: Codable, Equatable, Sendable {
         .cookbookDetail(id: id)
     }
 
+    /// The row's photo on a chef's page, as web picks it: the first of its recipes that has a cover.
+    public var coverImageURL: URL? {
+        recipePreviews.lazy.compactMap(\.coverImageURL).first
+    }
+
     public init(
         id: String,
         title: String,

@@ -399,6 +399,8 @@ struct ProfileChefGraphSurfaceTests {
         #expect(profile.cookbooks.first?.openRoute == .cookbookDetail(id: "cookbook_profile_weeknights"))
         #expect(profile.cookbooks.first?.recipePreviews.first?.openRoute == .recipeDetail(id: "recipe_profile_tart", presentation: .detail))
         #expect(pluralCookbook.recipeCountLabel == "2 recipes")
+        #expect(pluralCookbook.coverImageURL == nil)
+        #expect(profile.cookbooks.first?.coverImageURL == URL(string: "https://spoonjoy.app/photos/profile-tart-editorial.jpg"))
         #expect(zeroInteractionRow.id == "chef_quiet")
         #expect(zeroInteractionRow.interactionSummary == "No interactions yet")
         #expect(ProfileGraphPage.emptyState(for: .kitchenVisitors) == ProfileSurfaceEmptyState(
