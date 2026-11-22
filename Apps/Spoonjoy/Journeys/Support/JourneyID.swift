@@ -18,6 +18,9 @@ enum JourneyID {
     /// The Kitchen root's account button, which opens Settings.
     static let kitchenAccount = "kitchen.account"
 
+    /// The chef page's Kitchen visitors figure, the last of its three.
+    static let profileKitchenVisitors = "profile.figure.kitchenVisitors"
+
     static let kitchenRoot = "kitchen.root"
     /// The hero a kitchen with no recipes and no cookbooks leads with, and its Add a recipe button.
     static let kitchenEmptyHero = "kitchen.emptyHero"

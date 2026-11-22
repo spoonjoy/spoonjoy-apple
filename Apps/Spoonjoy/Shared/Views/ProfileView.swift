@@ -224,8 +224,10 @@ private struct ProfileFigures: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
+        // At the accessibility sizes the figures stack with no gap: each chef count is already a 44-point target, so
+        // the three still read apart, and all of them rest above the iPhone's tab bar before the page scrolls.
         let layout = dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 14))
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0))
             : AnyLayout(HStackLayout(alignment: .top, spacing: 28))
         layout {
             ProfileFigure(count: recipeCount, label: recipeCount == 1 ? "recipe" : "recipes")
@@ -244,13 +246,15 @@ private struct ProfileFigure: View {
 
     var body: some View {
         // At the accessibility sizes the label sits beside its number, so the three figures take three lines rather
-        // than six and the page reaches its shelves sooner above the tab bar.
-        let layout = dynamicTypeSize.isAccessibilitySize
+        // than six and the page reaches its shelves sooner above the tab bar. The number then takes the label's size,
+        // in bold: beside its word, the title size only made each line taller.
+        let accessible = dynamicTypeSize.isAccessibilitySize
+        let layout = accessible
             ? AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 10))
             : AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
         layout {
             Text("\(count)")
-                .font(KitchenTableTheme.recipeTitle.monospacedDigit())
+                .font((accessible ? KitchenTableTheme.meta.weight(.semibold) : KitchenTableTheme.recipeTitle).monospacedDigit())
                 .foregroundStyle(KitchenTableTheme.ink)
             Text(label)
                 .font(KitchenTableTheme.meta)
@@ -410,6 +414,7 @@ private struct KitchenVisitorsSection: View {
             link: link,
             openRoute: openRoute
         )
+        .accessibilityIdentifier("profile.figure.kitchenVisitors")
     }
 }
 
