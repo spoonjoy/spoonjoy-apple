@@ -6,6 +6,13 @@ import XCTest
 /// SpoonjoyParityJourneys, which the Parity capture job runs on each device with an account of its own.
 @MainActor
 final class ParityJourneys: JourneyTestCase {
+    /// The iPad capture takes 8 to 10 minutes on a passing run, so it gets 20, as journeys.yml allows. Set here because
+    /// the base class's 600 overrides the command line's default allowance (#437).
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        executionTimeAllowance = 1200
+    }
+
     func testParityScreensJourney() async throws {
         let account = try JourneyAccounts.account(1)
         // Every shot starts upright; on the iPad, ParityCapture turns it on its side for the landscape shot and back.
