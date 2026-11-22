@@ -12,12 +12,11 @@
     "skill.bundle-shape",
     "skill.names",
     "skill.frontmatter",
-    "skill.body"
+    "skill.body",
+    "entity.properties",
+    "entity.transferable"
   ],
-  "failing": {
-    "entity.properties": "no entity exposes @Property values yet; adding them (with descriptions behind the 27.3 SDK fence) is the Siri AI pull request's work",
-    "entity.transferable": "7 of 10: access keys and account connections are deliberately not Transferable (they would carry credentials out of the app), and the cooking step, which lives only while cook mode is open, isn't yet"
-  },
+  "failing": {},
   "open": {
     "intent.tool": "needs the Xcode 27.3 SDK: earlier metadata cannot mark tool intents. The tools are marked behind the 27.3 fence in Apps/Spoonjoy/Shared/Native/SpoonjoySiriToolIntents.swift, which no CI image can compile yet",
     "intent.error-names-fix": "behaviour stage, refusal runs: only against a disposable device and backend (--disposable), and BootstrapDebug talks to production",
@@ -25,8 +24,8 @@
     "intent.reads-in-shortcuts": "a person: read each intent's summary in the Shortcuts action library",
     "intent.siri-calls": "SiriEvaluations: needs a 27.3 OS on an Apple Intelligence device",
     "intent.siri-says-what-happened": "SiriEvaluations: needs a 27.3 OS on an Apple Intelligence device",
-    "entity.property-description": "needs entity properties first (see entity.properties), then the Xcode 27.3 SDK",
-    "entity.private-properties": "a person: review each property once entities expose them",
+    "entity.property-description": "needs the Xcode 27.3 SDK: earlier metadata carries no property descriptions. Every entity property has one behind the 27.3 fence",
+    "entity.private-properties": "a person: check that no property says more than its owner would share; ids, routes, credential ids and key prefixes are left out on purpose",
     "entity.indexed": "behaviour stage: the main-only App Intents behaviour job (iOS 27.1 simulator, signed out, so there is nothing to index)",
     "entity.ids-resolve": "behaviour stage: the main-only App Intents behaviour job; signed out, there is nothing to look up",
     "entity.transfer-round-trip": "behaviour stage: the main-only App Intents behaviour job",

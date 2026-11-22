@@ -9,6 +9,18 @@ public enum CaptureDraftSource: String, Codable, Equatable, Sendable {
     case shareSheetURL = "share-sheet-url"
     case jsonLD = "json-ld"
     case videoURL = "video-url"
+
+    /// Where the draft came from, in the words a person would use.
+    public var label: String {
+        switch self {
+        case .text: "Text"
+        case .url, .jsonLD: "Web page"
+        case .shareSheetURL: "Shared link"
+        case .image, .photoLibraryImage: "Photo"
+        case .cameraImage: "Camera"
+        case .videoURL: "Video"
+        }
+    }
 }
 
 public enum CaptureDraftStatus: String, Codable, Equatable, Sendable {

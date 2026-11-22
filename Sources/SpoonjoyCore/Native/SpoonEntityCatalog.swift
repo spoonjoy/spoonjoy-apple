@@ -80,6 +80,16 @@ public struct SpoonEntityDescriptor: Equatable, Sendable {
     public let transferValue: SpoonEntityTransferValue
     public var isPlaceholder: Bool { id == Self.placeholder.id }
 
+    /// When the cook happened, read from the server's ISO 8601 timestamp; nil when it has none or can't be read.
+    public var cookedDate: Date? {
+        guard let cookedAt = cookedAt?.trimmingCharacters(in: .whitespacesAndNewlines), !cookedAt.isEmpty else {
+            return nil
+        }
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return withFraction.date(from: cookedAt) ?? ISO8601DateFormatter().date(from: cookedAt)
+    }
+
     public static let placeholder = SpoonEntityDescriptor(
         id: "spoon-placeholder",
         spoonID: "spoon-placeholder",

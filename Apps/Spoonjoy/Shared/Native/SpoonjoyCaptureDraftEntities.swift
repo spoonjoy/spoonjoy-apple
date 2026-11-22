@@ -3,6 +3,7 @@ import SpoonjoyCore
 
 #if canImport(AppIntents)
 import AppIntents
+import UniformTypeIdentifiers
 import CoreSpotlight
 import CoreTransferable
 
@@ -13,18 +14,40 @@ struct SpoonjoyCaptureDraftEntity: AppEntity, IndexedEntity, Transferable {
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Capture Draft")
     static let defaultQuery = SpoonjoyCaptureDraftEntityQuery()
 
+    // Only the app needs the descriptor's ids, route and the draft's contents, so they stay plain members, hidden from Siri.
     let descriptor: CaptureDraftEntityDescriptor
 
+    // What a person asks about a capture draft. Descriptions need the Siri AI SDK (27.3), behind ouro-ui-apple's fence.
+    #if OURO_SIRI_AI_SDK || canImport(AppIntents, _version: 301.2)
+    @Property(title: "Title", description: "The draft's working title.")
+    var title: String
+    @Property(title: "Source", description: "Where the draft came from, such as a photo, a web page or text.")
+    var source: String
+    @Property(title: "Ready to import", description: "Whether the draft can be turned into a recipe now, without reading text from a photo first.")
+    var readyToImport: Bool
+    #else
+    @Property(title: "Title")
+    var title: String
+    @Property(title: "Source")
+    var source: String
+    @Property(title: "Ready to import")
+    var readyToImport: Bool
+    #endif
+
     var id: String { descriptor.id }
+    var shareText: String { descriptor.transferValue.userVisibleSummary }
     var transferValue: CaptureDraftEntityTransferValue { descriptor.transferValue }
     var deepLinkURL: URL { DeepLinkURLBuilder.url(for: descriptor.route) }
 
     init() {
-        descriptor = .placeholder
+        self.init(descriptor: .placeholder)
     }
 
     init(descriptor: CaptureDraftEntityDescriptor) {
         self.descriptor = descriptor
+        title = descriptor.title
+        source = descriptor.source.label
+        readyToImport = descriptor.importReadiness == .ready
     }
 
     var displayRepresentation: DisplayRepresentation {
@@ -48,8 +71,11 @@ struct SpoonjoyCaptureDraftEntity: AppEntity, IndexedEntity, Transferable {
         return attributes
     }
 
+    // Spelled inline with a literal content type: Xcode 27.1's App Intents metadata recorded no content type for the
+    // ProxyRepresentation this replaced, so Siri saw the entity as not Transferable. A draft lives only on this device, so
+    // it has no spoonjoy.app link to carry.
     static var transferRepresentation: some TransferRepresentation {
-        ProxyRepresentation(exporting: \.descriptor.transferValue.userVisibleSummary)
+        DataRepresentation(exportedContentType: .utf8PlainText) { entity in Data(entity.shareText.utf8) }
     }
 
     func resolvedCaptureDraftID() throws -> String {
