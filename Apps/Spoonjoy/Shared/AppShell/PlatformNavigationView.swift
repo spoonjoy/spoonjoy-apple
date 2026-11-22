@@ -47,6 +47,9 @@ struct PlatformNavigationView: View {
     /// at launch or brought back by a link is simply there.
     @State private var cookOpenRequestedAt: Date?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// At the accessibility sizes a large bar title ends in "…" ("Cookbo…"), so the bar's title goes inline and the
+    /// page's own heading, which wraps, carries the title.
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 #endif
     @State private var pendingCoverUploads: [String: PendingRecipeCoverUpload] = [:]
     @State private var isRetryingCoverUpload = false
@@ -593,7 +596,7 @@ struct PlatformNavigationView: View {
 #if os(iOS)
                     // The Kitchen's own header and a recipe's photo lead their pages, so their bar stays inline and quiet.
                     // Cook mode opens with its own step header, as on the phone.
-                    .navigationBarTitleDisplayMode(routeLeadsWithPhoto(navigation.route) || routeIsCookMode(navigation.route) ? .inline : .large)
+                    .navigationBarTitleDisplayMode(routeLeadsWithPhoto(navigation.route) || routeIsCookMode(navigation.route) || dynamicTypeSize.isAccessibilitySize ? .inline : .large)
                     .toolbar(hidesNavigationBar ? .hidden : .automatic, for: .navigationBar)
 #endif
                     // Must stay inside this NavigationStack's closure: chained onto the NavigationStack value itself,
@@ -724,7 +727,10 @@ struct PlatformNavigationView: View {
 #if os(iOS)
             // Every root but the Kitchen opens on its large display title, as web's pages do; it collapses inline as
             // the list scrolls. The kitchen sets its own "My Kitchen" header, so the bar's title stays out of the way.
-            .navigationBarTitleDisplayMode(tab == .kitchen ? .inline : .large)
+            // At the accessibility sizes a large title can't fit ("Cookbo…"), so every root's bar goes quiet and the
+            // page's own heading, which wraps between words, carries the title.
+            .navigationBarTitleDisplayMode(tab == .kitchen || dynamicTypeSize.isAccessibilitySize ? .inline : .large)
+            .toolbar(removing: tab != .kitchen && dynamicTypeSize.isAccessibilitySize ? .title : nil)
 #endif
         switch tab {
         case .kitchen:
@@ -812,6 +818,7 @@ struct PlatformNavigationView: View {
     /// Whether the iPad's bar shows the page's title large, which then stands in for the page's own heading.
     private func barShowsLargeTitle(for route: AppRoute) -> Bool {
         !routeLeadsWithPhoto(route) && !routeIsCookMode(route) && !regularBarTitle(for: route).isEmpty
+            && !dynamicTypeSize.isAccessibilitySize
     }
 #endif
 

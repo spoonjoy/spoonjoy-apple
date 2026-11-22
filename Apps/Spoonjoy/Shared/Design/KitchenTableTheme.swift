@@ -316,6 +316,7 @@ private struct PaperTopEdge: ViewModifier {
 struct KitchenTableHeader<Trailing: View>: View {
     @Environment(\.spoonjoyCompactNavigation) private var usesCompactNavigation
     @Environment(\.spoonjoyBarShowsPageTitle) private var barShowsPageTitle
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     let eyebrow: String
     let title: String
@@ -323,7 +324,8 @@ struct KitchenTableHeader<Trailing: View>: View {
     let hidesTitleInCompactNavigation: Bool
     let titleFont: Font
     /// The title is a chef's handle: shown with "@", breaking only between its own words, at most two lines and then
-    /// truncated in the middle. VoiceOver reads the whole handle.
+    /// truncated in the middle. At the accessibility sizes it wraps whole words with no line limit, and a word too
+    /// wide for the line scales down rather than truncating. VoiceOver reads the whole handle.
     let titleIsHandle: Bool
     @ViewBuilder let trailing: () -> Trailing
 
@@ -368,9 +370,10 @@ struct KitchenTableHeader<Trailing: View>: View {
                 Text(eyebrow)
                     .kitchenEyebrow()
             }
-            // A page whose title the bar already shows leaves it out, so it never reads twice.
-            if !(usesCompactNavigation || barShowsPageTitle) || !hidesTitleInCompactNavigation {
-                Text(titleIsHandle ? ChefHandle.breakingAtWords(title) : title)
+            // A page whose title the bar already shows leaves it out, so it never reads twice. At the accessibility
+            // sizes the bar never shows a large title (it would end in "…"), so the page's own heading always shows.
+            if !(usesCompactNavigation || barShowsPageTitle) || !hidesTitleInCompactNavigation || dynamicTypeSize.isAccessibilitySize {
+                WholeWordText(title, isHandle: titleIsHandle)
                     .font(titleFont)
                     .foregroundStyle(KitchenTableTheme.ink)
                     .lineLimit(titleIsHandle ? 2 : 3)
@@ -408,6 +411,134 @@ extension KitchenTableHeader where Trailing == EmptyView {
         ) {
             EmptyView()
         }
+    }
+}
+
+/// Text that breaks lines only between words. Below the accessibility sizes it is plain `Text`. At them, each word is
+/// its own one-line `Text`, flowed onto lines; a word wider than its line scales down whole (to `minimumScaleFactor`)
+/// instead of breaking inside itself or ending in "…". Font, colour and tracking set around it reach every word, and
+/// VoiceOver reads it as one piece of text.
+struct WholeWordText: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private let text: String
+    private let plainText: String
+    private let words: [String]
+    private let wordSpacing: CGFloat
+    private let minimumScaleFactor: CGFloat
+
+    /// `isHandle`: the text is a chef's handle, shown with "@" and broken only after its separators.
+    init(_ text: String, isHandle: Bool = false, minimumScaleFactor: CGFloat = 0.3) {
+        if isHandle {
+            self.text = "@\(text)"
+            plainText = ChefHandle.breakingAtWords(text)
+            words = ChefHandle.words(text)
+            wordSpacing = 0
+        } else {
+            self.text = text
+            plainText = text
+            words = text.split(separator: " ").map(String.init)
+            // About a space's width in the line's face: a line's height is roughly 1.25 em, a space about 0.25 em.
+            wordSpacing = 0.2
+        }
+        self.minimumScaleFactor = minimumScaleFactor
+    }
+
+    var body: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            WholeWordFlow(spacingRatio: wordSpacing) {
+                ForEach(Array(words.enumerated()), id: \.offset) { _, word in
+                    Text(word)
+                        .lineLimit(1)
+                        .minimumScaleFactor(minimumScaleFactor)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(text)
+            .accessibilityAddTraits(.isStaticText)
+        } else {
+            Text(plainText)
+        }
+    }
+}
+
+/// Lays words out left to right, starting a new line when the next word won't fit. A word wider than a whole line
+/// gets the line's width to itself, so its one-line `Text` scales down to fit. Words on a line share a baseline.
+private struct WholeWordFlow: Layout {
+    /// The gap between words, as a share of a word's height.
+    let spacingRatio: CGFloat
+
+    private struct Item {
+        let index: Int
+        let x: CGFloat
+        let size: CGSize
+        let baseline: CGFloat
+    }
+
+    private struct Line {
+        var items: [Item] = []
+        var width: CGFloat = 0
+        var y: CGFloat = 0
+        var baseline: CGFloat = 0
+        var height: CGFloat = 0
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let lines = arrange(width: proposal.width ?? .infinity, subviews: subviews)
+        let width = lines.map(\.width).max() ?? 0
+        let height = lines.last.map { $0.y + $0.height } ?? 0
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for line in arrange(width: bounds.width, subviews: subviews) {
+            for item in line.items {
+                subviews[item.index].place(
+                    at: CGPoint(x: bounds.minX + item.x, y: bounds.minY + line.y + line.baseline - item.baseline),
+                    anchor: .topLeading,
+                    proposal: ProposedViewSize(item.size)
+                )
+            }
+        }
+    }
+
+    private func arrange(width: CGFloat, subviews: Subviews) -> [Line] {
+        var lines: [Line] = []
+        var line = Line()
+        var nextY: CGFloat = 0
+
+        func finish() {
+            guard !line.items.isEmpty else {
+                return
+            }
+            line.y = nextY
+            line.baseline = line.items.map(\.baseline).max() ?? 0
+            line.height = line.items.map { line.baseline - $0.baseline + $0.size.height }.max() ?? 0
+            nextY += line.height
+            lines.append(line)
+            line = Line()
+        }
+
+        for index in subviews.indices {
+            let subview = subviews[index]
+            var proposal = ProposedViewSize.unspecified
+            var size = subview.sizeThatFits(proposal)
+            if size.width > width {
+                proposal = ProposedViewSize(width: width, height: nil)
+                size = subview.sizeThatFits(proposal)
+                size.width = min(size.width, width)
+            }
+            let baseline = subview.dimensions(in: proposal)[VerticalAlignment.firstTextBaseline]
+            let gap = line.items.isEmpty ? 0 : size.height * spacingRatio
+            if !line.items.isEmpty && line.width + gap + size.width > width {
+                finish()
+            }
+            let x = line.items.isEmpty ? 0 : line.width + gap
+            line.items.append(Item(index: index, x: x, size: size, baseline: baseline))
+            line.width = x + size.width
+        }
+        finish()
+        return lines
     }
 }
 

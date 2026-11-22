@@ -136,7 +136,8 @@ struct ShoppingListView: View {
                 EditButton()
             }
         }
-        .navigationSubtitle(usesCompactNavigation ? viewModel.shoppingRunSummary : "")
+        // At the accessibility sizes the page's own header carries the title and the run summary instead.
+        .navigationSubtitle(usesCompactNavigation && !dynamicTypeSize.isAccessibilitySize ? viewModel.shoppingRunSummary : "")
 #endif
         .sensoryFeedback(.selection, trigger: checkHapticTick)
         // Every door's add (this list's button, Siri, Shortcuts) runs one handler; while the list shows, it adds here,
@@ -166,7 +167,9 @@ struct ShoppingListView: View {
     }
 
     /// On a phone the navigation bar carries the title, the run summary (as its subtitle) and the actions
-    /// menu, so the list leads with the composer and the items. Wide layouts keep the full header.
+    /// menu, so the list leads with the composer and the items. Wide layouts keep the full header. At the
+    /// accessibility sizes the bar's large title would end in "…", so the phone shows the header too, wrapping
+    /// between words, while the actions menu stays in the bar.
     @ViewBuilder private var shoppingRunHeader: some View {
         if !usesCompactNavigation {
             KitchenTableHeader(
@@ -176,6 +179,12 @@ struct ShoppingListView: View {
             ) {
                 shoppingHeaderTools
             }
+        } else if dynamicTypeSize.isAccessibilitySize {
+            KitchenTableHeader(
+                title: "Shopping List",
+                subtitle: viewModel.shoppingRunSummary,
+                hidesTitleInCompactNavigation: true
+            )
         }
     }
 

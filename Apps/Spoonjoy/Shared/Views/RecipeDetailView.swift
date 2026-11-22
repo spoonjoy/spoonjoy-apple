@@ -1682,15 +1682,32 @@ extension RecipeDetailView {
         .coordinateSpace(name: Self.spreadIngredientContentSpace)
     }
 
+    private var spreadIngredientHeading: some View {
+        Text("Ingredients")
+            .font(KitchenTableTheme.sectionTitle)
+            .foregroundStyle(KitchenTableTheme.ink)
+            .lineLimit(1)
+            .minimumScaleFactor(0.4)
+            .accessibilityAddTraits(.isHeader)
+    }
+
     @ViewBuilder private func spreadIngredientList(index: RecipeSpreadIngredientIndex) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text("Ingredients")
-                    .font(KitchenTableTheme.sectionTitle)
-                    .foregroundStyle(KitchenTableTheme.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: 0)
-                stepsClearProgress
+            // The heading and Clear progress share a line while they fit; at the largest sizes in the narrow
+            // ingredient column Clear progress drops under the heading, which as one word scales down on its line
+            // rather than breaking into "Ingredie / nts".
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    spreadIngredientHeading
+                    Spacer(minLength: 0)
+                    stepsClearProgress
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    spreadIngredientHeading
+                    if hasRecipeProgress {
+                        stepsClearProgress
+                    }
+                }
             }
             Text(index.isEmpty ? "No ingredients added yet" : "Grouped by the step that uses them")
                 .font(KitchenTableTheme.uiLabel)

@@ -17,6 +17,7 @@ extension SpoonjoyRemindersSender {
 struct SpoonjoyRemindersSendModifier: ViewModifier {
     @Bindable var sender: SpoonjoyRemindersSender
     @State private var newListName = ""
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     func body(content: Content) -> some View {
         content
@@ -24,6 +25,17 @@ struct SpoonjoyRemindersSendModifier: ViewModifier {
             .sheet(isPresented: $sender.isPickingList, onDismiss: { sender.cancelListChoice() }) {
                 NavigationStack {
                     List {
+                        // At the accessibility sizes the bar's large title read "Remind…", so the bar goes quiet and
+                        // the title leads the list, wrapping between words.
+                        if dynamicTypeSize.isAccessibilitySize {
+                            WholeWordText("Reminders List")
+                                .font(KitchenTableTheme.sectionTitle)
+                                .foregroundStyle(KitchenTableTheme.ink)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .accessibilityAddTraits(.isHeader)
+                                .listRowBackground(Color.clear)
+                                .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
+                        }
                         Section("Send ingredients to") {
                             ForEach(sender.availableLists) { list in
                                 Button(list.title) { sender.select(list) }
@@ -42,6 +54,10 @@ struct SpoonjoyRemindersSendModifier: ViewModifier {
                         }
                     }
                     .navigationTitle("Reminders List")
+#if os(iOS)
+                    .navigationBarTitleDisplayMode(dynamicTypeSize.isAccessibilitySize ? .inline : .automatic)
+                    .toolbar(removing: dynamicTypeSize.isAccessibilitySize ? .title : nil)
+#endif
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("Cancel") { sender.isPickingList = false }

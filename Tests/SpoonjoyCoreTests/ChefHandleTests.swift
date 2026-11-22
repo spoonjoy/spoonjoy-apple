@@ -24,6 +24,15 @@ struct ChefHandleTests {
         #expect(ChefHandle.breakingAtWords("") == "@")
     }
 
+    @Test("at the largest text sizes a title handle splits into whole words, keeping a short tail with its word")
+    func titleHandleWords() {
+        #expect(ChefHandle.words("codex_native.r4-2") == ["@codex_", "native.", "r4-2"])
+        #expect(ChefHandle.words("codex_native_r44956404363a1x8e1958_1") == ["@codex_", "native_", "r44956404363a1x8e1958_1"])
+        #expect(ChefHandle.words("maya") == ["@maya"])
+        #expect(ChefHandle.words("") == ["@"])
+        #expect(ChefHandle.words("a_b").joined() == "@a_b")
+    }
+
     @Test("an empty handle is just the at sign")
     func emptyHandle() {
         #expect(ChefHandle.breakingAnywhere("") == "@")

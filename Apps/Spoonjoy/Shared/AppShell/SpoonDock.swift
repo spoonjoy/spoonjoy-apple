@@ -113,23 +113,34 @@ struct SpoonDock: View {
     }
 
     /// At accessibility sizes the dock stacks into two rows. The rows sit well past the glass merge distance, so the
-    /// Next chevron never fuses onto the Mark step capsule above it (#276).
+    /// Next chevron never fuses onto the Mark step capsule above it (#276). Back step and Mark step share the first
+    /// row only while both labels fit whole; otherwise each takes its own full-width row, so neither reads "Back…" or
+    /// "Mark…".
     private var accessibilityDock: some View {
         VStack(alignment: .leading, spacing: SpoonDockMetrics.accessibilityRowSpacing) {
-            HStack(spacing: SpoonDockMetrics.itemSpacing) {
-                if showsLeftZone {
-                    dockButton(context.leftZone, prominence: .supporting)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .kitchenTransition(.opacity)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: SpoonDockMetrics.itemSpacing) {
+                    accessibilityStepButtons
                 }
-
-                dockButton(context.centerZone, prominence: .primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: SpoonDockMetrics.accessibilityRowSpacing) {
+                    accessibilityStepButtons
+                }
             }
 
             toolRail
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
+    }
+
+    @ViewBuilder private var accessibilityStepButtons: some View {
+        if showsLeftZone {
+            dockButton(context.leftZone, prominence: .supporting)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .kitchenTransition(.opacity)
+        }
+
+        dockButton(context.centerZone, prominence: .primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var toolRail: some View {
@@ -217,10 +228,11 @@ struct SpoonDock: View {
                 }
 
                 VStack(alignment: prominence == .primary ? .center : .leading, spacing: 1) {
+                    // At the accessibility sizes a label scales further rather than ending in "…".
                     Text(action.title)
                         .font(prominence == .primary ? .headline.weight(.bold) : .caption.weight(.bold))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.78)
+                        .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 0.5 : 0.78)
                         .foregroundStyle(prominence == .supporting ? KitchenTableTheme.ink : KitchenTableTheme.onInk)
 
                     if let subtitle = action.subtitle {

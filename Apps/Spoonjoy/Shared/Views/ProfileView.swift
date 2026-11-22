@@ -240,9 +240,15 @@ private struct ProfileFigures: View {
 private struct ProfileFigure: View {
     let count: Int
     let label: String
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        // At the accessibility sizes the label sits beside its number, so the three figures take three lines rather
+        // than six and the page reaches its shelves sooner above the tab bar.
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 10))
+            : AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+        layout {
             Text("\(count)")
                 .font(KitchenTableTheme.recipeTitle.monospacedDigit())
                 .foregroundStyle(KitchenTableTheme.ink)

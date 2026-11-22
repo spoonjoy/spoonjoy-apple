@@ -112,11 +112,16 @@ struct SignedOutSetupView: View {
         HStack(spacing: 10) {
             SpoonjoyIdentityMark()
                 .frame(width: min(wordmarkSize, 44), height: min(wordmarkSize, 44))
+            // The name is one word and never breaks: at the largest sizes it scales down on its one line rather
+            // than splitting into "SPOONJ / OY".
             Text("Spoonjoy")
                 .font(KitchenTableTheme.sectionTitle)
                 .textCase(.uppercase)
                 .kitchenEyebrowTracking()
                 .foregroundStyle(KitchenTableTheme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.4)
+                .layoutPriority(1)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Spoonjoy")

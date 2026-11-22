@@ -252,7 +252,9 @@ struct NativeMobileDesignContractTests {
             navigation,
             in: navigationPath,
             contains: [
-                ".navigationBarTitleDisplayMode(tab == .kitchen ? .inline : .large)",
+                ".navigationBarTitleDisplayMode(tab == .kitchen || dynamicTypeSize.isAccessibilitySize ? .inline : .large)",
+                ".toolbar(removing: tab != .kitchen && dynamicTypeSize.isAccessibilitySize ? .title : nil)",
+                "&& !dynamicTypeSize.isAccessibilitySize",
                 ".navigationBarTitleDisplayMode(barShowsLargeTitle(for: route) ? .large : .inline)"
             ],
             forbids: [
@@ -401,7 +403,7 @@ struct NativeMobileDesignContractTests {
                 "desktopClassShell",
                 "NavigationSplitView",
                 ".background(KitchenTableTheme.page.ignoresSafeArea())",
-                ".navigationBarTitleDisplayMode(routeLeadsWithPhoto(navigation.route) || routeIsCookMode(navigation.route) ? .inline : .large)",
+                ".navigationBarTitleDisplayMode(routeLeadsWithPhoto(navigation.route) || routeIsCookMode(navigation.route) || dynamicTypeSize.isAccessibilitySize ? .inline : .large)",
                 ".navigationBarTitleDisplayMode(.inline)"
             ],
             forbids: [
