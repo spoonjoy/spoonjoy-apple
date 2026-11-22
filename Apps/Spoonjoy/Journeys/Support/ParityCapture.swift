@@ -243,6 +243,13 @@ struct ParityCapture {
     func chef(_ kitchen: Kitchen) throws {
         journey.openLink(try link("users/\(kitchen.username)"))
         wait(label(containing: kitchen.username), "The chef page for \(kitchen.username) did not open.")
+        // The kitchen's figures, the last of them Kitchen visitors, rest above a bottom tab bar before the page
+        // scrolls, at every text size (at AX5 the last one sat under it, Journeys run 44976376606).
+        let tabBar = journey.app.tabBars.firstMatch
+        let visitors = journey.element(JourneyID.profileKitchenVisitors)
+        if tabBar.exists, visitors.exists, tabBar.frame.minY > journey.app.frame.midY {
+            XCTAssertLessThanOrEqual(visitors.frame.maxY, tabBar.frame.minY, "Kitchen visitors rests under the tab bar.")
+        }
         try shootBothSchemes("chef")
     }
 
