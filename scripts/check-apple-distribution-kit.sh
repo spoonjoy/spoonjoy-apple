@@ -99,8 +99,9 @@ if (!testflight.testflight?.groups?.some((group) => group.name === "Spoonjoy Int
   fail("ios-testflight must declare the Spoonjoy Internal group");
 }
 if (!testflight.testflight?.build?.whatsNew) fail("ios-testflight must declare testflight.build.whatsNew");
-if (testflight.testflight?.build?.notifyTesters !== true) fail("reactive internal TestFlight publish must notify testers");
-if (testflight.testflight?.build?.autoNotifyEnabled !== true) fail("reactive internal TestFlight publish must enable automatic tester notification");
+// Ari hears about builds only from Slugger, so TestFlight itself must not push "a new build is available".
+if (testflight.testflight?.build?.notifyTesters !== false) fail("internal TestFlight publish must not notify testers: Slugger announces builds");
+if (testflight.testflight?.build?.autoNotifyEnabled !== false) fail("internal TestFlight publish must turn off automatic tester notification: Slugger announces builds");
 if (!testflight.testflight?.betaApp?.feedbackEmail) fail("ios-testflight must declare betaApp.feedbackEmail");
 
 console.log("Spoonjoy native apple distribution manifest contract ok");

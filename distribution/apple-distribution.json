@@ -42,8 +42,8 @@
         ],
         "build": {
           "whatsNew": "Adds browser-based Google and GitHub sign-in from the native setup flow, so beta testers can sign in with their Spoonjoy web accounts.",
-          "autoNotifyEnabled": true,
-          "notifyTesters": true
+          "autoNotifyEnabled": false,
+          "notifyTesters": false
         },
         "betaApp": {
           "description": "Spoonjoy turns what you have into something worth eating.",
