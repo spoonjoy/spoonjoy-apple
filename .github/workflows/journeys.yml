@@ -734,7 +734,7 @@ jobs:
         && format('journeys-shopping-ui-tests-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
         || 'spoonjoy-macos-lane-c2' }}
       queue: max
-    timeout-minutes: 60
+    timeout-minutes: 92
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -774,8 +774,8 @@ jobs:
           xcrun simctl bootstatus "$udid" -b
       - name: Build shopping UI tests
         if: env.SPOONJOY_SUPERSEDED != 'true'
-        # Step limits sum to 57 of the job's 60 minutes, leaving room for checkout, setup and the upload. The settle
-        # wait ends 8 minutes after boot at the latest, so most of it overlaps this build. The build takes 4 to 11.5
+        # Step limits sum to 89 of the job's 92 minutes, leaving room for checkout, setup and the upload; without a launch
+        # retry they sum to 57. The settle wait ends 8 minutes after boot at the latest, so most of it overlaps this build. The build takes 4 to 11.5
         # minutes on hosted runners, so it gets the same 25 minutes as the journeys build (#232).
         timeout-minutes: 25
         run: |
@@ -796,17 +796,50 @@ jobs:
           python3 .github/scripts/wait-for-simulator-settle.py "${destination##*,id=}" --booted-at "${{ steps.boot.outputs.booted-at }}"
       - name: Run shopping UI tests
         if: env.SPOONJOY_SUPERSEDED != 'true'
+        id: attempt1
         timeout-minutes: 20
         # The warning gate covers the build above. The test log carries simulator runtime noise (for
         # example "Failed to send CA Event for app launch measurements"), and test failures fail xcodebuild.
+        # The Live journeys wrapper classifies a failure. When the app fails to launch (XCUITest's "Timed out while
+        # launching application via Xcode", #235) it exits 0 and the retry below runs on a freshly booted simulator.
         run: |
           set -euo pipefail
-          xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+          ruby scripts/live-journeys.rb --attempt 1 --timeout-minutes 18 --name "Shopping UI tests" \
+            --result-bundle "$RUNNER_TEMP/shopping/SpoonjoyShoppingUITests.xcresult" --log "$RUNNER_TEMP/shopping/test.log" -- \
+            xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
             -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyShoppingUITests \
             -derivedDataPath "$RUNNER_TEMP/shopping/DerivedData" \
-            -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 300 \
+            -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 360 \
             -collect-test-diagnostics never \
-            -resultBundlePath "$RUNNER_TEMP/shopping/SpoonjoyShoppingUITests.xcresult" 2>&1 | tee "$RUNNER_TEMP/shopping/test.log"
+            -resultBundlePath "$RUNNER_TEMP/shopping/SpoonjoyShoppingUITests.xcresult"
+      - name: Reboot the simulator for the retry
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)) }}
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          destination="${{ steps.sim.outputs.destination }}"
+          udid="${destination##*,id=}"
+          # A launch failure can leave the simulator already shut down.
+          xcrun simctl shutdown "$udid" || true
+          xcrun simctl boot "$udid"
+          booted_at="$(date +%s)"
+          xcrun simctl bootstatus "$udid" -b
+          python3 .github/scripts/wait-for-simulator-settle.py "$udid" --booted-at "$booted_at"
+      - name: Retry shopping UI tests after an infrastructure failure
+        id: attempt2
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)) }}
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          # Any failure here fails the job.
+          ruby scripts/live-journeys.rb --attempt 2 --timeout-minutes 18 --name "Shopping UI tests" \
+            --result-bundle "$RUNNER_TEMP/shopping/SpoonjoyShoppingUITests-retry.xcresult" --log "$RUNNER_TEMP/shopping/test-retry.log" -- \
+            xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+            -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyShoppingUITests \
+            -derivedDataPath "$RUNNER_TEMP/shopping/DerivedData" \
+            -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 360 \
+            -collect-test-diagnostics never \
+            -resultBundlePath "$RUNNER_TEMP/shopping/SpoonjoyShoppingUITests-retry.xcresult"
       - name: Upload shopping UI test result bundle
         # The fixture tests use no credentials, so the bundle is always safe to upload.
         if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
@@ -816,6 +849,8 @@ jobs:
           path: |
             ${{ runner.temp }}/shopping/SpoonjoyShoppingUITests.xcresult
             ${{ runner.temp }}/shopping/test.log
+            ${{ runner.temp }}/shopping/SpoonjoyShoppingUITests-retry.xcresult
+            ${{ runner.temp }}/shopping/test-retry.log
             ${{ runner.temp }}/shopping/build.log
           if-no-files-found: warn
           retention-days: 30
