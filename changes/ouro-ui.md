@@ -1,5 +1,5 @@
 ---
-testflight: Buttons and cards come from Ouro UI for Apple v1.8.0. In the Cookbook theme, buttons are capsules with squircle ends, as on the website.
+testflight: Buttons, menus and sheets now come from Ouro UI for Apple v1.9.0. Check they look as in the last build.
 platforms: [ios, mac]
 order: 90
 ---
