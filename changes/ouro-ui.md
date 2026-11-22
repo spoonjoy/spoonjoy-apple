@@ -1,5 +1,5 @@
 ---
-testflight: Buttons and cards come from Ouro UI for Apple v1.8.0. In the Cookbook theme, buttons are capsules with squircle ends, as on the website.
+testflight: Ouro UI for Apple v1.9.0. In the Cookbook theme, buttons and the shopping list's Need, Basket and All switch are squircle capsules, as on the website.
 platforms: [ios, mac]
 order: 90
 ---
