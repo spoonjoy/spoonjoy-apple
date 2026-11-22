@@ -31,6 +31,7 @@ struct ChefHandleTests {
         #expect(ChefHandle.words("maya") == ["@maya"])
         #expect(ChefHandle.words("") == ["@"])
         #expect(ChefHandle.words("a_b").joined() == "@a_b")
+        #expect(ChefHandle.words("maya_") == ["@maya_"])
     }
 
     @Test("an empty handle is just the at sign")
