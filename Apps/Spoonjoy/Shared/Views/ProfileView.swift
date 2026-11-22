@@ -330,8 +330,13 @@ private struct ProfileCookbookShelf: View {
                     Button {
                         openRoute(cookbook.openRoute)
                     } label: {
+                        // Web's chef page: the first recipe photo in the book, or its initial when none has one.
                         KitchenTableObjectRow(title: cookbook.title, subtitle: cookbook.recipeCountLabel, titleFont: KitchenTableTheme.indexTitle) {
-                            RecipeInitialTile(title: cookbook.title)
+                            if let coverImageURL = cookbook.coverImageURL {
+                                RecipeCoverImage(url: coverImageURL, title: cookbook.title, subtitle: "Cover", showsFallbackLabel: false)
+                            } else {
+                                RecipeInitialTile(title: cookbook.title)
+                            }
                         }
                     }
                     .buttonStyle(.plain)

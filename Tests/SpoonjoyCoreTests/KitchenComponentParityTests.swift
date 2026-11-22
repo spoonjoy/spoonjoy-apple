@@ -149,6 +149,21 @@ struct KitchenComponentParityTests {
         #expect(!profile.contains("title: \"@\\(viewModel.header.username)\""))
     }
 
+    /// Web's chef page lists cookbooks as Ouro `Item` rows whose media is the first recipe photo in the book, or the
+    /// title's `Cover` when none has one (`app/routes/users.$identifier.tsx`), not as cards.
+    @Test("a chef's cookbook row shows the book's first recipe photo, as web's chef page does")
+    func chefCookbookRowShowsItsPhoto() throws {
+        let shelf = try Self.declaration("struct ProfileCookbookShelf", in: "\(Self.views)/ProfileView.swift")
+        #expect(Self.containsLines(shelf, [
+            "if let coverImageURL = cookbook.coverImageURL {",
+            #"RecipeCoverImage(url: coverImageURL, title: cookbook.title, subtitle: "Cover", showsFallbackLabel: false)"#,
+            "} else {",
+            "RecipeInitialTile(title: cookbook.title)",
+        ]))
+        #expect(shelf.contains("openRoute(cookbook.openRoute)"), "The whole row still opens the cookbook.")
+        #expect(!shelf.contains("OuroCard("), "Web's chef page draws rows, not cards.")
+    }
+
     @Test("photographs take the photo radius and a lifted cover takes web's soft shadow")
     func photosAndCoversTakeTheirTokens() throws {
         let cover = try Self.source("\(Self.components)/RecipeCoverImage.swift")
