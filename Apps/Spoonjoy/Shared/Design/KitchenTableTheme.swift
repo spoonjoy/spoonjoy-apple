@@ -382,7 +382,8 @@ struct KitchenTableHeader<Trailing: View>: View {
                     .accessibilityLabel(titleIsHandle ? "@\(title)" : title)
             }
             if let subtitle, !subtitle.isEmpty {
-                Text(subtitle)
+                // A byline's handle ("By codex_native_r42 · 3 recipes") breaks after its separators, never mid-word.
+                WholeWordText(line: subtitle)
                     .font(KitchenTableTheme.bodyNote)
                     .foregroundStyle(KitchenTableTheme.ink2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -423,8 +424,9 @@ struct WholeWordText: View {
 
     private let text: String
     private let plainText: String
-    private let words: [String]
-    private let wordSpacing: CGFloat
+    private let words: [LineWord]
+    private let lead: String?
+    private let leadColor: Color?
     private let minimumScaleFactor: CGFloat
 
     /// `isHandle`: the text is a chef's handle, shown with "@" and broken only after its separators.
@@ -432,41 +434,76 @@ struct WholeWordText: View {
         if isHandle {
             self.text = "@\(text)"
             plainText = ChefHandle.breakingAtWords(text)
-            words = ChefHandle.words(text)
-            wordSpacing = 0
+            words = ChefHandle.words(text).enumerated().map { LineWord(text: $1, joinsPrevious: $0 > 0) }
         } else {
             self.text = text
             plainText = text
-            words = text.split(separator: " ").map(String.init)
-            // About a space's width in the line's face: a line's height is roughly 1.25 em, a space about 0.25 em.
-            wordSpacing = 0.2
+            words = text.split(separator: " ").map { LineWord(text: String($0), joinsPrevious: false) }
         }
+        lead = nil
+        leadColor = nil
+        self.minimumScaleFactor = minimumScaleFactor
+    }
+
+    /// A line that may hold a chef's handle, such as a byline ("By codex_native_r42 · 3 recipes"): it breaks at its
+    /// spaces and after a handle's separators ("_", ".", "-"), never inside a word. With a `lead` ("By"), the lead is
+    /// drawn in `leadColor` and the rest of the line bold, as a recipe's byline reads.
+    init(line text: String, lead: String? = nil, leadColor: Color? = nil, minimumScaleFactor: CGFloat = 0.3) {
+        self.text = lead.map { "\($0) \(text)" } ?? text
+        plainText = ChefHandle.breakingAtSeparators(text)
+        words = (lead.map { [LineWord(text: $0, joinsPrevious: false)] } ?? []) + ChefHandle.lineWords(text)
+        self.lead = lead
+        self.leadColor = leadColor
         self.minimumScaleFactor = minimumScaleFactor
     }
 
     var body: some View {
         if dynamicTypeSize.isAccessibilitySize {
-            WholeWordFlow(spacingRatio: wordSpacing) {
-                ForEach(Array(words.enumerated()), id: \.offset) { _, word in
-                    Text(word)
+            WholeWordFlow {
+                ForEach(Array(words.enumerated()), id: \.offset) { index, word in
+                    styled(word.text, isLead: lead != nil && index == 0)
                         .lineLimit(1)
                         .minimumScaleFactor(minimumScaleFactor)
+                        .layoutValue(key: JoinsPreviousWord.self, value: word.joinsPrevious)
                 }
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(text)
             .accessibilityAddTraits(.isStaticText)
+        } else if let lead {
+            Text("\(styled(lead + " ", isLead: true))\(styled(plainText, isLead: false))")
+                .accessibilityLabel(text)
         } else {
+            // The break points are for layout; VoiceOver reads the text without them.
             Text(plainText)
+                .accessibilityLabel(text)
         }
     }
+
+    /// A lead word in its own colour; with a lead, the rest of the line bold.
+    private func styled(_ word: String, isLead: Bool) -> Text {
+        guard lead != nil else {
+            return Text(word)
+        }
+        if isLead {
+            return leadColor.map { Text(word).foregroundStyle($0) } ?? Text(word)
+        }
+        return Text(word).bold()
+    }
+}
+
+/// A piece cut from the word before it (after a handle's separator), set flush against it with no space.
+private struct JoinsPreviousWord: LayoutValueKey {
+    static let defaultValue = false
 }
 
 /// Lays words out left to right, starting a new line when the next word won't fit. A word wider than a whole line
 /// gets the line's width to itself, so its one-line `Text` scales down to fit. Words on a line share a baseline.
+/// Words cut from one word (`JoinsPreviousWord`) sit flush; other words are a space apart.
 private struct WholeWordFlow: Layout {
-    /// The gap between words, as a share of a word's height.
-    let spacingRatio: CGFloat
+    /// The gap between words, as a share of a word's height: about a space's width in the line's face (a line's
+    /// height is roughly 1.25 em, a space about 0.25 em).
+    let spacingRatio: CGFloat = 0.2
 
     private struct Item {
         let index: Int
@@ -529,7 +566,7 @@ private struct WholeWordFlow: Layout {
                 size.width = min(size.width, width)
             }
             let baseline = subview.dimensions(in: proposal)[VerticalAlignment.firstTextBaseline]
-            let gap = line.items.isEmpty ? 0 : size.height * spacingRatio
+            let gap = line.items.isEmpty || subview[JoinsPreviousWord.self] ? 0 : size.height * spacingRatio
             if !line.items.isEmpty && line.width + gap + size.width > width {
                 finish()
             }

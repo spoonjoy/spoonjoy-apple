@@ -3,17 +3,6 @@ import Testing
 
 @Suite("Chef handles break like web's")
 struct ChefHandleTests {
-    @Test("a handle can break between any two characters, with no hyphen and nothing visible added")
-    func handleBreaksAnywhere() {
-        let handle = ChefHandle.breakingAnywhere("codex_native_r42")
-
-        #expect(handle.hasPrefix("@c\u{200B}o\u{200B}d"))
-        #expect(handle.replacingOccurrences(of: "\u{200B}", with: "") == "@codex_native_r42")
-        #expect(!handle.contains("-"))
-        // One break point after "@" and between every pair of characters.
-        #expect(handle.filter { $0 == "\u{200B}" }.count == "codex_native_r42".count - 1)
-    }
-
     @Test("a title handle breaks only after its separators, so a line never ends inside a word")
     func titleHandleBreaksAtWords() {
         let handle = ChefHandle.breakingAtWords("codex_native.r4-2")
@@ -34,18 +23,22 @@ struct ChefHandleTests {
         #expect(ChefHandle.words("maya_") == ["@maya_"])
     }
 
-    @Test("an empty handle is just the at sign")
-    func emptyHandle() {
-        #expect(ChefHandle.breakingAnywhere("") == "@")
+    @Test("a line with a handle in it wraps between words and after the handle's separators, never inside a word")
+    func lineWordsSplitAtSpacesAndSeparators() {
+        let words = ChefHandle.lineWords("By codex_native_r44976376606a1x1aebf1_1 · 3 recipes")
+        #expect(words.map(\.text) == ["By", "codex_", "native_", "r44976376606a1x1aebf1_1", "·", "3", "recipes"])
+        #expect(words.map(\.joinsPrevious) == [false, false, true, true, false, false, false])
+        // Pieces of one word joined back with no space give the word again.
+        #expect(ChefHandle.lineWords("maya_k.r4-2").map(\.text).joined() == "maya_k.r4-2")
+        #expect(ChefHandle.lineWords("maya") == [LineWord(text: "maya", joinsPrevious: false)])
+        #expect(ChefHandle.lineWords("  ").isEmpty)
     }
 
-    @Test("a byline handle breaks anywhere too, with no at sign and nothing visible added")
-    func bylineHandleBreaksAnywhere() {
-        let handle = ChefHandle.wrapping("codex_native_r42")
-
-        #expect(handle.hasPrefix("c\u{200B}o\u{200B}d"))
-        #expect(handle.replacingOccurrences(of: "\u{200B}", with: "") == "codex_native_r42")
-        #expect(!handle.contains("@"))
-        #expect(ChefHandle.wrapping("") == "")
+    @Test("a line's plain text breaks only after a handle's separators, with nothing visible added")
+    func lineBreaksAtSeparators() {
+        let line = ChefHandle.breakingAtSeparators("by codex_native.r4-2")
+        #expect(line == "by codex_\u{200B}native.\u{200B}r4-\u{200B}2")
+        #expect(line.replacingOccurrences(of: "\u{200B}", with: "") == "by codex_native.r4-2")
+        #expect(ChefHandle.breakingAtSeparators("") == "")
     }
 }

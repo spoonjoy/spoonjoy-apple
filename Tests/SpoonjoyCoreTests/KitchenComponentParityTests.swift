@@ -132,7 +132,7 @@ struct KitchenComponentParityTests {
         let header = try Self.declaration("struct KitchenTableHeader", in: "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift")
         #expect(header.contains("let titleIsHandle: Bool"))
         #expect(header.contains("WholeWordText(title, isHandle: titleIsHandle)"))
-        #expect(!header.contains("ChefHandle.breakingAnywhere"), "A title handle never breaks mid-word.")
+        #expect(header.contains("WholeWordText(line: subtitle)"), "A subtitle's byline handle never breaks mid-word.")
         let wholeWords = try Self.declaration("struct WholeWordText", in: "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift")
         #expect(wholeWords.contains("plainText = ChefHandle.breakingAtWords(text)"), "Below the accessibility sizes the handle is plain text.")
         #expect(wholeWords.contains("words = ChefHandle.words(text)"), "At the accessibility sizes it wraps whole words.")
@@ -170,17 +170,17 @@ struct KitchenComponentParityTests {
 
         let meta = try Self.source("\(Self.views)/RecipeDetailView.swift")
         // The byline under the title carries the chef, as web's does; the meta row no longer repeats them.
-        #expect(meta.contains(#"Text(ChefHandle.wrapping(chef.displayName))"#))
+        #expect(meta.contains(#"WholeWordText(line: chef.displayName, lead: "By", leadColor: KitchenTableTheme.ink2)"#), "A byline's handle never breaks inside a word.")
         #expect(meta.contains(#".accessibilityLabel("By \(chef.displayName)")"#))
         #expect(!Self.containsLines(meta, [#"Text("by \(viewModel.recipe.chef.username)")"#, ".lineLimit(1)"]))
         #expect(meta.contains("AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 8))"), "A wrapped byline hangs from the meta line's baseline.")
 
         let kitchen = try Self.source("\(Self.views)/KitchenView.swift")
-        #expect(kitchen.contains(#""by \(ChefHandle.wrapping(recipe.chef.username))""#))
+        #expect(kitchen.contains(#""by \(recipe.chef.username)""#))
         let lead = try Self.declaration("struct RecipeLead", in: "\(Self.views)/KitchenView.swift")
-        #expect(lead.contains(#".accessibilityLabel(meta.replacingOccurrences(of: "\u{200B}", with: ""))"#), "VoiceOver reads the lead's byline without the break points.")
+        #expect(lead.contains("WholeWordText(line: meta)"), "The lead's byline breaks between words, never inside the handle.")
         let identity = try Self.declaration("struct KitchenIdentityLine", in: "\(Self.views)/KitchenView.swift")
-        #expect(identity.contains("Text(ChefHandle.breakingAnywhere(chef.username))"))
+        #expect(identity.contains("WholeWordText(chef.username, isHandle: true)"), "The identity line's handle never breaks mid-word.")
         #expect(!identity.contains(".lineLimit("))
     }
 
