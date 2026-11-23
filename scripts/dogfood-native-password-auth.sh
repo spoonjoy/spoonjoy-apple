@@ -91,7 +91,7 @@ fi
 
 scratch="${SPOONJOY_NATIVE_DOGFOOD_SCRATCH:-.build/native-dogfood}"
 timeout_seconds="${SPOONJOY_NATIVE_DOGFOOD_TIMEOUT_SECONDS:-180}"
-swift run --scratch-path "$scratch" -Xswiftc -warnings-as-errors SpoonjoyNativeDogfood "${args[@]}" &
+swift run --scratch-path "$scratch" -Xswiftc -warnings-as-errors SpoonjoyNativeDogfood ${args[@]+"${args[@]}"} &
 swift_pid="$!"
 deadline=$((SECONDS + timeout_seconds))
 while kill -0 "$swift_pid" >/dev/null 2>&1; do
