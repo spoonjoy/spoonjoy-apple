@@ -1,5 +1,5 @@
 ---
-testflight: Buttons, menus and sheets now come from Ouro UI for Apple v1.10.0. Check they look as in the last build.
+testflight: Ouro UI for Apple v1.10.0. With Increase Contrast on, a disabled main button greys out like any other button, so its label stays readable.
 platforms: [ios, mac]
 order: 90
 ---
