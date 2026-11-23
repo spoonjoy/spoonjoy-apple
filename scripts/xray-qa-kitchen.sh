@@ -35,10 +35,11 @@ jq -j '.accounts[0].password' "$accounts" > "$work_dir/password"
 echo "::add-mask::$(cat "$work_dir/password")"
 
 mkdir -p "$(dirname "$vault")"
-SPOONJOY_NATIVE_DOGFOOD_PASSWORD_FILE="$work_dir/password" \
+# A cold `swift run` builds SpoonjoyCore first, which takes longer than the wrapper's 180-second default on a runner.
+SPOONJOY_NATIVE_DOGFOOD_PASSWORD_FILE="$work_dir/password" SPOONJOY_NATIVE_DOGFOOD_TIMEOUT_SECONDS=900 \
   scripts/dogfood-native-password-auth.sh --base-url "$QA_BASE_URL" --identifier "$username" --vault-file "$vault" > "$work_dir/dogfood.log" 2>&1 \
   || { tail -20 "$work_dir/dogfood.log" >&2; echo "::error::the X-ray chef could not sign in to QA" >&2; exit 1; }
-[[ -s "$vault" ]] || { echo "::error::signing in wrote no session vault" >&2; exit 1; }
+[[ -s "$vault" ]] || { tail -20 "$work_dir/dogfood.log" >&2; echo "::error::signing in wrote no session vault" >&2; exit 1; }
 
 token="$(jq -er '.session.accessToken' "$vault")"
 echo "::add-mask::$token"
