@@ -256,7 +256,7 @@ function duoFrameHtml(set, shot, palettes, scenePath) {
 .half{background:#0d0c0b;box-sizing:border-box;width:${dw}px}
 .upright{height:${half + bezel}px;padding:${bezel}px ${bezel}px 0;border-radius:${radius}px ${radius}px 0 0;position:relative;z-index:2}
 .flat{height:${half + bezel}px;padding:0 ${bezel}px ${bezel}px;border-radius:0 0 ${radius}px ${radius}px;transform-origin:top center;transform:perspective(${dw * 2.2}px) rotateX(52deg)}
-.screen{width:100%;height:100%;background-image:url(${src});background-size:100% 200%}
+.screen{width:100%;height:100%;background-image:url("${src}");background-size:100% 200%}
 .upright .screen{background-position:top;border-radius:${radius - bezel}px ${radius - bezel}px 0 0}
 .flat .screen{background-position:bottom;border-radius:0 0 ${radius - bezel}px ${radius - bezel}px}
 .counter{position:absolute;left:${(w - dw * 1.2) / 2}px;width:${dw * 1.2}px;top:${top + half * 1.55}px;height:${half * 0.5}px;border-radius:50%;
