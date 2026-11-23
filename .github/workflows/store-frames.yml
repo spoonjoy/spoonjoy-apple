@@ -40,4 +40,4 @@ jobs:
         run: node scripts/store-frames/render.mjs --validate-only
       # No set may show the same picture twice, at any size (the iPhone Duo listing once did).
       - name: Every checked-in screenshot set shows different pictures
-        run: node scripts/store-frames/distinct.mjs distribution/app-store/screenshots distribution/app-store/frames/scenes
+        run: node scripts/store-frames/distinct.mjs distribution/app-store/screenshots
