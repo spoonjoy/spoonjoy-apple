@@ -1,5 +1,5 @@
 ---
-testflight: Ouro UI for Apple v1.9.0. In the Cookbook theme, buttons and the shopping list's Need, Basket and All switch are squircle capsules, as on the website.
+testflight: Buttons, menus and sheets now come from Ouro UI for Apple v1.10.0. Check they look as in the last build.
 platforms: [ios, mac]
 order: 90
 ---
