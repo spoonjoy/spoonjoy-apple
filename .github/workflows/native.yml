@@ -150,6 +150,7 @@ jobs:
           ruby scripts/test/app_server_test.rb
           ruby scripts/test/macos_lanes_test.rb
           ruby scripts/test/pick_mac_runner_test.rb
+          ruby scripts/test/rerun_unplaced_mac_jobs_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
           ruby scripts/stage-app-store-listing.rb --validate-only --platform MAC_OS
           ruby scripts/seed-review-demo-account.rb --validate-only

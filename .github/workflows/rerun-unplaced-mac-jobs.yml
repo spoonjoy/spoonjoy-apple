@@ -1,0 +1,29 @@
+name: Rerun unplaced macOS jobs
+
+# GitHub's hosted macOS pool sometimes never places a job and cancels it after 15 to 35 minutes (#450). When a pull
+# request's Native run fails only that way, this reruns its failed jobs, up to attempt 3
+# (scripts/rerun-unplaced-mac-jobs.rb). Merge-queue entries are already out of the queue by then, so they are requeued
+# by hand.
+on:
+  workflow_run:
+    workflows: [Native]
+    types: [completed]
+
+permissions:
+  actions: write
+  checks: read
+
+jobs:
+  rerun:
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Rerun the jobs GitHub never placed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: ruby scripts/rerun-unplaced-mac-jobs.rb
