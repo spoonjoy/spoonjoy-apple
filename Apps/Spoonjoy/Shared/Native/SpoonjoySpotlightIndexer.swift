@@ -125,6 +125,7 @@ struct SpoonjoySpotlightIndexer {
         chefProfiles: [SpoonjoyChefProfileEntity]
     ) async throws {
         guard CSSearchableIndex.isIndexingAvailable() else {
+            Self.logger.info("Spotlight indexing is not available on this device")
             return
         }
 
@@ -150,6 +151,7 @@ struct SpoonjoySpotlightIndexer {
         if !chefProfiles.isEmpty {
             try await index.indexAppEntities(chefProfiles)
         }
+        Self.logger.info("Indexed App Entities: \(recipes.count) recipes, \(cookbooks.count) cookbooks, \(shoppingItems.count) shopping items")
     }
 
     func delete(

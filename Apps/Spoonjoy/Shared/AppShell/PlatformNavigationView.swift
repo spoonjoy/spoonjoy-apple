@@ -2887,6 +2887,7 @@ struct PlatformNavigationView: View {
             return
         }
         if #available(iOS 27.0, macOS 27.0, *) {
+            SpoonjoySpotlightIndexer.logger.info("Spotlight refresh: \(payload.documents.count) items, \(payload.recipes.count) recipes, \(payload.cookbooks.count) cookbooks, \(payload.shoppingItems.count) shopping items")
             let indexer = SpoonjoySpotlightIndexer()
             // The two indexes are independent, so a failure in one never keeps the other from refreshing.
             do {
