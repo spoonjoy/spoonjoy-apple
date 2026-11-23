@@ -52,9 +52,27 @@ test("the spec refuses bad shots", () => {
   const errors = validateSpec(spec).join("\n");
   assert.match(errors, /keep duo.png looks like 05-duo.png/);
   assert.match(errors, /y: shot id 05-cook is used twice, or shares its number/);
-  for (const what of ["device is iphone or ipad", "looks like 01-cook", "used twice", "no palette b", "no headline", "names a Store scene"]) {
+  for (const what of ["device is iphone, ipad or duo", "looks like 01-cook", "used twice", "no palette b", "no headline", "names a Store scene"]) {
     assert.match(errors, new RegExp(what));
   }
+});
+
+test("a set never shows one scene or one headline twice, and Duo shots name a pose", () => {
+  const spec = { palettes: { a: ["#000", "#000", "#fff", "#eee"] }, sets: {
+    duo: { size: [2007, 2853], device: "duo", scenes_from: "distribution/app-store/frames/scenes/iphone-duo", shots: [
+      { id: "01-open", scene: "recipe-open-wide", pose: "open-wide", palette: "a", headline: "Opens like\na cookbook" },
+      { id: "02-again", scene: "recipe-open-wide", pose: "open-wide", palette: "a", headline: "Opens like\na cookbook" },
+      { id: "03-fold", scene: "cook-half-open", pose: "folded", palette: "a", headline: "Stand it up", siri: "Next step" }] } } };
+  const errors = validateSpec(spec).join("\n");
+  assert.match(errors, /duo: scene recipe-open-wide is in two shots/);
+  assert.match(errors, /duo: headline "Opens like\na cookbook" is on two shots/);
+  assert.match(errors, /duo\/03-fold: pose is one of closed, open-wide, open-tall, half-open/);
+  assert.match(errors, /duo\/03-fold: siri is a phrase that names Spoonjoy/);
+});
+
+test("the checked-in spec takes no scene twice in any set", () => {
+  const spec = loadSpec(SPEC);
+  for (const [name, set] of Object.entries(spec.sets)) assert.equal(new Set(scenesFor(set)).size, set.shots.length, name);
 });
 
 test("captions are escaped and loaded from the app's own fonts", () => {

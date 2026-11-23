@@ -67,9 +67,11 @@ jobs:
           sets="$(node --input-type=module -e '
             import { loadSpec, scenesFor } from "./scripts/store-frames/render.mjs";
             const spec = loadSpec("distribution/app-store/frames/spec.json");
-            console.log(JSON.stringify(Object.entries(spec.sets).map(([set, s]) => {
+            // A set whose scenes are checked in (the iPhone Duo, photographed by the Duo tour) needs no simulator here.
+            console.log(JSON.stringify(Object.entries(spec.sets).filter(([, s]) => !s.scenes_from).map(([set, s]) => {
               const scenes = scenesFor(s);
-              return { set, simulator: s.simulator, light: scenes.filter((x) => !x.endsWith("-dark")).join(" "), dark: scenes.filter((x) => x.endsWith("-dark")).join(" ") };
+              return { set, simulator: s.simulator, orientation: s.orientation ?? "portrait",
+                       light: scenes.filter((x) => !x.endsWith("-dark")).join(" "), dark: scenes.filter((x) => x.endsWith("-dark")).join(" ") };
             })));')"
           { echo "key=$key"; echo "sha=$(git rev-parse HEAD)"; echo "have=$have"; echo "sets=$sets"; } >> "$GITHUB_OUTPUT"
           echo "Scene key $key for $(git rev-parse HEAD): $have earlier photograph(s)" >> "$GITHUB_STEP_SUMMARY"
@@ -138,6 +140,7 @@ jobs:
           SPOONJOY_REVIEW_DEMO_PASSWORD: ${{ secrets.SPOONJOY_REVIEW_DEMO_PASSWORD }}
           LIGHT: ${{ matrix.light }}
           DARK: ${{ matrix.dark }}
+          ORIENTATION: ${{ matrix.orientation }}
         run: |
           set -euo pipefail
           echo "::add-mask::$SPOONJOY_REVIEW_DEMO_PASSWORD"
@@ -152,7 +155,7 @@ jobs:
           for appearance in ("light", "dark"):
               scenes = os.environ[appearance.upper()].split()
               if scenes:
-                  json.dump({"username": user, "password": password, "scenes": scenes},
+                  json.dump({"username": user, "password": password, "scenes": scenes, "orientation": os.environ["ORIENTATION"]},
                             open(os.path.join(sys.argv[1], f"{appearance}.json"), "w"))
           PY
       - name: Photograph the scenes
@@ -255,6 +258,8 @@ jobs:
           npx playwright install chromium
       - name: Frame the scenes twice and compare
         run: node scripts/store-frames/render.mjs --scenes "$RUNNER_TEMP/scenes" --out "$RUNNER_TEMP/frames" --check | tee "$RUNNER_TEMP/frames.txt"
+      - name: Every framed set shows different pictures
+        run: node scripts/store-frames/distinct.mjs "$RUNNER_TEMP/frames"
       - name: Keep the scenes under their key
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:

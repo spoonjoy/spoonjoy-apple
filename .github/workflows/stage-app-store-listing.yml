@@ -141,6 +141,9 @@ jobs:
           done
           { echo "### Screenshots framed from $key"; echo '```json'; cat "$RUNNER_TEMP/frames/manifest.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           echo "dir=$out" >> "$GITHUB_OUTPUT"
+      # Refuse before anything is written: no set may show the same picture twice, at any size.
+      - name: Every screenshot set shows different pictures
+        run: node release-source/scripts/store-frames/distinct.mjs "${{ steps.frames.outputs.dir }}"
       - name: Stage
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}

@@ -48,6 +48,17 @@ class AppStoreListingTest < Minitest::Test
     with_screenshots { |dir| assert_equal [], AppStoreListing.validate(listing, dir) }
   end
 
+  def test_rejects_the_same_screenshot_twice_in_one_set
+    errors = with_screenshots do |dir|
+      png(File.join(dir, "iphone-duo", "01-open.png"), 2007, 2853)
+      png(File.join(dir, "iphone-duo", "02-tabletop.png"), 2007, 2853)
+      png(File.join(dir, "iphone-69", "01-cook.png"), 1320, 2868)
+      AppStoreListing.validate(listing, dir)
+    end
+    assert_includes errors, "iphone-duo has the same screenshot more than once: 01-open.png, 02-tabletop.png"
+    assert(errors.none? { |e| e.start_with?("iphone-69") })
+  end
+
   def test_rejects_overlong_fields_and_keywords
     bad = JSON.parse(JSON.generate(listing))
     bad["localizations"]["en-US"]["subtitle"] = "x" * 31

@@ -16,6 +16,8 @@ final class StoreScenesUITests: XCTestCase {
         let password: String
         /// Scene names from spec.json, in the order to take them. Unknown names fail the run.
         let scenes: [String]
+        /// "landscape" turns the device on its side before the first scene (the iPad set); anything else is portrait.
+        let orientation: String?
     }
 
     private static let fileVariable = "SPOONJOY_STORE_SCENES_FILE"
@@ -24,7 +26,7 @@ final class StoreScenesUITests: XCTestCase {
     private static let settle: TimeInterval = 6
 
     /// Every scene the test knows. A scene ending in -dark is the same screen, taken in the dark appearance run.
-    static let known = ["kitchen", "recipes", "recipe-detail", "cookbooks", "cookbook-detail", "shopping-list", "cook-mode"]
+    static let known = ["kitchen", "recipes", "recipe-detail", "recipe-cooks", "cookbooks", "cookbook-detail", "shopping-list", "cook-mode"]
     private static let forkTitle = "Brown Butter Apple Crumble, with pecans"
     private static let cookTitle = "Honeycrisp Galette"
     private static let cookbookTitle = "The Orchard"
@@ -50,11 +52,13 @@ final class StoreScenesUITests: XCTestCase {
         // Cook mode leaves the recipe open on its page and may leave progress, so it is always taken last.
         let cookLast = request.scenes.filter { Self.screen($0) != "cook-mode" } + request.scenes.filter { Self.screen($0) == "cook-mode" }
 
+        XCUIDevice.shared.orientation = request.orientation == "landscape" ? .landscapeLeft : .portrait
         app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         shell = ShellNavigationDriver(app: app)
         signInIfNeeded(as: request.username, password: request.password)
+        clearCookingNow()
 
         for scene in cookLast {
             take(scene)
@@ -74,12 +78,16 @@ final class StoreScenesUITests: XCTestCase {
             XCTAssertTrue(element("kitchen.root").waitForExistence(timeout: Self.networkTimeout), "The kitchen did not open.")
             // Cooking now comes from the server after the kitchen appears, so give it time to show before ruling it out.
             XCTAssertFalse(element("kitchen.cookingNow").waitForExistence(timeout: 8),
-                           "The demo kitchen shows Cooking now, so an earlier run left cook progress; clear it on spoonjoy.app.")
+                           "The demo kitchen still shows Cooking now after the run cleared every cook it found.")
         case "recipes":
             shell.go(to: .recipes)
             XCTAssertTrue(recipeRow(Self.forkTitle).waitForExistence(timeout: Self.networkTimeout), "Recipes does not list \(Self.forkTitle).")
         case "recipe-detail":
             openRecipe(Self.forkTitle)
+        case "recipe-cooks":
+            // The cook-mode recipe carries the friend's cook note, so its Cooks section shows someone else's cook.
+            openRecipe(Self.cookTitle)
+            scrollToCooks()
         case "cookbooks":
             shell.go(to: .cookbooks)
             XCTAssertTrue(element("cookbookShelf").waitForExistence(timeout: Self.networkTimeout), "The cookbook shelf did not open.")
@@ -123,6 +131,34 @@ final class StoreScenesUITests: XCTestCase {
         add(attachment)
     }
 
+    /// Cook progress left by an earlier run or by App Review puts Cooking now on the kitchen, which every scene would
+    /// show. Each cook it lists is opened, closed and cleared, until none is left.
+    private func clearCookingNow() {
+        shell.go(to: .kitchen)
+        guard element("kitchen.root").waitForExistence(timeout: Self.networkTimeout) else { return }
+        for _ in 0..<4 {
+            let cooking = element("kitchen.cookingNow")
+            guard cooking.waitForExistence(timeout: 8) else { return }
+            // Each card resumes its recipe in cook mode.
+            let card = element("kitchen.cookingNow.card")
+            (card.exists ? card : cooking).tap()
+            _ = shell.waitUntil(Self.networkTimeout) { self.element("cook.page").exists || self.element("cookSpread.close").exists }
+            closeCookMode()
+            shell.go(to: .kitchen)
+        }
+    }
+
+    /// Scrolls the open recipe until its Cooks heading sits in the top half of the screen.
+    private func scrollToCooks() {
+        let heading = app.staticTexts.matching(NSPredicate(format: "label == %@", "Cooks")).firstMatch
+        let window = app.windows.firstMatch
+        for _ in 0..<12 {
+            if heading.exists, heading.isHittable, heading.frame.minY < window.frame.height * 0.45 { break }
+            app.swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(heading.exists && heading.isHittable, "\(Self.cookTitle) shows no Cooks section. Screen: \(app.debugDescription)")
+    }
+
     private func closeCookMode() {
         let close = element("cook.close").exists ? element("cook.close") : element("cookSpread.close")
         if close.waitForExistence(timeout: 10) {
@@ -137,7 +173,12 @@ final class StoreScenesUITests: XCTestCase {
     private func openRecipe(_ title: String) {
         shell.go(to: .recipes)
         let row = recipeRow(title)
-        XCTAssertTrue(row.waitForExistence(timeout: Self.networkTimeout), "No recipe row shows \(title). Screen: \(app.debugDescription)")
+        // The list loads from the network, then the row may sit below the fold of a long recipe box.
+        _ = row.waitForExistence(timeout: Self.networkTimeout)
+        for _ in 0..<8 where !(row.exists && row.isHittable) {
+            app.swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(row.exists && row.isHittable, "No recipe row shows \(title). Screen: \(app.debugDescription)")
         row.tap()
         XCTAssertTrue(element("recipeDetail.title").waitForExistence(timeout: Self.networkTimeout), "The \(title) recipe did not open.")
     }
