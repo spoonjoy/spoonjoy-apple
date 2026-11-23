@@ -12,3 +12,12 @@ container="$(xcrun simctl get_app_container "$OURO_AX_UDID" "$OURO_AX_BUNDLE_ID"
 mkdir -p "$container/Library/Application Support/Spoonjoy"
 cp "$vault" "$container/Library/Application Support/Spoonjoy/debug-auth-session.json"
 echo "xray-install-session: the QA chef's session is in the app's data container"
+
+# With XRAY_APP_LOG set, the app's own log streams there for the rest of the run, so a report that disagrees with the
+# app (an index the probe can't see, say) comes with what the app said it did. It ends when the probe deletes the device.
+if [ -n "${XRAY_APP_LOG:-}" ]; then
+  mkdir -p "$(dirname "$XRAY_APP_LOG")"
+  nohup xcrun simctl spawn "$OURO_AX_UDID" log stream --level info --style compact \
+    --predicate 'subsystem == "app.spoonjoy"' > "$XRAY_APP_LOG" 2>&1 &
+  echo "xray-install-session: streaming the app's log to $XRAY_APP_LOG"
+fi

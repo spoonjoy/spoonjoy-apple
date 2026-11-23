@@ -72,7 +72,7 @@ jobs:
             --app "$RUNNER_TEMP/dd/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app" \
             --out "$RUNNER_TEMP/xray-behaviour" --platform ios --runtime 27.1 --name Spoonjoy --commit "${GITHUB_SHA::7}" \
             --disposable --app-env "SPOONJOY_API_BASE_URL=$SPOONJOY_QA_BASE_URL" \
-            --prepare "sh '$GITHUB_WORKSPACE/scripts/xray-install-session.sh' '$RUNNER_TEMP/xray-secrets/debug-auth-session.json'"
+            --prepare "XRAY_APP_LOG='$RUNNER_TEMP/xray-app-log/spoonjoy.log' sh '$GITHUB_WORKSPACE/scripts/xray-install-session.sh' '$RUNNER_TEMP/xray-secrets/debug-auth-session.json'"
       - name: Rotate the QA chef's password
         if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
         run: |
@@ -84,6 +84,8 @@ jobs:
           set -euo pipefail
           [ -s "$RUNNER_TEMP/xray-secrets/accounts.json" ] || exit 0
           mkdir -p "$RUNNER_TEMP/xray-behaviour"
+          # The app's own log rides along with the report, so it goes through the same scan.
+          if [ -s "$RUNNER_TEMP/xray-app-log/spoonjoy.log" ]; then mv "$RUNNER_TEMP/xray-app-log/spoonjoy.log" "$RUNNER_TEMP/xray-behaviour/app.log"; fi
           scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/xray-secrets/accounts.json" "$RUNNER_TEMP/xray-behaviour"
           if [ -s "$RUNNER_TEMP/xray-secrets/debug-auth-session.json" ]; then
             jq -j '.session.accessToken, "\n", .session.refreshToken' "$RUNNER_TEMP/xray-secrets/debug-auth-session.json" > "$RUNNER_TEMP/xray-secrets/tokens"
