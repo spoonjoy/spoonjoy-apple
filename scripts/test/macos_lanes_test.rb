@@ -106,7 +106,7 @@ class MacosLanesTest < Minitest::Test
 
   # A run for a commit main has moved past kept After TestFlight's group for hours while the newest commit's run
   # waited (#413). So every lane c job it calls checks, right after checkout, whether it is superseded, and then
-  # skips every later step. Beta SDK's discover job has no checkout and runs in seconds, so it needs no check.
+  # skips every later step but credential cleanup (CREDENTIAL_CLEANUP, below). Beta SDK's discover job has no checkout and runs in seconds, so it needs no check.
   SKIP_STEP = "./.github/actions/skip-if-superseded"
   SKIP_GUARD = "env.SPOONJOY_SUPERSEDED != 'true'"
   QUICK_JOBS = { "beta-sdk.yml" => %w[discover] }.freeze
@@ -122,6 +122,8 @@ class MacosLanesTest < Minitest::Test
           assert_match %r{\Aactions/checkout@}, steps[0]["uses"].to_s, "#{name} job #{id}: checkout comes first"
           assert_equal SKIP_STEP, steps[1]["uses"], "#{name} job #{id}: check whether the run is superseded after checkout"
           steps.drop(2).each do |step|
+            next if step["name"] == CREDENTIAL_CLEANUP
+
             assert_includes step["if"].to_s, SKIP_GUARD,
                             "#{name} job #{id} step #{step['name'] || step['uses']}: skip it once the run is superseded"
           end
@@ -130,6 +132,29 @@ class MacosLanesTest < Minitest::Test
                         "#{name}: the superseded check lists After TestFlight's runs"
       end
     end
+  end
+
+  # Credential cleanup runs even in a superseded run: a run that wrote secrets must never leave them on the runner.
+  # It is the one exception to the skip guard, so it may only delete files under $RUNNER_TEMP.
+  CREDENTIAL_CLEANUP = "Remove credentials"
+
+  def test_after_testflight_credential_cleanup_always_runs_and_only_deletes
+    cleanups = 0
+    all_workflows.select { |name| triggers(workflow(name)).include?("workflow_run") }.each do |caller|
+      called_workflows(caller).each do |name|
+        macos_jobs(name).each do |id, job|
+          job.fetch("steps").select { |step| step["name"] == CREDENTIAL_CLEANUP }.each do |step|
+            cleanups += 1
+            assert_includes step["if"].to_s, "always()", "#{name} job #{id}: #{CREDENTIAL_CLEANUP} runs whatever happened"
+            step.fetch("run").to_s.each_line.map(&:strip).reject(&:empty?).each do |line|
+              assert_match %r{\Arm -(rf|f) "\$RUNNER_TEMP/[^"]+"\z}, line,
+                           "#{name} job #{id}: #{CREDENTIAL_CLEANUP} only deletes files under $RUNNER_TEMP"
+            end
+          end
+        end
+      end
+    end
+    assert_operator cleanups, :>, 0, "some After TestFlight job removes credentials"
   end
 
   def test_required_checks_take_lanes_a_and_b_and_optional_work_takes_lane_c
