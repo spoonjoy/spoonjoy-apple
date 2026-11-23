@@ -4,10 +4,12 @@ import SpoonjoyCore
 #if canImport(CoreSpotlight)
 import CoreSpotlight
 import AppIntents
+import os
 
 @available(iOS 27.0, macOS 27.0, *)
 struct SpoonjoySpotlightIndexer {
     static let searchableTypes = SpotlightIndexPlan.searchableTypes
+    static let logger = Logger(subsystem: "app.spoonjoy", category: "spotlight")
     private static let semanticSearchableTypes: [SpotlightIndexType] = [
         .recipe,
         .cookbook,
@@ -95,7 +97,13 @@ struct SpoonjoySpotlightIndexer {
         }
 
         let index = CSSearchableIndex.default()
-        try await deleteAllAppEntityTypes(in: index)
+        // Clearing out old entities is best effort: if it fails, indexing the current ones still has to happen, or
+        // Spotlight is left holding nothing.
+        do {
+            try await deleteAllAppEntityTypes(in: index)
+        } catch {
+            Self.logger.error("Clearing indexed App Entities failed: \(String(describing: error), privacy: .public)")
+        }
         try await indexAppEntities(
             recipes: recipes,
             cookbooks: cookbooks,

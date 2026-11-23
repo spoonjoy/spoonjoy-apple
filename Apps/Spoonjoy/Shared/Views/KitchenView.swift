@@ -434,6 +434,9 @@ struct RecipeLead: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(recipe.title)
         .accessibilityIdentifier("kitchen.recipe")
+#if canImport(AppIntents)
+        .spoonjoyRecipeAnnotation(recipe.id)
+#endif
     }
 
     /// The photo, or a designed tile for a recipe without one, filling the card and clipped to it, so the scrim and
@@ -557,6 +560,9 @@ struct RecipeIndex: View {
                         openRecipe(recipe.id)
                     }
                     .accessibilityIdentifier("kitchen.recipe")
+#if canImport(AppIntents)
+                    .spoonjoyRecipeAnnotation(recipe.id)
+#endif
                 }
             }
         } accessory: {

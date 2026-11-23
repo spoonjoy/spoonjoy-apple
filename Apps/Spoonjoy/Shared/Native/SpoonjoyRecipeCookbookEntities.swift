@@ -293,4 +293,32 @@ struct SpoonjoyIntentScopeProvider {
         return (accountID: accountID, environment: environment)
     }
 }
+import SwiftUI
+
+extension View {
+    /// Tells Siri and Apple Intelligence which recipe this view shows, so "this recipe" can mean it.
+    func spoonjoyRecipeAnnotation(_ recipeID: String) -> some View {
+        modifier(SpoonjoyRecipeAnnotation(recipeID: recipeID))
+    }
+}
+
+private struct SpoonjoyRecipeAnnotation: ViewModifier {
+    let recipeID: String
+    @Environment(\.spoonjoyEntityScope) private var scope
+
+    func body(content: Content) -> some View {
+        if #available(iOS 27.0, macOS 27.0, *), let scope {
+            content.appEntityIdentifier(EntityIdentifier(
+                for: SpoonjoyRecipeEntity.self,
+                identifier: RecipeCookbookEntityCatalog.recipeEntityIdentifier(
+                    recipeID: recipeID,
+                    accountID: scope.accountID,
+                    environment: scope.environment
+                )
+            ))
+        } else {
+            content
+        }
+    }
+}
 #endif
