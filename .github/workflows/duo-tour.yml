@@ -66,7 +66,9 @@ jobs:
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
       - name: Build for testing
-        timeout-minutes: 15
+        # 14.4 minutes on 2026-11-11 (run 43070863135) and 14:59 on 2026-11-23 (run 45234025380, cut off just after
+        # TEST BUILD SUCCEEDED): a cold build of the app has outgrown 15 minutes on the xcode-27 runner.
+        timeout-minutes: 30
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/duo"
