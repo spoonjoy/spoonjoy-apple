@@ -11,6 +11,15 @@ struct NativeEntityWebLinkTests {
         #expect(NativeEntityWebLink.url(for: .cookbookDetail(id: "cookbook_1")).absoluteString == "https://spoonjoy.app/cookbooks/cookbook_1")
     }
 
+    @Test("shared text gives back the recipe its spoonjoy.app link names")
+    func sharedTextNamesItsRecipe() {
+        let link = NativeEntityWebLink.url(for: .recipeDetail(id: "cmwtc4iex00012uovqfv02uv6", presentation: .detail)).absoluteString
+        #expect(NativeEntityWebLink.recipeID(inSharedText: "Lemon Pantry Pasta by ari\n\(link)") == "cmwtc4iex00012uovqfv02uv6")
+        #expect(NativeEntityWebLink.recipeID(inSharedText: "see https://example.com/recipes/x then \(link)") == "cmwtc4iex00012uovqfv02uv6")
+        #expect(NativeEntityWebLink.recipeID(inSharedText: "https://spoonjoy.app/cookbooks/cookbook_1") == nil)
+        #expect(NativeEntityWebLink.recipeID(inSharedText: "no link here") == nil)
+    }
+
     @Test("private things link to the page that shows them to their signed-in owner")
     func privateThingsLinkToTheOwnersPage() {
         #expect(NativeEntityWebLink.url(for: .shoppingList).absoluteString == "https://spoonjoy.app/shopping-list")

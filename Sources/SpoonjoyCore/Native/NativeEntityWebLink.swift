@@ -46,6 +46,19 @@ public enum NativeEntityWebLink {
         }
     }
 
+    /// The recipe that shared text links to: the first spoonjoy.app recipe page in it, as a recipe's share text carries.
+    /// What turns a pasted or shared recipe link back into the recipe.
+    public static func recipeID(inSharedText text: String) -> String? {
+        for word in text.split(whereSeparator: \.isWhitespace) {
+            guard let url = URL(string: String(word)),
+                  case .recipeDetail(let id, _) = DeepLinkRouter.spoonjoy.route(for: url) else {
+                continue
+            }
+            return id
+        }
+        return nil
+    }
+
     /// One path segment, percent-encoded so an identifier can never add a segment of its own.
     private static func segment(_ value: String) -> String {
         var allowed = CharacterSet.alphanumerics

@@ -89,6 +89,14 @@ struct SpoonjoyRecipeEntity: AppEntity, IndexedEntity, Transferable {
     // ProxyRepresentation this replaced, so Siri saw the entity as not Transferable.
     static var transferRepresentation: some TransferRepresentation {
         DataRepresentation(exportedContentType: .utf8PlainText) { entity in Data(entity.shareText.utf8) }
+        // Text holding a recipe's spoonjoy.app link, such as its own share text, comes back as that recipe.
+        DataRepresentation(importedContentType: .utf8PlainText) { data in
+            guard let recipeID = NativeEntityWebLink.recipeID(inSharedText: String(decoding: data, as: UTF8.self)),
+                  let entity = try await SpoonjoyRecipeEntityQuery().entity(recipeID: recipeID) else {
+                throw NativeIntentActionError.unresolvedRecipeEntity
+            }
+            return entity
+        }
         ProxyRepresentation(exporting: \.link)
     }
 
@@ -214,6 +222,18 @@ struct SpoonjoyRecipeEntityQuery: EntityQuery, EntityStringQuery {
             let descriptors = try await catalog.suggestedRecipeEntities()
             return descriptors.map(SpoonjoyRecipeEntity.init)
         }
+    }
+
+    /// The signed-in chef's recipe with this server ID, or nil when they can't see it.
+    func entity(recipeID: String) async throws -> SpoonjoyRecipeEntity? {
+        let syncStore = try syncStore()
+        let scope = try await scope(syncStore: syncStore)
+        let identifier = RecipeCookbookEntityCatalog.recipeEntityIdentifier(
+            recipeID: recipeID,
+            accountID: scope.accountID,
+            environment: scope.environment
+        )
+        return try await entities(for: [identifier]).first
     }
 
     private func syncStore() throws -> any NativeSyncStore {
