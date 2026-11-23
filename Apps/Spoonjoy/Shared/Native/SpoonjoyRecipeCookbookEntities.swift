@@ -81,7 +81,7 @@ struct SpoonjoyRecipeEntity: AppEntity, IndexedEntity, Transferable {
             "recipe",
             "Spoonjoy"
         ]
-        attributes.contentURL = deepLinkURL
+        // A/B: no contentURL on recipes, to see whether it hides them from App Entity Spotlight queries.
         return attributes
     }
 
