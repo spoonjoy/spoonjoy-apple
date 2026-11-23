@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 /// Photographs the App Store scenes (distribution/app-store/frames/spec.json) in the real App Store build, signed in
@@ -125,26 +126,44 @@ final class StoreScenesUITests: XCTestCase {
         // Idle, then take the shot: nothing is mid-animation and every cover has loaded.
         _ = XCTWaiter.wait(for: [XCTestExpectation(description: "settle")], timeout: Self.settle)
         // Always PNG: the exporter and the renderer read nothing else, whatever Xcode's default encoding becomes.
-        let attachment = XCTAttachment(data: XCUIScreen.main.screenshot().pngRepresentation, uniformTypeIdentifier: "public.png")
+        let attachment = XCTAttachment(data: Self.uprightPNG(XCUIScreen.main.screenshot()), uniformTypeIdentifier: "public.png")
         attachment.name = "scene-\(scene)"
         attachment.lifetime = .keepAlways
         add(attachment)
     }
 
+    /// A landscape screenshot holds portrait pixels plus an orientation flag, and its PNG keeps the portrait pixels;
+    /// drawing the image applies the flag, so the scene comes out the way the device was held.
+    private static func uprightPNG(_ screenshot: XCUIScreenshot) -> Data {
+        let image = screenshot.image
+        guard image.imageOrientation != .up else { return screenshot.pngRepresentation }
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = image.scale
+        format.opaque = true
+        return UIGraphicsImageRenderer(size: image.size, format: format).pngData { _ in
+            image.draw(in: CGRect(origin: .zero, size: image.size))
+        }
+    }
+
     /// Cook progress left by an earlier run or by App Review puts Cooking now on the kitchen, which every scene would
-    /// show. Each cook it lists is opened, closed and cleared, until none is left.
+    /// show. Each cook it lists is cleared on its recipe page (closing cook mode from the kitchen returns to the
+    /// kitchen, where there is nothing to clear), until none is left.
     private func clearCookingNow() {
-        shell.go(to: .kitchen)
-        guard element("kitchen.root").waitForExistence(timeout: Self.networkTimeout) else { return }
         for _ in 0..<4 {
-            let cooking = element("kitchen.cookingNow")
-            guard cooking.waitForExistence(timeout: 8) else { return }
-            // Each card resumes its recipe in cook mode.
-            let card = element("kitchen.cookingNow.card")
-            (card.exists ? card : cooking).tap()
-            _ = shell.waitUntil(Self.networkTimeout) { self.element("cook.page").exists || self.element("cookSpread.close").exists }
-            closeCookMode()
             shell.go(to: .kitchen)
+            guard element("kitchen.root").waitForExistence(timeout: Self.networkTimeout) else { return }
+            let card = element("kitchen.cookingNow.card")
+            guard card.waitForExistence(timeout: 8) else { return }
+            // The card reads "<title>, <progress>"; titles may hold commas, the progress line does not.
+            let label = card.label
+            guard let comma = label.range(of: ", ", options: .backwards) else { return }
+            openRecipe(String(label[..<comma.lowerBound]))
+            let clear = element("recipeDetail.clearProgress")
+            for _ in 0..<10 where !(clear.exists && clear.isHittable) {
+                app.swipeUp()
+            }
+            guard clear.exists, clear.isHittable else { return }
+            clear.tap()
         }
     }
 
