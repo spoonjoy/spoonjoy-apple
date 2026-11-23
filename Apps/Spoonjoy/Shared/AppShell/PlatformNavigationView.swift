@@ -7,6 +7,7 @@ import UIKit
 
 #if canImport(AppIntents)
 import AppIntents
+import os
 #endif
 
 struct PlatformNavigationView: View {
@@ -316,6 +317,7 @@ struct PlatformNavigationView: View {
 #if canImport(AppIntents)
             .spoonjoyEntityActivity(routeEntityIdentifier)
 #endif
+            .environment(\.spoonjoyEntityScope, contentState.spotlightIndexScope)
             .task(id: contentState.environment.rawValue) {
                 // With a live store, launch and environment changes already sync through the store, so a
                 // second sync here would only republish the same content under a screen the person is using.
@@ -2886,16 +2888,25 @@ struct PlatformNavigationView: View {
         }
         if #available(iOS 27.0, macOS 27.0, *) {
             let indexer = SpoonjoySpotlightIndexer()
-            try? await indexer.replaceAll(payload.documents, scope: payload.scope)
-            try? await indexer.replaceAllAppEntities(
-                recipes: payload.recipes.map(SpoonjoyRecipeEntity.init),
-                cookbooks: payload.cookbooks.map(SpoonjoyCookbookEntity.init),
-                shoppingLists: payload.shoppingLists.map(SpoonjoyShoppingListEntity.init),
-                shoppingItems: payload.shoppingItems.map(SpoonjoyShoppingItemEntity.init),
-                spoons: payload.spoons.map(SpoonjoySpoonEntity.init),
-                captureDrafts: payload.captureDrafts.map(SpoonjoyCaptureDraftEntity.init),
-                chefProfiles: payload.chefProfiles.map(SpoonjoyChefProfileEntity.init)
-            )
+            // The two indexes are independent, so a failure in one never keeps the other from refreshing.
+            do {
+                try await indexer.replaceAll(payload.documents, scope: payload.scope)
+            } catch {
+                SpoonjoySpotlightIndexer.logger.error("Indexing Spotlight items failed: \(String(describing: error), privacy: .public)")
+            }
+            do {
+                try await indexer.replaceAllAppEntities(
+                    recipes: payload.recipes.map(SpoonjoyRecipeEntity.init),
+                    cookbooks: payload.cookbooks.map(SpoonjoyCookbookEntity.init),
+                    shoppingLists: payload.shoppingLists.map(SpoonjoyShoppingListEntity.init),
+                    shoppingItems: payload.shoppingItems.map(SpoonjoyShoppingItemEntity.init),
+                    spoons: payload.spoons.map(SpoonjoySpoonEntity.init),
+                    captureDrafts: payload.captureDrafts.map(SpoonjoyCaptureDraftEntity.init),
+                    chefProfiles: payload.chefProfiles.map(SpoonjoyChefProfileEntity.init)
+                )
+            } catch {
+                SpoonjoySpotlightIndexer.logger.error("Indexing App Entities failed: \(String(describing: error), privacy: .public)")
+            }
             // "Cook <recipe> with Spoonjoy" names the recipes the query suggests; Siri learns new ones only when asked.
             SpoonjoyAppShortcuts.updateAppShortcutParameters()
         }
@@ -3281,6 +3292,8 @@ final class CookLaunchSources {
 
 extension EnvironmentValues {
     @Entry var cookLaunchSources: CookLaunchSources?
+    /// The signed-in account's entity scope, so a screen can tell the system which recipe a view shows; nil signed out.
+    @Entry var spoonjoyEntityScope: SpotlightIndexScope?
 }
 
 extension View {
