@@ -78,7 +78,9 @@ jobs:
         timeout-minutes: 8
         run: python3 .github/scripts/wait-for-simulator-settle.py "${{ steps.sim.outputs.udid }}" --booted-at "${{ steps.sim.outputs.booted-at }}"
       - name: Build the DeviceHub driver
-        timeout-minutes: 4
+        # About 3 s on a warm Mac, but a fresh runner's first swiftc builds the macOS SDK's module cache, which ran past
+        # 4 minutes on 2026-11-23 (run 45202710180) and failed the tour before any pose.
+        timeout-minutes: 12
         run: swiftc -O .github/scripts/duo/devicehub.swift -o "$RUNNER_TEMP/duo/devicehub"
       - name: Open the inner screen tall and half-open
         # DeviceHub can take a minute or more to launch and build its accessibility tree on a runner, so the driver
