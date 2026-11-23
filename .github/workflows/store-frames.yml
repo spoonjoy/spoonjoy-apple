@@ -8,6 +8,7 @@ on:
       - scripts/store-frames/**
       - distribution/app-store/frames/**
       - distribution/app-store/listing.json
+      - distribution/app-store/screenshots/**
       - Apps/Spoonjoy/Shared/Fonts/**
       - .github/workflows/store-frames.yml
 
@@ -37,3 +38,6 @@ jobs:
         run: npm test
       - name: Validate the spec
         run: node scripts/store-frames/render.mjs --validate-only
+      # No set may show the same picture twice, at any size (the iPhone Duo listing once did).
+      - name: Every checked-in screenshot set shows different pictures
+        run: node scripts/store-frames/distinct.mjs distribution/app-store/screenshots distribution/app-store/frames/scenes

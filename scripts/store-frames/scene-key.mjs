@@ -38,7 +38,9 @@ export function sceneKey(rev = "HEAD", root = ROOT) {
   const tree = git("ls-tree", "-r", rev, "--", ...SCREEN_PATHS);
   const project = git("show", `${rev}:${PROJECT}`).replace(VERSION_LINE, "");
   const spec = loadSpec({ text: git("show", `${rev}:distribution/app-store/frames/spec.json`) });
-  const sets = Object.fromEntries(Object.entries(spec.sets).map(([name, set]) => [name, { simulator: set.simulator, scene_size: set.scene_size, scenes: scenesFor(set) }]));
+  // A set with checked-in scenes (scenes_from) is not photographed here, so it is not part of the key.
+  const sets = Object.fromEntries(Object.entries(spec.sets).filter(([, set]) => !set.scenes_from)
+    .map(([name, set]) => [name, { simulator: set.simulator, scene_size: set.scene_size, orientation: set.orientation ?? "portrait", scenes: scenesFor(set) }]));
   return `store-scenes-${createHash("sha256").update(tree).update(project).update(JSON.stringify(sets)).digest("hex").slice(0, 20)}`;
 }
 

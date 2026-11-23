@@ -177,6 +177,13 @@ module AppStoreListing
 
         errors << "#{folder}/#{name} must be named NN-name.png" unless name.match?(SCREENSHOT_NAME)
       end
+      # The same file twice in one set: the iPhone Duo listing once showed two pictures twice each.
+      # scripts/store-frames/distinct.mjs also catches the same picture at another size.
+      files.group_by { |path| Digest::MD5.file(path).hexdigest }.each_value do |same|
+        next if same.length < 2
+
+        errors << "#{folder} has the same screenshot more than once: #{same.map { |path| File.basename(path) }.join(', ')}"
+      end
       files.each do |path|
         info = png_info(path)
         size = [info.width, info.height]

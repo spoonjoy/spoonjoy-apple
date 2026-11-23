@@ -7,9 +7,10 @@
 //   node scripts/store-frames/render.mjs --scenes DIR --out DIR [--spec PATH] [--sets iphone-69,ipad-13] [--check]
 //                                        [--keep-from DIR]
 //
-// DIR/<set>/<scene>.png in, OUT/<set>/<id>.png out, plus OUT/manifest.json with every frame's SHA-256. A set's
-// "keep" files (art no scene can make yet, such as the iPhone Duo spread) are copied as they are from --keep-from,
-// by default distribution/app-store/screenshots beside the spec.
+// DIR/<set>/<scene>.png in, OUT/<set>/<id>.png out, plus OUT/manifest.json with every frame's SHA-256. A set with
+// "scenes_from" reads its scenes from that checked-in folder instead (the iPhone Duo, whose scenes the Duo tour
+// photographs in each pose). A set's "keep" files are copied as they are from --keep-from, by default
+// distribution/app-store/screenshots beside the spec.
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -33,12 +34,30 @@ export function loadSpec(path) {
   return spec;
 }
 
+/**
+ * The iPhone Duo's poses: which display the Duo tour photographs for each, at what size, and how the frame holds it.
+ * Closed is the outer screen; the rest are the inner screen, held sideways, held tall, or half-open on the counter.
+ */
+export const DUO_POSES = {
+  closed: { size: [1398, 2034] },
+  "open-wide": { size: [2853, 2007] },
+  "open-tall": { size: [2007, 2853] },
+  "half-open": { size: [2007, 2853] },
+};
+
 /** Every problem with the spec, as sentences. */
 export function validateSpec(spec) {
   const errors = [];
   for (const [name, set] of Object.entries(spec.sets)) {
     if (!Array.isArray(set.size) || set.size.length !== 2) errors.push(`${name}: size is [width, height]`);
-    if (!["iphone", "ipad"].includes(set.device)) errors.push(`${name}: device is iphone or ipad`);
+    if (!["iphone", "ipad", "duo"].includes(set.device)) errors.push(`${name}: device is iphone, ipad or duo`);
+    if (set.scenes_from !== undefined && !/^distribution\/app-store\/[a-z0-9/-]+$/.test(set.scenes_from)) errors.push(`${name}: scenes_from is a folder under distribution/app-store`);
+    if (set.orientation !== undefined && !["portrait", "landscape"].includes(set.orientation)) errors.push(`${name}: orientation is portrait or landscape`);
+    // Every shot in a set shows something different: the iPhone Duo listing once showed two pictures twice each.
+    const scenes = set.shots.map((shot) => shot.scene);
+    for (const scene of new Set(scenes.filter((scene, i) => scenes.indexOf(scene) !== i))) errors.push(`${name}: scene ${scene} is in two shots; every shot shows something different`);
+    const headlines = set.shots.map((shot) => shot.headline);
+    for (const headline of new Set(headlines.filter((h, i) => h && headlines.indexOf(h) !== i))) errors.push(`${name}: headline "${headline}" is on two shots`);
     if (!set.shots.length) errors.push(`${name}: a set has at least one shot`);
     const ids = new Set();
     for (const file of set.keep ?? []) {
@@ -53,6 +72,8 @@ export function validateSpec(spec) {
       if (!spec.palettes[shot.palette]) errors.push(`${name}/${shot.id}: no palette ${shot.palette}`);
       if (!shot.headline) errors.push(`${name}/${shot.id}: no headline`);
       if (!/^[a-z-]+$/.test(shot.scene ?? "")) errors.push(`${name}/${shot.id}: scene names a Store scene`);
+      if (set.device === "duo" && !DUO_POSES[shot.pose]) errors.push(`${name}/${shot.id}: pose is one of ${Object.keys(DUO_POSES).join(", ")}`);
+      if (shot.siri !== undefined && !(typeof shot.siri === "string" && shot.siri.includes("Spoonjoy"))) errors.push(`${name}/${shot.id}: siri is a phrase that names Spoonjoy`);
     }
   }
   if (spec.creative) {
@@ -90,9 +111,28 @@ function fontFaces() {
   ].join("\n");
 }
 
+/**
+ * A Siri request over the frame: the phrase someone says, in the words of one of the app's App Shortcuts
+ * (Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift), so the caption stays true of the build.
+ */
+function siriHtml(phrase, u, bottomPx) {
+  if (!phrase) return "";
+  return `<div class="siri" style="bottom:${bottomPx}px"><div class="orb"></div><div class="said">“${escape(phrase)}”</div></div>`;
+}
+
+function siriCss(u) {
+  return `.siri{position:absolute;left:50%;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:${28 * u}px;padding:${30 * u}px ${48 * u}px ${30 * u}px ${30 * u}px;
+  border-radius:${70 * u}px;corner-shape:squircle;background:rgba(24,20,17,.86);color:#FBFAF4;white-space:nowrap;
+  box-shadow:0 ${30 * u}px ${90 * u}px rgba(0,0,0,.45),0 0 0 ${3 * u}px rgba(255,255,255,.12) inset;font:600 ${50 * u}px/1.1 'Source Serif 4',serif}
+.siri .orb{flex:none;width:${84 * u}px;height:${84 * u}px;border-radius:50%;background:conic-gradient(from 200deg,#ff6a3d,#ff3d8b,#8b5cff,#3db7ff,#46e3b0,#ffb13d,#ff6a3d);
+  box-shadow:0 0 ${40 * u}px rgba(255,120,180,.55)}`;
+}
+
 /** The frame's HTML. Every length scales with the canvas width, so each export size keeps one composition. */
 export function frameHtml(set, shot, palettes, scenePath) {
+  if (set.device === "duo") return duoFrameHtml(set, shot, palettes, scenePath);
   const [w, h] = set.size;
+  if (set.device === "ipad" && w > h) return landscapeFrameHtml(set, shot, palettes, scenePath);
   const [top, bottom, ink, soft] = palettes[shot.palette];
   const ipad = set.device === "ipad";
   const u = w / 1320;
@@ -115,9 +155,126 @@ p{margin:${30 * u}px 0 0;font:500 ${46 * u}px/1.25 'Source Serif 4',serif;color:
   box-shadow:0 ${40 * u}px ${120 * u}px rgba(0,0,0,.38),0 0 0 ${3 * u}px rgba(255,255,255,.08) inset;z-index:2}
 .device img{display:block;width:100%;border-radius:${radius - bezel}px}
 .island{position:absolute;left:50%;transform:translateX(-50%);top:${bezel + 30 * u}px;width:${300 * u}px;height:${88 * u}px;border-radius:${44 * u}px;background:#000}
+${siriCss(u)}
+${stackCss(u, { copyTop: 150 * u, left: 92 * u, deviceTop: h * (ipad ? 0.26 : 0.245), gap: 56 * u })}
 </style></head><body><div class="canvas"><div class="grain"></div>
-<div class="copy">${shot.kicker ? `<div class="kicker">${escape(shot.kicker)}</div>` : ""}<h1>${headline}</h1>${shot.subline ? `<p>${escape(shot.subline)}</p>` : ""}</div>
-<div class="device"><img src="${pathToFileURL(scenePath).href}">${ipad ? "" : '<div class="island"></div>'}</div>
+<div class="stack"><div class="copy">${copyHtml(shot)}</div>
+<div class="device"><img src="${pathToFileURL(scenePath).href}">${ipad ? "" : '<div class="island"></div>'}</div></div>
+${siriHtml(shot.siri, u, h * 0.06)}
+</div></body></html>`;
+}
+
+/**
+ * The caption and the device in one column: the device starts a gap below the caption however many lines it takes,
+ * and never higher than `deviceTop` from the top of the canvas, so a short caption keeps the usual composition.
+ */
+function stackCss(u, { copyTop, left, deviceTop, gap }) {
+  return `.stack{position:absolute;left:0;right:0;top:${copyTop}px;display:flex;flex-direction:column;align-items:center}
+.stack .copy{position:relative;left:auto;right:auto;top:auto;align-self:stretch;margin:0 ${left}px;width:auto;min-height:${deviceTop - copyTop - gap}px}
+.stack > .device{position:relative;left:auto;top:auto;transform:none;margin-top:${gap}px;flex:none}`;
+}
+
+function copyHtml(shot) {
+  const headline = escape(shot.headline).replace(/\n/g, "<br>");
+  return `${shot.kicker ? `<div class="kicker">${escape(shot.kicker)}</div>` : ""}<h1>${headline}</h1>${shot.subline ? `<p>${escape(shot.subline)}</p>` : ""}`;
+}
+
+function baseCss(w, h, u, palette, { head, sub, left, top: copyTop, width }) {
+  const [top, bottom, ink, soft] = palette;
+  return `${fontFaces()}
+*{-webkit-font-smoothing:antialiased}
+html,body{margin:0;width:${w}px;height:${h}px;overflow:hidden;background:${top}}
+.canvas{position:relative;width:${w}px;height:${h}px;background:linear-gradient(165deg,${top} 0%,${bottom} 100%);overflow:hidden}
+.grain{position:absolute;inset:0;opacity:.07;background-image:radial-gradient(rgba(0,0,0,.6) 1px,transparent 1px);background-size:${6 * u}px ${6 * u}px}
+.copy{position:absolute;left:${left}px;top:${copyTop}px;width:${width}px;color:${ink};z-index:6}
+.kicker{font:600 ${34 * u}px/1 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:${soft};margin-bottom:${28 * u}px}
+h1{margin:0;font-family:'Fraunces',serif;font-variation-settings:'opsz' 144,'SOFT' 30;font-weight:800;font-size:${head}px;line-height:.98;letter-spacing:-.02em}
+p{margin:${30 * u}px 0 0;font:500 ${sub}px/1.25 'Source Serif 4',serif;color:${soft}}
+${siriCss(u)}`;
+}
+
+/** The iPad held sideways: the caption across the top, the iPad below it, running off the bottom edge. */
+function landscapeFrameHtml(set, shot, palettes, scenePath) {
+  const [w, h] = set.size;
+  const u = h / 1450;
+  const deviceWidth = w * 0.76;
+  const bezel = 24 * u;
+  const radius = 64 * u;
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+${baseCss(w, h, u, palettes[shot.palette], { head: 128 * u, sub: 46 * u, left: 150 * u, top: 120 * u, width: w - 300 * u })}
+.device{position:absolute;left:50%;transform:translateX(-50%);top:${h * 0.34}px;width:${deviceWidth}px;border-radius:${radius}px;background:#0d0c0b;padding:${bezel}px;
+  box-shadow:0 ${40 * u}px ${120 * u}px rgba(0,0,0,.38),0 0 0 ${3 * u}px rgba(255,255,255,.08) inset;z-index:2}
+.device img{display:block;width:100%;border-radius:${radius - bezel}px}
+${stackCss(u, { copyTop: 120 * u, left: 150 * u, deviceTop: h * 0.34, gap: 60 * u })}
+</style></head><body><div class="canvas"><div class="grain"></div>
+<div class="stack"><div class="copy">${copyHtml(shot)}</div>
+<div class="device"><img src="${pathToFileURL(scenePath).href}"></div></div>
+${siriHtml(shot.siri, u, h * 0.06)}
+</div></body></html>`;
+}
+
+/**
+ * The iPhone Duo in one of its poses (DUO_POSES), on the inner screen's canvas. Closed, it is a phone showing the
+ * outer screen; open wide, a landscape spread with the hinge down the middle; open tall, a tall page with the hinge
+ * across it; half-open, the top half stands up and the bottom half lies on the counter.
+ */
+const DUO_STAGE = 0.27;
+
+function duoFrameHtml(set, shot, palettes, scenePath) {
+  const [w, h] = set.size;
+  const u = w / 1320;
+  const src = pathToFileURL(scenePath).href;
+  const bezel = 20 * u;
+  const radius = 70 * u;
+  const copyTop = 150 * u;
+  let device;
+  let css;
+  if (shot.pose === "closed") {
+    const dw = w * 0.62;
+    css = `.device{left:${(w - dw) / 2}px;top:${h * (0.29 - DUO_STAGE)}px;width:${dw}px;padding:${bezel}px;border-radius:${radius}px}`;
+    device = `<div class="device"><img src="${src}" style="border-radius:${radius - bezel}px"><div class="island" style="top:${bezel + 26 * u}px;width:${200 * u}px;height:${60 * u}px"></div></div>`;
+  } else if (shot.pose === "open-wide") {
+    const dw = w * 0.94;
+    const dh = (dw - 2 * bezel) * (2007 / 2853) + 2 * bezel;
+    const top = Math.max(h * 0.36, (h * 0.33 + h - dh) / 2 - h * 0.04) - h * DUO_STAGE;
+    css = `.device{left:${(w - dw) / 2}px;top:${top}px;width:${dw}px;padding:${bezel}px;border-radius:${radius}px;transform:rotate(-3deg)}
+.hinge{position:absolute;top:${bezel}px;bottom:${bezel}px;left:50%;width:${16 * u}px;transform:translateX(-50%);
+  background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.16) 45%,rgba(255,255,255,.12) 55%,rgba(0,0,0,0))}`;
+    device = `<div class="device"><img src="${src}" style="border-radius:${radius - bezel}px"><div class="hinge"></div></div>`;
+  } else if (shot.pose === "open-tall") {
+    const dw = w * 0.8;
+    css = `.device{left:${(w - dw) / 2}px;top:${h * (0.3 - DUO_STAGE)}px;width:${dw}px;padding:${bezel}px;border-radius:${radius}px}
+.hinge{position:absolute;left:${bezel}px;right:${bezel}px;top:50%;height:${16 * u}px;transform:translateY(-50%);
+  background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.14) 45%,rgba(255,255,255,.12) 55%,rgba(0,0,0,0))}`;
+    device = `<div class="device"><img src="${src}" style="border-radius:${radius - bezel}px"><div class="hinge"></div></div>`;
+  } else {
+    // Half-open on the counter: the top half of the inner screen stands, the bottom half tilts back in perspective.
+    const dw = w * 0.74;
+    const half = ((dw - 2 * bezel) * (2853 / 2007)) / 2;
+    const top = h * (0.31 - DUO_STAGE);
+    css = `.stand{position:absolute;left:${(w - dw) / 2}px;top:${top}px;width:${dw}px}
+.half{background:#0d0c0b;box-sizing:border-box;width:${dw}px}
+.upright{height:${half + bezel}px;padding:${bezel}px ${bezel}px 0;border-radius:${radius}px ${radius}px 0 0;position:relative;z-index:2}
+.flat{height:${half + bezel}px;padding:0 ${bezel}px ${bezel}px;border-radius:0 0 ${radius}px ${radius}px;transform-origin:top center;transform:perspective(${dw * 2.2}px) rotateX(52deg)}
+.screen{width:100%;height:100%;background-image:url(${src});background-size:100% 200%}
+.upright .screen{background-position:top;border-radius:${radius - bezel}px ${radius - bezel}px 0 0}
+.flat .screen{background-position:bottom;border-radius:0 0 ${radius - bezel}px ${radius - bezel}px}
+.counter{position:absolute;left:${(w - dw * 1.2) / 2}px;width:${dw * 1.2}px;top:${top + half * 1.55}px;height:${half * 0.5}px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(0,0,0,.42),rgba(0,0,0,0));z-index:0}`;
+    device = `<div class="counter"></div><div class="stand"><div class="half upright"><div class="screen"></div></div><div class="half flat"><div class="screen"></div></div></div>`;
+  }
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+${baseCss(w, h, u, palettes[shot.palette], { head: 140 * u, sub: 46 * u, left: 92 * u, top: copyTop, width: w - 184 * u })}
+.device{position:absolute;background:#0d0c0b;box-shadow:0 ${40 * u}px ${120 * u}px rgba(0,0,0,.38),0 0 0 ${3 * u}px rgba(255,255,255,.08) inset;z-index:2;box-sizing:content-box}
+.device img{display:block;width:100%}
+.island{position:absolute;left:50%;transform:translateX(-50%);border-radius:${30 * u}px;background:#000}
+${css}
+${stackCss(u, { copyTop, left: 92 * u, deviceTop: h * DUO_STAGE, gap: 56 * u })}
+.stage{position:relative;align-self:stretch;height:${h}px;margin-top:${56 * u}px;flex:none}
+</style></head><body><div class="canvas"><div class="grain"></div>
+<div class="stack"><div class="copy">${copyHtml(shot)}</div>
+<div class="stage">${device}</div></div>
+${siriHtml(shot.siri, u, h * 0.05)}
 </div></body></html>`;
 }
 
@@ -172,12 +329,17 @@ ${phones.join("\n")}
 
 export const sha256 = (buffer) => createHash("sha256").update(buffer).digest("hex");
 
-/** Checks a raw scene is there and was taken on the set's device; returns its path. */
-export function scenePath(scenesDir, setName, set, scene) {
-  const path = join(scenesDir, setName, `${scene}.png`);
+/** Where a set's raw scene is: the Store scenes folder, or the set's own checked-in folder. */
+export function sceneFile(scenesDir, setName, set, scene) {
+  return set.scenes_from ? join(ROOT, set.scenes_from, `${scene}.png`) : join(scenesDir, setName, `${scene}.png`);
+}
+
+/** Checks a raw scene is there and was taken on the set's device (or in the shot's Duo pose); returns its path. */
+export function scenePath(scenesDir, setName, set, scene, shot) {
+  const path = sceneFile(scenesDir, setName, set, scene);
   if (!existsSync(path)) throw new Error(`${setName} has no scene ${scene} (${path}); run Store scenes`);
   const { width, height } = decode(readFileSync(path));
-  const [sw, sh] = set.scene_size ?? set.size;
+  const [sw, sh] = set.device === "duo" && shot ? DUO_POSES[shot.pose].size : set.scene_size ?? set.size;
   if (width !== sw || height !== sh) throw new Error(`${path} is ${width}x${height}; ${setName} scenes are ${sw}x${sh}`);
   return path;
 }
@@ -213,7 +375,7 @@ async function renderAll({ spec, scenes, out, sets, keepFrom }) {
       mkdirSync(join(out, setName), { recursive: true });
       for (const shot of set.shots) {
         const html = join(out, setName, `${shot.id}.html`);
-        writeFileSync(html, frameHtml(set, shot, spec.palettes, scenePath(scenes, setName, set, shot.scene)));
+        writeFileSync(html, frameHtml(set, shot, spec.palettes, scenePath(scenes, setName, set, shot.scene, shot)));
         manifest[`${setName}/${shot.id}.png`] = await shoot(page, html, join(out, setName, `${shot.id}.png`));
       }
       await page.close();
@@ -274,7 +436,8 @@ async function main() {
   }
   const scenes = {};
   for (const setName of sets) {
-    for (const scene of scenesFor(spec.sets[setName])) scenes[`${setName}/${scene}.png`] = sha256(readFileSync(join(values.scenes, setName, `${scene}.png`)));
+    const set = spec.sets[setName];
+    for (const scene of scenesFor(set)) scenes[`${setName}/${scene}.png`] = sha256(readFileSync(sceneFile(values.scenes, setName, set, scene)));
   }
   writeFileSync(join(values.out, "manifest.json"), `${JSON.stringify({ scenes, frames: manifest }, null, 2)}\n`);
   for (const [path, hash] of Object.entries(manifest)) console.log(`${hash}  ${path}`);

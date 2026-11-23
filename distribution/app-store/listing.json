@@ -93,6 +93,19 @@
         ]
       ]
     },
+    "iphone-duo": {
+      "displayType": "APP_IPHONE_DUO",
+      "sizes": [
+        [
+          2007,
+          2853
+        ],
+        [
+          1398,
+          2034
+        ]
+      ]
+    },
     "ipad-13": {
       "displayType": "APP_IPAD_PRO_3GEN_129",
       "sizes": [
