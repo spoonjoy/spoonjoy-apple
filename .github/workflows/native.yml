@@ -41,10 +41,11 @@ concurrency:
 # optional jobs in lane c are one commit's, not every merge's.
 
 # Ari's Mac. A self-hosted runner on Ari's Mac (labels: spoonjoy-local-mac only, registered to this repository alone)
-# takes App bundle and Reins journeys on merge-queue and main or release push runs when it is idle, so the merge queue
-# doesn't wait hours for one of the org's few hosted Macs. The "Mac runner" job picks local or hosted
-# (scripts/pick-mac-runner.rb); pull requests never reach it, and the runner's own job-started hook refuses any other
-# event or repository. Both jobs build with the Mac's own Xcode (27.2), which passes them with no warnings.
+# takes App bundle, Reins journeys and Native scenario verifier on merge-queue and main or release push runs when it is
+# idle, so the merge queue doesn't wait hours for one of the org's few hosted Macs, or drop an entry whose hosted job
+# GitHub never placed (#454, 2026-11-24). The "Mac runner" job picks local or hosted (scripts/pick-mac-runner.rb);
+# pull requests never reach it, and the runner's own job-started hook refuses any other event or repository. The jobs
+# build with the Mac's own Xcode (27.2), which passes them with no warnings.
 
 permissions:
   contents: read
@@ -255,7 +256,15 @@ jobs:
   native-scenario-verifier:
     name: Native scenario verifier
     # Plutil/sips checks and SwiftPM executables only, no xcodebuild, so it runs on macos-26.
-    runs-on: macos-26
+    # On merge-queue and main/release push runs it takes the local Mac when the Mac runner job picked it: on
+    # 2026-11-24 its hosted job went unplaced twice under GitHub Free's macOS cap, and the merge queue dropped #454
+    # both times.
+    needs: mac-runner
+    # !cancelled(): the verifier still runs when the Mac runner job it needs fails (then it runs hosted).
+    if: ${{ !cancelled() }}
+    runs-on: >-
+      ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+      && needs.mac-runner.outputs.mac == 'local' && 'spoonjoy-local-mac' || 'macos-26' }}
     # Lane b of 3: see the note on macOS lanes at the top of native.yml.
     concurrency:
       group: >-
@@ -275,9 +284,18 @@ jobs:
         with:
           persist-credentials: false
       - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        if: runner.environment == 'github-hosted'
         with:
           ruby-version: '3.3'
           bundler-cache: true
+      # The local Mac's Homebrew Ruby 3.3 has the Gemfile's gems installed; bundle check fails the job early if not.
+      - name: Use the local Mac's Ruby 3.3
+        if: runner.environment == 'self-hosted'
+        run: |
+          set -euo pipefail
+          echo /opt/homebrew/opt/ruby@3.3/bin >> "$GITHUB_PATH"
+          /opt/homebrew/opt/ruby@3.3/bin/ruby -e 'abort "Ruby #{RUBY_VERSION} is not 3.3" unless RUBY_VERSION.start_with?("3.3.")'
+          /opt/homebrew/opt/ruby@3.3/bin/bundle check
       - uses: ./.github/actions/select-swift-toolchain
       - name: Check native project and surface contracts
         # These read the Xcode project with plutil, sips and sw_vers, so they stay on macOS.
@@ -300,7 +318,7 @@ jobs:
           ruby scripts/fail-on-warning.rb --log "$scenario_log"
 
   mac-runner:
-    # Picks where App bundle and Reins journeys run on a merge-queue or main/release push run: the local Mac when it is
+    # Picks where App bundle, Reins journeys and Native scenario verifier run on a merge-queue or main/release push run: the local Mac when it is
     # up and idle, otherwise hosted xcode-27 and macos-26 runners (see the note on Ari's Mac at the top of native.yml).
     # On pull requests it answers hosted at once. It never skips: a skipped job skips every job downstream whose if has
     # no status function, which on #334's first run skipped all the optional jobs behind App bundle.
