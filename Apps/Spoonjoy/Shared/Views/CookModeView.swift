@@ -7,6 +7,7 @@ import SwiftUI
 import UIKit
 #else
 import AppKit
+import UserNotifications
 #endif
 #if os(iOS) && canImport(AlarmKit)
 import ActivityKit
@@ -896,11 +897,16 @@ struct CookModeView: View {
     }
 
     static func startHint(ingredientCount: Int) -> String {
-        switch ingredientCount {
-        case 0: "Tap to start"
-        case 1: "Tap to start or check it off"
-        case 2: "Tap to start or check both"
-        default: "Tap to start or check all \(ingredientCount)"
+#if os(macOS)
+        let start = "Click to start"
+#else
+        let start = "Tap to start"
+#endif
+        return switch ingredientCount {
+        case 0: start
+        case 1: "\(start) or check it off"
+        case 2: "\(start) or check both"
+        default: "\(start) or check all \(ingredientCount)"
         }
     }
 
@@ -2170,59 +2176,66 @@ private struct CookModeSystemTimer: View {
     @ViewBuilder private var timerAction: some View {
 #if os(iOS)
         if #available(iOS 26.1, *) {
-            // The two faces carry the ring's controls and what VoiceOver reads, and swap in place. What the eye sees
-            // is drawn once over both: the arc, which sweeps in and unwinds, the digits, which roll, and the label
-            // under them, which crossfades. Below the ring, Cancel and the hint crossfade the same way.
-            VStack(spacing: 10) {
-                // A ZStack, not a Group: a Group would hand the overlay to each face, and it would leave with it.
-                ZStack {
-                    if stepTimers.alarmID(forStep: stepKey) != nil {
-                        runningRing
-                            .transition(.identity)
-                    } else {
-                        startButton
-                            .transition(.identity)
-                    }
-                }
-                .overlay {
-                    ringDrawing
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                }
-                .scaleEffect(ringPressed && !reduceMotion ? 0.95 : 1)
-                .opacity(ringPressed && reduceMotion ? 0.7 : 1)
-                .animation(KitchenMotion.animation(.snappy, reduceMotion: reduceMotion), value: ringPressed)
-                // A face that goes while a finger is on it (the timer set from elsewhere) never reports the lift.
-                .onChange(of: stepTimerIsSet) { _, _ in
-                    ringPressed = false
-                }
-
-                ZStack(alignment: .top) {
-                    if stepTimerIsSet {
-                        cancelButton
-                            .transition(handOver())
-                    } else if showsHint {
-                        Text(hint)
-                            .font(KitchenTableTheme.meta)
-                            .foregroundStyle(KitchenTableTheme.ink2)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .accessibilityIdentifier("cook.timer.hint")
-                            // After Cancel has gone and the status line has begun, so no two lines share a moment.
-                            .transition(handOver(after: 0.14))
-                    }
-                }
-                .animation(KitchenMotion.animation(.glide, reduceMotion: reduceMotion), value: stepTimerIsSet)
-            }
+            ringControl
         } else {
             unavailableCue
         }
+#elseif os(macOS)
+        // The Mac has no system alarms; the ring runs an in-app countdown (`CookModeInAppTimers`) instead.
+        ringControl
 #else
         unavailableCue
 #endif
     }
 
-#if os(iOS)
+#if os(iOS) || os(macOS)
+    private var ringControl: some View {
+        // The two faces carry the ring's controls and what VoiceOver reads, and swap in place. What the eye sees
+        // is drawn once over both: the arc, which sweeps in and unwinds, the digits, which roll, and the label
+        // under them, which crossfades. Below the ring, Cancel and the hint crossfade the same way.
+        VStack(spacing: 10) {
+            // A ZStack, not a Group: a Group would hand the overlay to each face, and it would leave with it.
+            ZStack {
+                if stepTimers.alarmID(forStep: stepKey) != nil {
+                    runningRing
+                        .transition(.identity)
+                } else {
+                    startButton
+                        .transition(.identity)
+                }
+            }
+            .overlay {
+                ringDrawing
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+            .scaleEffect(ringPressed && !reduceMotion ? 0.95 : 1)
+            .opacity(ringPressed && reduceMotion ? 0.7 : 1)
+            .animation(KitchenMotion.animation(.snappy, reduceMotion: reduceMotion), value: ringPressed)
+            // A face that goes while a finger is on it (the timer set from elsewhere) never reports the lift.
+            .onChange(of: stepTimerIsSet) { _, _ in
+                ringPressed = false
+            }
+
+            ZStack(alignment: .top) {
+                if stepTimerIsSet {
+                    cancelButton
+                        .transition(handOver())
+                } else if showsHint {
+                    Text(hint)
+                        .font(KitchenTableTheme.meta)
+                        .foregroundStyle(KitchenTableTheme.ink2)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("cook.timer.hint")
+                        // After Cancel has gone and the status line has begun, so no two lines share a moment.
+                        .transition(handOver(after: 0.14))
+                }
+            }
+            .animation(KitchenMotion.animation(.glide, reduceMotion: reduceMotion), value: stepTimerIsSet)
+        }
+    }
+
     /// The step already has a system alarm, so the ring counts it down and offers Cancel; a second alarm cannot be set.
     private var runningRing: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -2413,11 +2426,111 @@ private struct CookModeSystemTimer: View {
 }
 
 extension CookModeSessionCenter {
-    /// How step alarms are set: AlarmKit, or the journeys' stand-in.
+    /// How step alarms are set: AlarmKit, the Mac's in-app countdown, or the journeys' stand-in.
     static var alarms: CookStepAlarms {
+#if os(macOS)
+        usesJourneyAlarmFixture ? .journeyStandIn : CookModeInAppTimers.alarms
+#else
         usesJourneyAlarmFixture ? .journeyStandIn : CookModeAlarmKitTimerScheduler.alarms
+#endif
     }
 }
+
+#if os(macOS)
+/// The Mac's step timers. macOS has no AlarmKit, so a step's timer counts down in the app, on the same registry and
+/// clock the iPhone's alarms use, so the ring, Cancel, Siri and the automatic start all work unchanged. When it ends,
+/// the Mac plays a sound (or bounces the Dock icon when Spoonjoy is behind other windows) and frees the step. A
+/// notification is scheduled too when Spoonjoy may send them, so the end is announced even if Spoonjoy has quit.
+@MainActor
+enum CookModeInAppTimers {
+    private static var finishTasks: [UUID: Task<Void, Never>] = [:]
+
+    static var alarms: CookStepAlarms {
+        CookStepAlarms(
+            schedule: { timer, recipe, step in
+                let alarmID = UUID()
+                let duration = TimeInterval(timer.durationSeconds)
+                arm(alarmID, after: duration)
+                scheduleNotification(
+                    alarmID,
+                    after: duration,
+                    title: "\(step.stepTitle ?? recipe.title) is ready",
+                    body: "\(timer.durationLabel) timer for \(recipe.title), step \(step.stepNum)"
+                )
+                return alarmID
+            },
+            cancel: { alarmID in
+                finishTasks.removeValue(forKey: alarmID)?.cancel()
+                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [alarmID.uuidString])
+            }
+        )
+    }
+
+    /// Picks up after a relaunch: timers still running count on, and the steps whose timers ended while Spoonjoy was
+    /// closed are freed.
+    static func restore(_ center: CookModeSessionCenter) {
+        guard !CookModeSessionCenter.usesJourneyAlarmFixture else {
+            return
+        }
+        let now = Date()
+        let clock = center.timerClock
+        let live = clock.liveAlarmIDs(at: now)
+        center.stepTimers.reconcile(activeAlarmIDs: live)
+        center.updateTimerClock { $0.retain(activeAlarmIDs: live) }
+        for alarmID in live {
+            if let record = clock.records[alarmID.uuidString], record.pausedRemaining == nil {
+                arm(alarmID, after: record.endsAt.timeIntervalSince(now))
+            }
+        }
+    }
+
+    private static func arm(_ alarmID: UUID, after delay: TimeInterval) {
+        finishTasks[alarmID]?.cancel()
+        finishTasks[alarmID] = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(max(0, delay)))
+            guard !Task.isCancelled else {
+                return
+            }
+            finish(alarmID)
+        }
+    }
+
+    private static func finish(_ alarmID: UUID) {
+        finishTasks[alarmID] = nil
+        let center = CookModeSessionCenter.shared
+        guard center.stepTimers.alarmIDsByStep.values.contains(alarmID) else {
+            return
+        }
+        if NSApp.isActive {
+            NSSound(named: "Glass")?.play()
+        } else {
+            NSApp.requestUserAttention(.informationalRequest)
+        }
+        center.stepTimers.forget(alarmID: alarmID)
+        center.updateTimerClock { $0.retain(activeAlarmIDs: Set(center.stepTimers.alarmIDsByStep.values)) }
+    }
+
+    /// Asks once whether Spoonjoy may notify, without holding up the timer, and schedules the end's notification if so.
+    private static func scheduleNotification(_ alarmID: UUID, after delay: TimeInterval, title: String, body: String) {
+        Task {
+            let notifications = UNUserNotificationCenter.current()
+            var status = await notifications.notificationSettings().authorizationStatus
+            if status == .notDetermined {
+                status = (try? await notifications.requestAuthorization(options: [.alert, .sound])) == true ? .authorized : .denied
+            }
+            guard status == .authorized || status == .provisional, delay > 0 else {
+                return
+            }
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            content.sound = .default
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
+            try? await notifications.add(UNNotificationRequest(identifier: alarmID.uuidString, content: content, trigger: trigger))
+        }
+    }
+}
+#endif
 
 enum CookModeAlarmKitTimerScheduler {
     @MainActor static var alarms: CookStepAlarms {

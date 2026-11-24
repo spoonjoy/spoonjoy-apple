@@ -31,7 +31,7 @@ struct OfflineStatusView: View {
     }
 
     var body: some View {
-        if display.isVisible {
+        if display.isVisible, !(display.informationalOnly && Self.captureHidesSavedCopyLine) {
             HStack(spacing: 8) {
                 Label(visibleLabel, systemImage: symbol)
                     .font(statusFont)
@@ -58,6 +58,16 @@ struct OfflineStatusView: View {
             .padding(.vertical, effectiveProminence == .quiet ? 2 : 4)
         }
     }
+
+    /// A screenshot capture that asked for it (`ScreenshotCaptureOptions`) leaves out the "Saved copy" line on every
+    /// screen, not only the shell's: captures run from the saved kitchen, which a chef who is online never sees.
+    private static let captureHidesSavedCopyLine: Bool = {
+#if DEBUG
+        ScreenshotCaptureOptions.hidesOfflineStatus(in: ProcessInfo.processInfo.environment)
+#else
+        false
+#endif
+    }()
 
     private var visibleLabel: String {
         guard effectiveProminence == .quiet else {

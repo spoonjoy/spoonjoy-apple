@@ -41,9 +41,16 @@ jobs:
           xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug \
             -destination "generic/platform=macOS" -derivedDataPath "$RUNNER_TEMP/DerivedData-macOS" \
             CODE_SIGNING_ALLOWED=NO build
+      # The app sizes its own window to WINDOW in capture mode, and the capture script fails a shot that is not that
+      # size (in points at 1x, or Retina pixels at 2x) rather than keeping a smaller one. A hosted Mac's display can
+      # be smaller than the window, so the displays are logged here for when a shot comes out the wrong size.
+      - name: Show the displays
+        run: system_profiler SPDisplaysDataType || true
       - name: Photograph each screen, light and dark
         env:
           WINDOW: ${{ inputs.window }}
+          # Captures run from the saved kitchen with no server; hide the "Saved copy" line a chef online never sees.
+          SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS: '1'
         run: |
           set -euo pipefail
           export SPOONJOY_SCREENSHOT_MACOS_APP_PATH="$RUNNER_TEMP/DerivedData-macOS/Build/Products/BootstrapDebug/Spoonjoy.app"
@@ -57,6 +64,10 @@ jobs:
                 --appearance "$appearance" --macos-window "$WINDOW" --artifact-root "$root" > "$root.log" 2>&1 \
                 && [[ -s "$root/screenshots/macos-desktop.png" ]]; then
                 cp "$root/screenshots/macos-desktop.png" "$out/shots/$appearance-$route.png"
+              elif [[ -s "$root/screenshots/macos-desktop.wrong-size.png" ]]; then
+                cp "$root/screenshots/macos-desktop.wrong-size.png" "$out/shots/$appearance-$route.wrong-size.png"
+                echo "::error::$appearance $route came out at the wrong size for a $WINDOW window; see runs/$appearance-$route/apple"
+                failed=$((failed + 1))
               else
                 echo "::warning::$appearance $route was not photographed; see runs/$appearance-$route.log"
                 failed=$((failed + 1))

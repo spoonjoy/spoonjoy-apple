@@ -90,4 +90,18 @@ struct CookTimerClockTests {
         #expect(try JSONDecoder().decode(CookTimerClock.self, from: data) == clock)
         #expect(CookTimerClock(records: clock.records) == clock)
     }
+
+    @Test func liveAlarmsAreThoseStillCountingOrPaused() {
+        let c = UUID(uuidString: "00000000-0000-0000-0000-00000000000C")!
+        var clock = CookTimerClock()
+        clock.start(alarmID: Self.a, duration: 600, now: Self.t0)
+        clock.start(alarmID: Self.b, duration: 60, now: Self.t0)
+        clock.start(alarmID: c, duration: 60, now: Self.t0)
+        clock.pause(alarmID: c, now: Self.t0.addingTimeInterval(30))
+
+        // Two minutes in, b has ended; a still counts and c is paused with time left.
+        #expect(clock.liveAlarmIDs(at: Self.t0.addingTimeInterval(120)) == [Self.a, c])
+        // At its end date a timer has ended.
+        #expect(clock.liveAlarmIDs(at: Self.t0.addingTimeInterval(600)) == [c])
+    }
 }
