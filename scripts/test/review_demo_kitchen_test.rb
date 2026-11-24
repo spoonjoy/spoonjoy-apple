@@ -175,11 +175,17 @@ class ReviewDemoKitchenTest < Minitest::Test
     ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: StringIO.new).run
     failed = { "id" => "cv9", "generationStatus" => "processing" }
     api.covers["r0"] = { "covers" => [failed], "activeCover" => nil,
-                         "onPoll" => ->(state) { failed["generationStatus"] = "failed" if state["polls"] > 1 } }
+                         "onPoll" => lambda { |state|
+                           next unless state["polls"] > 1
+
+                           failed["generationStatus"] = "failed"
+                           failed["failureReason"] = "Image provider refused the request"
+                         } }
     error = assert_raises(ReviewDemoKitchen::Error) do
       ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: StringIO.new, sleeper: ->(_) {}).run
     end
     assert_match(/Cover generation for Brown Butter Apple Crumble/, error.message)
+    assert_match(/\(Image provider refused the request\)/, error.message)
   end
 
   class StubbedHttp < ReviewDemoKitchen::Http

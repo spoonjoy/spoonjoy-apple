@@ -381,7 +381,9 @@ module ReviewDemoKitchen
             say "Cover ready for #{title}"
             true
           elsif Array(data["covers"]).none? { |cover| cover["generationStatus"] == "processing" }
-            raise Error, "Cover generation for #{title} finished without an active cover. Run the workflow again to retry."
+            reasons = Array(data["covers"]).map { |cover| cover["failureReason"] }.compact.uniq
+            because = reasons.empty? ? "" : " (#{reasons.join('; ')})"
+            raise Error, "Cover generation for #{title} finished without an active cover#{because}. Run the workflow again to retry."
           end
         end
         break if @pending_covers.empty? || waited >= @cover_wait_seconds
