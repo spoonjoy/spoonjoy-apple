@@ -12,11 +12,13 @@
 # Run: ruby scripts/pick-mac-runner.rb (in the workflow; tests in scripts/test/pick_mac_runner_test.rb)
 require "json"
 require "open3"
+require "time"
 
 module PickMacRunner
   LABEL = "spoonjoy-local-mac"
   # The heartbeat writes at least every 2 minutes; a sleeping or unplugged Mac stops writing.
   MAX_AGE_SECONDS = 300
+  MAX_RUN_WAIT_SECONDS = 1800
   ACTIVE_JOB_STATUSES = %w[queued in_progress waiting pending requested].freeze
 
   module_function
@@ -29,13 +31,20 @@ module PickMacRunner
   end
 
   # Returns [runner, reason]; runner is "local" or "hosted".
-  def choose(event:, ref:, heartbeat:, now:, active_local_jobs:)
+  # vars.SPOONJOY_LOCAL_MAC is read when the run attempt starts (run_started), not when this job runs, so the heartbeat's
+  # age is measured from then. A heartbeat read more than MAX_RUN_WAIT_SECONDS ago says too little about the Mac now.
+  def choose(event:, ref:, heartbeat:, now:, active_local_jobs:, run_started: nil)
     return ["hosted", "#{event} runs never use the local Mac"] unless trusted_event?(event, ref)
 
     version, at, state, free = heartbeat.to_s.split
     return ["hosted", "no heartbeat from the local Mac"] unless version == "v1" && at.to_s.match?(/\A\d+\z/)
 
-    age = now - at.to_i
+    read_at = run_started || now
+    if now - read_at > MAX_RUN_WAIT_SECONDS
+      return ["hosted", "this run attempt started over #{MAX_RUN_WAIT_SECONDS / 60} min ago, so the heartbeat it read is out of date"]
+    end
+
+    age = read_at - at.to_i
     return ["hosted", "the local Mac's heartbeat is #{age}s old"] if age > MAX_AGE_SECONDS
     return ["hosted", "the local Mac is #{state} (#{free} GiB free)"] unless state == "ready"
     return ["hosted", "the local Mac's state is unknown"] if active_local_jobs.nil?
@@ -63,19 +72,30 @@ module PickMacRunner
     end
   end
 
+  # When this run attempt started, which is when it read vars.SPOONJOY_LOCAL_MAC; nil (age from now) if GitHub can't say.
+  def attempt_started(env, out)
+    path = "repos/#{env.fetch('GITHUB_REPOSITORY')}/actions/runs/#{env.fetch('GITHUB_RUN_ID')}/attempts/#{env.fetch('GITHUB_RUN_ATTEMPT')}"
+    Time.parse(gh_json(path).first.fetch("run_started_at")).to_i
+  rescue StandardError => e
+    out.puts "Couldn't read when this run attempt started (#{e.message}); measuring the heartbeat from now."
+    nil
+  end
+
   def main(env = ENV, out: $stdout)
     event = env.fetch("GITHUB_EVENT_NAME", "")
     ref = env.fetch("GITHUB_REF", "")
     active = nil
+    run_started = nil
     if trusted_event?(event, ref)
       begin
         active = active_local_jobs(env.fetch("GITHUB_REPOSITORY"))
       rescue StandardError => e
         out.puts "Couldn't count jobs on the local Mac (#{e.message}); picking hosted."
       end
+      run_started = attempt_started(env, out)
     end
     runner, reason = choose(event: event, ref: ref, heartbeat: env["SPOONJOY_LOCAL_MAC"], now: Time.now.to_i,
-                            active_local_jobs: active)
+                            active_local_jobs: active, run_started: run_started)
     out.puts "App bundle, Reins journeys and Native scenario verifier run on #{runner == 'local' ? 'the local Mac' : 'hosted runners'}: #{reason}."
     File.open(env["GITHUB_OUTPUT"], "a") { |file| file.puts "mac=#{runner}" } if env["GITHUB_OUTPUT"]
     if env["GITHUB_STEP_SUMMARY"]
