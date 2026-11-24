@@ -1,0 +1,75 @@
+name: Mac capture
+
+# Photographs the macOS app's main screens with scripts/capture-native-screenshots.sh, for the web and native
+# parity sheet and the Mac App Store set. It runs on a hosted Mac, because the script needs an unlocked GUI
+# session with screen recording and Apple Events, which the local Mac doesn't have while its screen is locked.
+# The app uses its built-in screenshot accounts, so no QA server or credentials are involved.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or commit to photograph (default main)
+        required: false
+        default: ''
+      window:
+        description: Window size in points (1440x900 gives the 2880x1800 Mac App Store size)
+        required: false
+        default: '1440x900'
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    name: Photograph the Mac app
+    runs-on: xcode-27
+    # Lane c of 3: see the note on macOS lanes at the top of native.yml.
+    concurrency:
+      group: spoonjoy-macos-lane-c2
+      queue: max
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/select-xcode
+      - name: Build the macOS app
+        run: |
+          set -euo pipefail
+          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug \
+            -destination "generic/platform=macOS" -derivedDataPath "$RUNNER_TEMP/DerivedData-macOS" \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Photograph each screen, light and dark
+        env:
+          WINDOW: ${{ inputs.window }}
+        run: |
+          set -euo pipefail
+          export SPOONJOY_SCREENSHOT_MACOS_APP_PATH="$RUNNER_TEMP/DerivedData-macOS/Build/Products/BootstrapDebug/Spoonjoy.app"
+          out="$RUNNER_TEMP/mac-capture"
+          mkdir -p "$out/shots" "$out/runs"
+          failed=0
+          for appearance in light dark; do
+            for route in kitchen recipes recipe-detail cook-mode cookbooks cookbook-detail shopping-list chefs search; do
+              root="$out/runs/$appearance-$route"
+              if bash scripts/capture-native-screenshots.sh --capture-platform macos --route "$route" \
+                --appearance "$appearance" --macos-window "$WINDOW" --artifact-root "$root" > "$root.log" 2>&1 \
+                && [[ -s "$root/screenshots/macos-desktop.png" ]]; then
+                cp "$root/screenshots/macos-desktop.png" "$out/shots/$appearance-$route.png"
+              else
+                echo "::warning::$appearance $route was not photographed; see runs/$appearance-$route.log"
+                failed=$((failed + 1))
+              fi
+            done
+          done
+          ls -l "$out/shots"
+          [[ "$failed" -eq 0 ]]
+      - name: Keep the photographs
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: mac-capture
+          path: ${{ runner.temp }}/mac-capture
+          retention-days: 30
+          if-no-files-found: warn
