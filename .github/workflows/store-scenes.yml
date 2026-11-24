@@ -85,7 +85,7 @@ jobs:
     concurrency:
       group: spoonjoy-macos-lane-c2
       queue: max
-    timeout-minutes: 75
+    timeout-minutes: 100
     environment: internal-testflight
     strategy:
       fail-fast: false
@@ -111,7 +111,9 @@ jobs:
           echo "udid=$(cat "$RUNNER_TEMP/sim.udid")" >> "$GITHUB_OUTPUT"
           echo "booted-at=$(cat "$RUNNER_TEMP/sim.udid.booted-at")" >> "$GITHUB_OUTPUT"
       - name: Build for testing
-        timeout-minutes: 30
+        # 23 minutes on one runner and past 30 on another in run 45284368603 (2026-11-24): a cold Release build on a
+        # GitHub macOS runner varies that much.
+        timeout-minutes: 45
         env:
           UDID: ${{ steps.sim.outputs.udid }}
         run: |
