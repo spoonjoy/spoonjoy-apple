@@ -170,13 +170,19 @@ case "press":
         if i > 0 { usleep(useconds_t(pause * 1_000_000)) }
         var result = AXError.invalidUIElement
         if let e = found[query] { result = AXUIElementPerformAction(e, kAXPressAction as CFString) }
-        // A pose change can rebuild the window and invalidate a button found before it; look it up again once.
-        if result != .success {
-            say("looking up \(query) again")
+        // A pose change rebuilds the window and invalidates a button found before it. While it rebuilds, a walk can
+        // find nothing at all (run 45292017171 gave up 4 s after Open, and the dump 20 s later listed the button), so
+        // keep looking and pressing until the sequence's budget runs out.
+        var lookups = 0
+        while result != .success, Date() < deadline {
+            if lookups > 0 { usleep(500_000) }
+            lookups += 1
+            if lookups == 1 { say("looking up \(query) again") }
             found[query] = buttons([query], in: app, deadline: deadline)[query]
-            guard let e = found[query] else { say("not found: \(query) (\(failedReads) unreadable elements skipped)"); exit(2) }
-            result = AXUIElementPerformAction(e, kAXPressAction as CFString)
+            if let e = found[query] { result = AXUIElementPerformAction(e, kAXPressAction as CFString) }
         }
+        if lookups > 1 { say("looked up \(query) \(lookups) times") }
+        guard found[query] != nil else { say("not found: \(query) (\(failedReads) unreadable elements skipped)"); exit(2) }
         say("pressed \(query): \(result.rawValue)")
         guard result == .success else { exit(4) }
     }
