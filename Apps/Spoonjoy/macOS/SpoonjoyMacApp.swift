@@ -28,6 +28,9 @@ struct SpoonjoyMacApp: App {
         WindowGroup {
             SpoonjoyRootView()
                 .frame(minWidth: 900, minHeight: 620)
+                // A spoonjoy:// or spoonjoy.app link goes to the window already open. Without this, SwiftUI opens
+                // another window at the default size for every link.
+                .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
         }
         .defaultSize(width: 1040, height: 760)
         .windowResizability(.contentMinSize)
