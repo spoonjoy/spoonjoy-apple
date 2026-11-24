@@ -116,6 +116,8 @@ accessibility_proof_macos="$artifact_root/apple/${unit_slug}-accessibility-proof
 accessibility_proof_ios_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-ios.json"
 accessibility_proof_ipad_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-ipad.json"
 accessibility_proof_macos_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-macos.json"
+# The Mac app logs its launch and window sizing here (SpoonjoyMacLaunchProof), so a capture at the wrong size says why.
+macos_launch_proof_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-macos-launch-proof.log"
 accessibility_proof_ios_rel="apple/${unit_slug}-accessibility-proof-ios.json"
 accessibility_proof_ipad_rel="apple/${unit_slug}-accessibility-proof-ipad.json"
 accessibility_proof_macos_rel="apple/${unit_slug}-accessibility-proof-macos.json"
@@ -1354,6 +1356,7 @@ open_macos_app() {
       SPOONJOY_SCREENSHOT_APPEARANCE="$requested_appearance" \
       SPOONJOY_SCREENSHOT_WINDOW_SIZE="$requested_macos_window" \
       SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS="${SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS:-0}" \
+      SPOONJOY_MAC_LAUNCH_PROOF_PATH="$macos_launch_proof_abs" \
       SPOONJOY_API_BASE_URL="https://spoonjoy.app" \
       open -n "$macos_app"
 }
@@ -1383,6 +1386,7 @@ set_macos_launch_environment() {
       SPOONJOY_SCREENSHOT_APPEARANCE \
       SPOONJOY_SCREENSHOT_WINDOW_SIZE \
       SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS \
+      SPOONJOY_MAC_LAUNCH_PROOF_PATH \
       SPOONJOY_API_BASE_URL
     do
       local value
@@ -1412,6 +1416,7 @@ set_macos_launch_environment() {
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_APPEARANCE "$requested_appearance"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_WINDOW_SIZE "$requested_macos_window"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS "${SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS:-0}"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_MAC_LAUNCH_PROOF_PATH "$macos_launch_proof_abs"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_API_BASE_URL "https://spoonjoy.app"
 }
 
@@ -1454,6 +1459,7 @@ clear_macos_launch_environment() {
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_PROOF_PATH >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_MAC_LAUNCH_PROOF_PATH >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_API_BASE_URL >/dev/null 2>&1 || true
 }
 
