@@ -86,6 +86,9 @@ final class CookModeSessionCenter {
                     self?.publishSession(alarmIDsByStep: alarmIDsByStep)
                 }
             }
+#if os(macOS)
+        CookModeInAppTimers.restore(self)
+#endif
     }
 
     var isCooking: Bool {

@@ -98,6 +98,8 @@ final class SpoonjoyMacAppDelegate: NSObject, NSApplicationDelegate {
 #endif
         SpoonjoyMacMainWindowCoordinator.shared.scheduleLaunchWindowCheck()
         SpoonjoyDiagnosticsReporter.shared.start()
+        // Step timers count down in the app on the Mac; a timer still running from before a relaunch picks up here.
+        _ = CookModeSessionCenter.shared
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -132,6 +134,7 @@ final class SpoonjoyMacMainWindowCoordinator {
 
     private var fallbackWindow: NSWindow?
     private var didScheduleLaunchCheck = false
+    private var screenshotResizeObserver: NSObjectProtocol?
 
     private init() {}
 
@@ -153,8 +156,49 @@ final class SpoonjoyMacMainWindowCoordinator {
             MainActor.assumeIsolated {
                 SpoonjoyMacLaunchProof.record("launch-window-check-delayed")
                 self.showMainWindowIfNeeded()
+                self.applyScreenshotWindowSize()
             }
         }
+#if DEBUG
+        // SwiftUI can restore the window's saved frame after it first shows, so the capture size is set again once
+        // the window has settled.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            MainActor.assumeIsolated {
+                self.applyScreenshotWindowSize()
+            }
+        }
+#endif
+    }
+
+    /// A screenshot capture's window size (`ScreenshotCaptureOptions.windowSize`), set here rather than through System
+    /// Events: AppKit holds a window moved or resized from outside to the screen it is on, and a hosted Mac's screen
+    /// is smaller than the Mac App Store's 1440 by 900. `setFrame` is not held to the screen, so the window takes the
+    /// size asked for, its top-left corner at the top-left of the screen, and any part past the screen's edge is still
+    /// in the window's own image, which `screencapture -l` takes.
+    private func applyScreenshotWindowSize() {
+#if DEBUG
+        guard let size = ScreenshotCaptureOptions.windowSize(in: ProcessInfo.processInfo.environment),
+              let window = existingVisibleMainWindow() ?? fallbackWindow else {
+            return
+        }
+        let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? .zero
+        let frame = NSRect(x: visible.minX, y: visible.maxY - size.height, width: size.width, height: size.height)
+        window.setFrame(frame, display: true)
+        if screenshotResizeObserver == nil {
+            // Anything that later holds the window to the screen (activation, a display change) is undone.
+            screenshotResizeObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didResizeNotification,
+                object: window,
+                queue: .main
+            ) { [weak window] _ in
+                MainActor.assumeIsolated {
+                    guard let window, window.frame.size != frame.size else { return }
+                    window.setFrame(frame, display: true)
+                }
+            }
+        }
+        SpoonjoyMacLaunchProof.record("screenshot-window-size requested=\(Int(size.width))x\(Int(size.height)) frame=\(Int(window.frame.width))x\(Int(window.frame.height)) screen=\(Int(visible.width))x\(Int(visible.height))")
+#endif
     }
 
     func showMainWindow() {

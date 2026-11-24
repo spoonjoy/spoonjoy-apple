@@ -523,7 +523,7 @@ struct RecipeLead: View {
         } label: {
             Label("Recipe", systemImage: "book")
         }
-        .buttonStyle(.ouro(.outline, tone: .secondary, fullWidth: true))
+        .buttonStyle(OnPhotoOutlineButtonStyle())
         .accessibilityIdentifier("kitchen.recipe.open")
     }
 
@@ -534,6 +534,71 @@ struct RecipeLead: View {
 #else
         horizontalSizeClass == .regular ? 400 : 440
 #endif
+    }
+}
+
+/// The hero's second action, over the dish: web's outlined glass button, a light label and outline on a darkened pane in
+/// light and dark alike. Ouro's outline draws in the page's ink, which on the photo read as a disabled button by day and
+/// lost its outline by night. It keeps Ouro's size, squircle corners and press.
+struct OnPhotoOutlineButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        OnPhotoOutlineButton(configuration: configuration)
+    }
+}
+
+private struct OnPhotoOutlineButton: View {
+    let configuration: ButtonStyleConfiguration
+
+    @Environment(\.ouroTheme) private var theme
+    @Environment(\.ouroTouchTarget) private var touchTarget
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private static let size = OuroButtonSize.md
+
+    var body: some View {
+        let shape = OnPhotoControlShape(theme: theme)
+        let increased = contrast == .increased
+        configuration.label
+            .font(.body.weight(.semibold))
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .foregroundStyle(KitchenTableTheme.onPhoto)
+            .padding(.horizontal, Self.size.horizontalPadding)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, minHeight: Self.size.visualHeight(on: .current, target: touchTarget))
+            .background {
+                shape
+                    .fill(KitchenTableTheme.photoCharcoal.opacity(increased ? 0.6 : 0.32))
+                    .overlay(shape.fill(KitchenTableTheme.onPhoto.opacity(configuration.isPressed ? 0.14 : 0)))
+                    .overlay {
+                        shape
+                            .strokeBorder(KitchenTableTheme.onPhoto.opacity(increased ? 1 : 0.72), lineWidth: increased ? 2 : 1)
+                    }
+            }
+            .scaleEffect(OuroButtonMetrics.pressScale(isPressed: configuration.isPressed, reduceMotion: reduceMotion))
+            .animation(KitchenMotion.animation(.snappy, reduceMotion: reduceMotion), value: configuration.isPressed)
+            .contentShape(shape)
+    }
+}
+
+/// Ouro's control corner, a squircle, as its own buttons draw it.
+private struct OnPhotoControlShape: InsettableShape {
+    let theme: OuroTheme
+    var inset: CGFloat = 0
+
+    func path(in rect: CGRect) -> Path {
+        let rect = rect.insetBy(dx: inset, dy: inset)
+        return RoundedRectangle(
+            cornerRadius: OuroButtonMetrics.controlCorner(theme: theme, height: Double(rect.height + inset * 2)),
+            style: .continuous
+        ).path(in: rect)
+    }
+
+    func inset(by amount: CGFloat) -> OnPhotoControlShape {
+        var shape = self
+        shape.inset += amount
+        return shape
     }
 }
 

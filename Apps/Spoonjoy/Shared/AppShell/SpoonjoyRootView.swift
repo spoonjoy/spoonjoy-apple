@@ -659,7 +659,8 @@ struct SpoonjoyRootView: View {
         guard let mutationID = environment["SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID"]?.trimmingCharacters(in: .whitespacesAndNewlines),
               !mutationID.isEmpty,
               contentState.syncConflicts.contains(where: { $0.clientMutationID == mutationID }) else {
-            return fallback
+            // Captures run from the saved kitchen with no server, so the shell would say "Saved copy" on every shot.
+            return ScreenshotCaptureOptions.offlineIndicatorState(fallback, in: environment)
         }
         return contentState.offlineIndicatorState
 #else

@@ -66,6 +66,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$capture_platform" in all|iphone|ipad|macos) ;; *) printf 'Unsupported capture platform: %s\n' "$capture_platform" >&2; exit 2 ;; esac
+[[ "$requested_macos_window" =~ ^[1-9][0-9]*x[1-9][0-9]*$ ]] || { printf 'Unsupported macOS window size: %s (want <width>x<height> in points)\n' "$requested_macos_window" >&2; exit 2; }
 case "$requested_shopping_variant" in ""|normal|empty|all-complete|pending|row-error|offline-queued|conflict|duplicate) ;; *) printf 'Unsupported shopping variant: %s\n' "$requested_shopping_variant" >&2; exit 2 ;; esac
 case "$requested_shopping_mode" in need|basket|all) ;; *) printf 'Unsupported shopping mode: %s\n' "$requested_shopping_mode" >&2; exit 2 ;; esac
 case "$requested_dynamic_type" in default|accessibility5) ;; *) printf 'Unsupported dynamic type: %s\n' "$requested_dynamic_type" >&2; exit 2 ;; esac
@@ -1351,6 +1352,8 @@ open_macos_app() {
       SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$accessibility_proof_macos_abs" \
       SPOONJOY_SCREENSHOT_APPEARANCE="$requested_appearance" \
+      SPOONJOY_SCREENSHOT_WINDOW_SIZE="$requested_macos_window" \
+      SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS="${SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS:-0}" \
       SPOONJOY_API_BASE_URL="https://spoonjoy.app" \
       open -n "$macos_app"
 }
@@ -1378,6 +1381,8 @@ set_macos_launch_environment() {
       SPOONJOY_SCREENSHOT_PROOF_PATH \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH \
       SPOONJOY_SCREENSHOT_APPEARANCE \
+      SPOONJOY_SCREENSHOT_WINDOW_SIZE \
+      SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS \
       SPOONJOY_API_BASE_URL
     do
       local value
@@ -1405,6 +1410,8 @@ set_macos_launch_environment() {
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_PROOF_PATH "$screenshot_proof_path"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH "$accessibility_proof_macos_abs"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_APPEARANCE "$requested_appearance"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_WINDOW_SIZE "$requested_macos_window"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS "${SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS:-0}"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_API_BASE_URL "https://spoonjoy.app"
 }
 
@@ -2218,12 +2225,35 @@ capture_macos_window() {
   if [[ -z "$window_id" ]]; then
     return 1
   fi
+  # The app sizes its own window from SPOONJOY_SCREENSHOT_WINDOW_SIZE (SpoonjoyMacApp.applyScreenshotWindowSize).
+  # System Events used to set it from outside, but AppKit holds a window resized that way to its screen, so on a
+  # hosted Mac with a small screen the shots came out smaller than asked, and `|| true` hid it.
+  sleep 2.5
+  # -o leaves out the window's shadow, so the image is the window and nothing else.
+  screencapture -x -o -l "$window_id" "$macos_screenshot" >> "$capture_log" 2>&1
+  [[ -f "$macos_screenshot" && -s "$macos_screenshot" ]] || return 1
+  check_macos_screenshot_size
+}
+
+# The shot must be the window size asked for, in points (1x) or in Retina pixels (2x); anything else is a failure,
+# never a smaller picture passed off as the requested one. A wrong-size shot is kept beside the expected path for
+# diagnosis.
+check_macos_screenshot_size() {
   local requested_width="${requested_macos_window%x*}"
   local requested_height="${requested_macos_window#*x}"
-  osascript -e "tell application \"System Events\" to tell process \"Spoonjoy\" to set size of front window to {$requested_width, $requested_height}" >> "$capture_log" 2>&1 || true
-  sleep 0.5
-  screencapture -x -l "$window_id" "$macos_screenshot" >> "$capture_log" 2>&1
-  [[ -f "$macos_screenshot" && -s "$macos_screenshot" ]]
+  local width height
+  width="$(sips -g pixelWidth "$macos_screenshot" 2>/dev/null | awk '/pixelWidth/ { print $2 }')"
+  height="$(sips -g pixelHeight "$macos_screenshot" 2>/dev/null | awk '/pixelHeight/ { print $2 }')"
+  if [[ "$width" == "$requested_width" && "$height" == "$requested_height" ]] ||
+    [[ "$width" == "$((requested_width * 2))" && "$height" == "$((requested_height * 2))" ]]; then
+    return 0
+  fi
+  printf 'macOS screenshot is %sx%s pixels; asked for a %s point window (%sx%s at 1x or %sx%s at 2x)\n' \
+    "$width" "$height" "$requested_macos_window" "$requested_width" "$requested_height" \
+    "$((requested_width * 2))" "$((requested_height * 2))" >> "$capture_log"
+  system_profiler SPDisplaysDataType >> "$capture_log" 2>&1 || true
+  mv -f "$macos_screenshot" "${macos_screenshot%.png}.wrong-size.png"
+  return 1
 }
 
 wait_for_route() {
@@ -2317,7 +2347,7 @@ run_ios_smoke() {
 }
 
 : > "$capture_log"
-rm -f "$ios_screenshot" "$ios_tablet_screenshot" "$macos_screenshot"
+rm -f "$ios_screenshot" "$ios_tablet_screenshot" "$macos_screenshot" "${macos_screenshot%.png}.wrong-size.png"
 rm -f "$ios_proof_artifact" "$ipad_proof_artifact" "$macos_proof_artifact"
 rm -f "$accessibility_proof_ios" "$accessibility_proof_ipad" "$accessibility_proof_macos"
 rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ipad_abs" "$accessibility_proof_macos_abs"
@@ -2600,6 +2630,15 @@ if [[ ( "$capture_platform" == "all" || "$capture_platform" == "macos" ) && ! -f
     if [[ ! -f "$macos_blocker" ]]; then
       capture_macos_window || true
     fi
+  fi
+  if [[ ! -f "$macos_blocker" && ! -f "$macos_screenshot" && -f "${macos_screenshot%.png}.wrong-size.png" ]]; then
+    write_blocker \
+      "$macos_blocker" \
+      "MacOSWindowSize" \
+      "SPOONJOY_SCREENSHOT_WINDOW_SIZE=$requested_macos_window screencapture -x -o -l <window-id> $macos_screenshot" \
+      "$capture_log" \
+      "The Spoonjoy window was photographed at the wrong size; the capture log has the size it came out at and the displays." \
+      "Capture on a Mac whose display can hold the window, or ask for a size that fits."
   fi
   if [[ ! -f "$macos_blocker" && ( ! -f "$macos_screenshot" || ! -s "$macos_screenshot" ) ]]; then
     printf 'Spoonjoy window not found for macOS screenshot capture\n' >> "$capture_log"

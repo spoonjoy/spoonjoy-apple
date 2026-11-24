@@ -42,6 +42,14 @@ public struct CookTimerClock: Codable, Equatable, Sendable {
         records[alarmID.uuidString] = Record(duration: record.duration, endsAt: now.addingTimeInterval(remaining), pausedRemaining: nil)
     }
 
+    /// The timers still running at `now`: paused ones, and those that have not reached their end. An in-app timer (the
+    /// Mac's) has no system alarm list to follow, so after a relaunch this is what is still running.
+    public func liveAlarmIDs(at now: Date) -> Set<UUID> {
+        Set(records.compactMap { key, record in
+            record.pausedRemaining != nil || record.endsAt > now ? UUID(uuidString: key) : nil
+        })
+    }
+
     /// Drops records for alarms that AlarmKit no longer has.
     public mutating func retain(activeAlarmIDs: Set<UUID>) {
         let keep = Set(activeAlarmIDs.map(\.uuidString))
