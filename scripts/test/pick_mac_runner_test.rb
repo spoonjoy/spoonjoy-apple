@@ -6,6 +6,7 @@
 # spoonjoy-local-mac) takes the LOCAL_JOBS below only on merge-queue and main/release push runs, and only when its Mac runner job
 # picked it. These tests hold the workflows to that and check the pick itself.
 require "minitest/autorun"
+require "minitest/mock"
 require "stringio"
 require "tmpdir"
 require "yaml"
@@ -26,8 +27,9 @@ class PickMacRunnerTest < Minitest::Test
   end
 
   def pick(event: "merge_group", ref: "refs/heads/gh-readonly-queue/main/pr-1", heartbeat: "v1 #{NOW - 30} ready 40",
-           active: 0)
-    PickMacRunner.choose(event: event, ref: ref, heartbeat: heartbeat, now: NOW, active_local_jobs: active).first
+           active: 0, run_started: nil)
+    PickMacRunner.choose(event: event, ref: ref, heartbeat: heartbeat, now: NOW, active_local_jobs: active,
+                         run_started: run_started).first
   end
 
   def test_only_app_bundle_can_reach_the_local_mac
@@ -106,6 +108,46 @@ class PickMacRunnerTest < Minitest::Test
     assert_equal "hosted", pick(heartbeat: "v1 #{NOW - 10} offline 40")
     assert_equal "hosted", pick(heartbeat: nil)
     assert_equal "hosted", pick(heartbeat: "garbage")
+  end
+
+  # vars.SPOONJOY_LOCAL_MAC is read when the run attempt starts, not when the Mac runner job runs. On 2026-11-24 merge-queue
+  # runs reached their Mac runner job 8 and 12 minutes after starting, while the heartbeat was written every 2 minutes,
+  # and both picks called it stale (620s and 747s). So the heartbeat's age is measured from the attempt's start.
+  def test_measures_the_heartbeat_from_when_the_run_attempt_read_it
+    started = NOW - 600
+    at_start = "v1 #{started - 20} ready 40"
+    assert_equal "local", pick(heartbeat: at_start, run_started: started)
+    assert_equal "hosted", pick(heartbeat: "v1 #{started - 301} ready 40", run_started: started)
+    assert_equal "hosted", pick(heartbeat: at_start), "without the attempt's start, age is measured from now, as before"
+  end
+
+  def test_picks_hosted_when_the_run_attempt_started_too_long_ago_to_trust_its_heartbeat
+    started = NOW - 1801
+    runner, reason = PickMacRunner.choose(event: "merge_group", ref: "refs/heads/gh-readonly-queue/main/pr-1",
+                                          heartbeat: "v1 #{started - 10} ready 40", now: NOW, active_local_jobs: 0,
+                                          run_started: started)
+    assert_equal "hosted", runner
+    assert_includes reason, "30 min"
+  end
+
+  def test_main_reads_the_run_attempts_start_from_github
+    Dir.mktmpdir do |dir|
+      output = File.join(dir, "out")
+      started = Time.now.to_i - 600
+      env = { "GITHUB_EVENT_NAME" => "merge_group", "GITHUB_REF" => "refs/heads/gh-readonly-queue/main/pr-1",
+              "GITHUB_REPOSITORY" => "spoonjoy/spoonjoy-apple", "GITHUB_RUN_ID" => "7", "GITHUB_RUN_ATTEMPT" => "2",
+              "GITHUB_OUTPUT" => output, "SPOONJOY_LOCAL_MAC" => "v1 #{started - 20} ready 40" }
+      asked = []
+      PickMacRunner.stub(:active_local_jobs, 0) do
+        PickMacRunner.stub(:gh_json, lambda { |path|
+          asked << path
+          [{ "run_started_at" => Time.at(started).utc.strftime("%Y-%m-%dT%H:%M:%SZ") }]
+        }) do
+          assert_equal "local", PickMacRunner.main(env, out: StringIO.new)
+        end
+      end
+      assert_equal ["repos/spoonjoy/spoonjoy-apple/actions/runs/7/attempts/2"], asked
+    end
   end
 
   def test_main_writes_hosted_for_a_pull_request_without_calling_github
