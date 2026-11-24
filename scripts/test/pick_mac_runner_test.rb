@@ -3,7 +3,7 @@
 # Run: ruby scripts/test/pick_mac_runner_test.rb
 #
 # spoonjoy-apple is public, so a self-hosted runner must never run pull request code. Ari's Mac (label
-# spoonjoy-local-mac) takes App bundle only on merge-queue and main/release push runs, and only when its Mac runner job
+# spoonjoy-local-mac) takes the LOCAL_JOBS below only on merge-queue and main/release push runs, and only when its Mac runner job
 # picked it. These tests hold the workflows to that and check the pick itself.
 require "minitest/autorun"
 require "stringio"
@@ -16,7 +16,10 @@ class PickMacRunnerTest < Minitest::Test
   WORKFLOWS = File.join(ROOT, ".github/workflows")
   NOW = 1_800_000_000
   # The jobs that may run on the local Mac, with the hosted label each falls back to.
-  LOCAL_JOBS = { "app-bundle" => "xcode-27", "reins-journeys" => "macos-26" }.freeze
+  # Native scenario verifier joined on 2026-11-24: on GitHub Free's macOS cap its hosted job went unplaced twice in a
+  # day and the merge queue dropped #454 both times.
+  LOCAL_JOBS = { "app-bundle" => "xcode-27", "reins-journeys" => "macos-26",
+                 "native-scenario-verifier" => "macos-26" }.freeze
 
   def native
     @native ||= YAML.safe_load(File.read(File.join(WORKFLOWS, "native.yml")))
@@ -47,6 +50,21 @@ class PickMacRunnerTest < Minitest::Test
                    job.fetch("runs-on").gsub(/\s+/, " ").strip, id
       assert_equal "mac-runner", job.fetch("needs"), id
       assert job.fetch("if").start_with?("${{ !cancelled()"), "#{id} runs even when Mac runner is skipped or fails"
+    end
+  end
+
+  # setup-ruby's prebuilt Rubies only run from the hosted toolcache path, so on the local Mac a job uses its Homebrew
+  # Ruby 3.3 (with the Gemfile's gems installed) instead.
+  def test_local_jobs_set_up_ruby_only_on_hosted_runners
+    LOCAL_JOBS.each_key do |id|
+      steps = native.fetch("jobs").fetch(id).fetch("steps")
+      ruby = steps.select { |step| step["uses"].to_s.start_with?("ruby/setup-ruby@") }
+      ruby.each { |step| assert_equal "runner.environment == 'github-hosted'", step["if"], "#{id}: setup-ruby only on hosted" }
+      next if ruby.empty?
+
+      local = steps.find { |step| step["name"] == "Use the local Mac's Ruby 3.3" }
+      refute_nil local, "#{id} needs the local Mac's Ruby when it runs there"
+      assert_equal "runner.environment == 'self-hosted'", local["if"], id
     end
   end
 
