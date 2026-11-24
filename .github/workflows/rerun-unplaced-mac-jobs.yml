@@ -4,10 +4,17 @@ name: Rerun unplaced macOS jobs
 # request's Native run fails only that way, this reruns its failed jobs, up to attempt 3
 # (scripts/rerun-unplaced-mac-jobs.rb). Merge-queue entries are already out of the queue by then, so they are requeued
 # by hand.
+#
+# Sometimes GitHub neither places such a job nor cancels it (#460's Reins journeys, over an hour on 2026-11-24), and it
+# holds its lane's group meanwhile. Every 10 minutes the sweep restarts a pull request's Native run whose hosted macOS
+# job has waited over 20 minutes for a runner while fewer than 5 hosted macOS jobs run.
 on:
   workflow_run:
     workflows: [Native]
     types: [completed]
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
 
 permissions:
   actions: write
@@ -27,3 +34,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
         run: ruby scripts/rerun-unplaced-mac-jobs.rb
+
+  sweep:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: rerun-unplaced-mac-jobs-sweep
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Restart pull request runs whose macOS job GitHub never placed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ruby scripts/rerun-unplaced-mac-jobs.rb --sweep
