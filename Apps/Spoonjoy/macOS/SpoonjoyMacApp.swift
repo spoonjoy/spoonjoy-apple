@@ -2,6 +2,9 @@ import SwiftUI
 import AppKit
 import Foundation
 import SpoonjoyCore
+#if DEBUG
+import ObjectiveC
+#endif
 
 @main
 struct SpoonjoyMacApp: App {
@@ -170,22 +173,26 @@ final class SpoonjoyMacMainWindowCoordinator {
 #endif
     }
 
-    /// A screenshot capture's window size (`ScreenshotCaptureOptions.windowSize`), set here rather than through System
-    /// Events: AppKit holds a window moved or resized from outside to the screen it is on, and a hosted Mac's screen
-    /// is smaller than the Mac App Store's 1440 by 900. `setFrame` is not held to the screen, so the window takes the
-    /// size asked for, its top-left corner at the top-left of the screen, and any part past the screen's edge is still
-    /// in the window's own image, which `screencapture -l` takes.
+    /// A screenshot capture's window size (`ScreenshotCaptureOptions.windowSize`), set by the app rather than through
+    /// System Events. A hosted Mac's screen is 1024 by 768, smaller than the Mac App Store's 1440 by 900, and AppKit
+    /// holds every window to its screen through `constrainFrameRect(_:to:)` whenever the window is shown, activated or
+    /// resized, which is what cut captures to 1024x677. In a sized capture that hold is lifted
+    /// (`ScreenshotWindowFrameHold`), so the window keeps the size asked for, its top-left corner at the top-left of
+    /// the screen, and the part past the screen's edge is still drawn into the window's own image, which
+    /// `screencapture -l` takes.
     private func applyScreenshotWindowSize() {
 #if DEBUG
         guard let size = ScreenshotCaptureOptions.windowSize(in: ProcessInfo.processInfo.environment),
               let window = existingVisibleMainWindow() ?? fallbackWindow else {
             return
         }
-        let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? .zero
+        ScreenshotWindowFrameHold.lift(for: window)
+        let screen = window.screen ?? NSScreen.main
+        let visible = screen?.visibleFrame ?? .zero
         let frame = NSRect(x: visible.minX, y: visible.maxY - size.height, width: size.width, height: size.height)
         window.setFrame(frame, display: true)
         if screenshotResizeObserver == nil {
-            // Anything that later holds the window to the screen (activation, a display change) is undone.
+            // Anything that still changes the window's size afterwards (a restored frame, a display change) is undone.
             screenshotResizeObserver = NotificationCenter.default.addObserver(
                 forName: NSWindow.didResizeNotification,
                 object: window,
@@ -193,11 +200,13 @@ final class SpoonjoyMacMainWindowCoordinator {
             ) { [weak window] _ in
                 MainActor.assumeIsolated {
                     guard let window, window.frame.size != frame.size else { return }
+                    SpoonjoyMacLaunchProof.record("screenshot-window-resized-back from=\(Int(window.frame.width))x\(Int(window.frame.height))")
                     window.setFrame(frame, display: true)
                 }
             }
         }
-        SpoonjoyMacLaunchProof.record("screenshot-window-size requested=\(Int(size.width))x\(Int(size.height)) frame=\(Int(window.frame.width))x\(Int(window.frame.height)) screen=\(Int(visible.width))x\(Int(visible.height))")
+        let screenFrame = screen?.frame ?? .zero
+        SpoonjoyMacLaunchProof.record("screenshot-window-size requested=\(Int(size.width))x\(Int(size.height)) frame=\(Int(window.frame.width))x\(Int(window.frame.height)) screen=\(Int(screenFrame.width))x\(Int(screenFrame.height)) visible=\(Int(visible.width))x\(Int(visible.height)) scale=\(screen?.backingScaleFactor ?? 0) window-class=\(String(describing: type(of: window)))")
 #endif
     }
 
@@ -251,3 +260,25 @@ final class SpoonjoyMacMainWindowCoordinator {
         }
     }
 }
+
+#if DEBUG
+/// Lets a screenshot capture's window be bigger than the screen. AppKit calls `constrainFrameRect(_:to:)` to keep a
+/// window on its screen; here it returns the frame unchanged, for the window's own class (SwiftUI's window subclass)
+/// and for `NSWindow`. Only a debug build in a sized capture (`SPOONJOY_SCREENSHOT_WINDOW_SIZE` with
+/// `SPOONJOY_SCREENSHOT_AUTH`) gets here.
+@MainActor
+private enum ScreenshotWindowFrameHold {
+    private static var liftedClasses: Set<ObjectIdentifier> = []
+
+    static func lift(for window: NSWindow) {
+        let selector = #selector(NSWindow.constrainFrameRect(_:to:))
+        guard let method = class_getInstanceMethod(NSWindow.self, selector) else { return }
+        let unchanged: @convention(block) (NSWindow, NSRect, NSScreen?) -> NSRect = { _, frame, _ in frame }
+        let implementation = imp_implementationWithBlock(unchanged)
+        for windowClass: AnyClass in [NSWindow.self, type(of: window)] {
+            guard liftedClasses.insert(ObjectIdentifier(windowClass)).inserted else { continue }
+            class_replaceMethod(windowClass, selector, implementation, method_getTypeEncoding(method))
+        }
+    }
+}
+#endif
