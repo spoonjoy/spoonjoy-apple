@@ -2890,11 +2890,7 @@ struct PlatformNavigationView: View {
             SpoonjoySpotlightIndexer.logger.info("Spotlight refresh: \(payload.documents.count) items, \(payload.recipes.count) recipes, \(payload.cookbooks.count) cookbooks, \(payload.shoppingItems.count) shopping items")
             let indexer = SpoonjoySpotlightIndexer()
             // The two indexes are independent, so a failure in one never keeps the other from refreshing.
-            do {
-                try await indexer.replaceAll(payload.documents, scope: payload.scope)
-            } catch {
-                SpoonjoySpotlightIndexer.logger.error("Indexing Spotlight items failed: \(String(describing: error), privacy: .public)")
-            }
+            // A/B: no plain Spotlight items, as in the ouro-ui-apple fixture.
             do {
                 try await indexer.replaceAllAppEntities(
                     recipes: payload.recipes.map(SpoonjoyRecipeEntity.init),

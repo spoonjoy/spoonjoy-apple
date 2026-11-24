@@ -99,11 +99,8 @@ struct SpoonjoySpotlightIndexer {
         let index = CSSearchableIndex.default()
         // Clearing out old entities is best effort: if it fails, indexing the current ones still has to happen, or
         // Spotlight is left holding nothing.
-        do {
-            try await deleteAllAppEntityTypes(in: index)
-        } catch {
-            Self.logger.error("Clearing indexed App Entities failed: \(String(describing: error), privacy: .public)")
-        }
+        // A/B: no delete-all first, as in the ouro-ui-apple fixture.
+        _ = index
         try await indexAppEntities(
             recipes: recipes,
             cookbooks: cookbooks,
@@ -130,8 +127,10 @@ struct SpoonjoySpotlightIndexer {
         }
 
         let index = CSSearchableIndex.default()
+        let started = Date()
         if !recipes.isEmpty {
             try await index.indexAppEntities(recipes)
+            Self.logger.info("Indexed recipes after \(Date().timeIntervalSince(started)) s")
         }
         if !cookbooks.isEmpty {
             try await index.indexAppEntities(cookbooks)
