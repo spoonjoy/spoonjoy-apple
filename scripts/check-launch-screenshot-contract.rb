@@ -1867,6 +1867,19 @@ PY
     mkdir -p "$(dirname "$out")"
     printf mac-image > "$out"
   SH
+  # The capture checks the Mac shot's size; the stub reports SPOONJOY_CONTRACT_MAC_SHOT_SIZE, by default the
+  # default 900x620 window at 2x.
+  write_executable(bin_dir.join("sips"), <<~'SH')
+    #!/usr/bin/env bash
+    size="${SPOONJOY_CONTRACT_MAC_SHOT_SIZE:-1800x1240}"
+    if [[ "${1:-}" == "-g" ]]; then
+      case "$2" in
+        pixelWidth) printf '%s\n  pixelWidth: %s\n' "${@: -1}" "${size%x*}" ;;
+        pixelHeight) printf '%s\n  pixelHeight: %s\n' "${@: -1}" "${size#*x}" ;;
+      esac
+    fi
+    exit 0
+  SH
 
   artifact_root.join("design-review-blocked.json").write("{}\n")
   assert_status(
@@ -1928,6 +1941,37 @@ PY
   intruder_review = assert_json(foreground_intruder_root.join("design-review-blocked.json"), "foreground intruder review")
   record_failure("foreground intruder did not block screenshot proof") unless intruder_review["blocked"] == true
   assert_missing(foreground_intruder_root.join("design-review.json"), "foreground intruder lane")
+
+  # A Mac shot that is not the window size asked for blocks the capture instead of passing a smaller picture off.
+  wrong_size_root = temp_root.join("mac-wrong-size")
+  wrong_size_root.mkpath
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      wrong_size_root,
+      "--unit-slug",
+      "unit-contract-mac-wrong-size",
+      "--macos-window",
+      "1440x900"
+    ],
+    "mac wrong-size screenshot lane",
+    env: {
+      "HOME" => script_root.join("home").to_s,
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_CONTRACT_MAC_SHOT_SIZE" => "1136x789"
+    },
+    chdir: script_root
+  )
+  wrong_size_review = assert_json(wrong_size_root.join("design-review-blocked.json"), "mac wrong-size lane")
+  record_failure("mac wrong-size lane did not block") unless wrong_size_review["blocked"] == true
+  unless wrong_size_review["reason"].to_s.include?("wrong size")
+    record_failure("mac wrong-size lane blocked for another reason: #{wrong_size_review["reason"].inspect}")
+  end
+  assert_missing(wrong_size_root.join("screenshots/macos-desktop.png"), "mac wrong-size lane")
+  assert_file(wrong_size_root.join("screenshots/macos-desktop.wrong-size.png"), "mac wrong-size lane")
 
   cookbook_detail_root = temp_root.join("cookbook-detail-success")
   cookbook_detail_root.mkpath
@@ -2347,6 +2391,19 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
     out="${@: -1}"
     mkdir -p "$(dirname "$out")"
     printf mac-image > "$out"
+  SH
+  # The capture checks the Mac shot's size; the stub reports SPOONJOY_CONTRACT_MAC_SHOT_SIZE, by default the
+  # default 900x620 window at 2x.
+  write_executable(bin_dir.join("sips"), <<~'SH')
+    #!/usr/bin/env bash
+    size="${SPOONJOY_CONTRACT_MAC_SHOT_SIZE:-1800x1240}"
+    if [[ "${1:-}" == "-g" ]]; then
+      case "$2" in
+        pixelWidth) printf '%s\n  pixelWidth: %s\n' "${@: -1}" "${size%x*}" ;;
+        pixelHeight) printf '%s\n  pixelHeight: %s\n' "${@: -1}" "${size#*x}" ;;
+      esac
+    fi
+    exit 0
   SH
   write_executable(bin_dir.join("xcrun"), <<~'SH')
     #!/usr/bin/env bash

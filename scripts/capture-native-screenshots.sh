@@ -2230,7 +2230,7 @@ capture_macos_window() {
   # hosted Mac with a small screen the shots came out smaller than asked, and `|| true` hid it.
   sleep 2.5
   # -o leaves out the window's shadow, so the image is the window and nothing else.
-  screencapture -x -o -l "$window_id" "$macos_screenshot" >> "$capture_log" 2>&1
+  screencapture -x -l "$window_id" -o "$macos_screenshot" >> "$capture_log" 2>&1
   [[ -f "$macos_screenshot" && -s "$macos_screenshot" ]] || return 1
   check_macos_screenshot_size
 }
@@ -2634,8 +2634,8 @@ if [[ ( "$capture_platform" == "all" || "$capture_platform" == "macos" ) && ! -f
   if [[ ! -f "$macos_blocker" && ! -f "$macos_screenshot" && -f "${macos_screenshot%.png}.wrong-size.png" ]]; then
     write_blocker \
       "$macos_blocker" \
-      "MacOSWindowSize" \
-      "SPOONJOY_SCREENSHOT_WINDOW_SIZE=$requested_macos_window screencapture -x -o -l <window-id> $macos_screenshot" \
+      "MacOSLaunch" \
+      "SPOONJOY_SCREENSHOT_WINDOW_SIZE=$requested_macos_window screencapture -x -l <window-id> -o $macos_screenshot" \
       "$capture_log" \
       "The Spoonjoy window was photographed at the wrong size; the capture log has the size it came out at and the displays." \
       "Capture on a Mac whose display can hold the window, or ask for a size that fits."
