@@ -34,7 +34,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('duo-tour-duo-tour-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
-        || 'spoonjoy-macos-lane-c2' }}
+        || 'spoonjoy-macos-lane-c3' }}
       queue: max
     # The whole tour took 55 minutes on 2026-11-11 with a 14-minute build; the build alone now nears 15.
     timeout-minutes: 90

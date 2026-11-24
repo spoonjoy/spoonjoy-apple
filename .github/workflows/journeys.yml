@@ -42,7 +42,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('journeys-journeys-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
-        || 'spoonjoy-macos-lane-c2' }}
+        || 'spoonjoy-macos-lane-c3' }}
       queue: max
     timeout-minutes: 135
     steps:
@@ -230,7 +230,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('journeys-duo-journeys-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
-        || 'spoonjoy-macos-lane-c2' }}
+        || 'spoonjoy-macos-lane-c3' }}
       queue: max
     timeout-minutes: 105
     steps:
@@ -371,7 +371,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('journeys-siri-journeys-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
-        || 'spoonjoy-macos-lane-c2' }}
+        || 'spoonjoy-macos-lane-c3' }}
       queue: max
     timeout-minutes: 85
     steps:
@@ -502,7 +502,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('journeys-parity-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
-        || 'spoonjoy-macos-lane-c2' }}
+        || 'spoonjoy-macos-lane-c3' }}
       queue: max
     # Room for one retry after an infrastructure failure: a rebooted simulator and a second capture.
     timeout-minutes: 100
@@ -732,7 +732,7 @@ jobs:
       group: >-
         ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
         && format('journeys-shopping-ui-tests-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
-        || 'spoonjoy-macos-lane-c2' }}
+        || 'spoonjoy-macos-lane-c3' }}
       queue: max
     timeout-minutes: 92
     steps:
