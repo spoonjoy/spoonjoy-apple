@@ -7,7 +7,6 @@ import SwiftUI
 import UIKit
 #else
 import AppKit
-import UserNotifications
 #endif
 #if os(iOS) && canImport(AlarmKit)
 import ActivityKit
@@ -2436,101 +2435,6 @@ extension CookModeSessionCenter {
     }
 }
 
-#if os(macOS)
-/// The Mac's step timers. macOS has no AlarmKit, so a step's timer counts down in the app, on the same registry and
-/// clock the iPhone's alarms use, so the ring, Cancel, Siri and the automatic start all work unchanged. When it ends,
-/// the Mac plays a sound (or bounces the Dock icon when Spoonjoy is behind other windows) and frees the step. A
-/// notification is scheduled too when Spoonjoy may send them, so the end is announced even if Spoonjoy has quit.
-@MainActor
-enum CookModeInAppTimers {
-    private static var finishTasks: [UUID: Task<Void, Never>] = [:]
-
-    static var alarms: CookStepAlarms {
-        CookStepAlarms(
-            schedule: { timer, recipe, step in
-                let alarmID = UUID()
-                let duration = TimeInterval(timer.durationSeconds)
-                arm(alarmID, after: duration)
-                scheduleNotification(
-                    alarmID,
-                    after: duration,
-                    title: "\(step.stepTitle ?? recipe.title) is ready",
-                    body: "\(timer.durationLabel) timer for \(recipe.title), step \(step.stepNum)"
-                )
-                return alarmID
-            },
-            cancel: { alarmID in
-                finishTasks.removeValue(forKey: alarmID)?.cancel()
-                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [alarmID.uuidString])
-            }
-        )
-    }
-
-    /// Picks up after a relaunch: timers still running count on, and the steps whose timers ended while Spoonjoy was
-    /// closed are freed.
-    static func restore(_ center: CookModeSessionCenter) {
-        guard !CookModeSessionCenter.usesJourneyAlarmFixture else {
-            return
-        }
-        let now = Date()
-        let clock = center.timerClock
-        let live = clock.liveAlarmIDs(at: now)
-        center.stepTimers.reconcile(activeAlarmIDs: live)
-        center.updateTimerClock { $0.retain(activeAlarmIDs: live) }
-        for alarmID in live {
-            if let record = clock.records[alarmID.uuidString], record.pausedRemaining == nil {
-                arm(alarmID, after: record.endsAt.timeIntervalSince(now))
-            }
-        }
-    }
-
-    private static func arm(_ alarmID: UUID, after delay: TimeInterval) {
-        finishTasks[alarmID]?.cancel()
-        finishTasks[alarmID] = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(max(0, delay)))
-            guard !Task.isCancelled else {
-                return
-            }
-            finish(alarmID)
-        }
-    }
-
-    private static func finish(_ alarmID: UUID) {
-        finishTasks[alarmID] = nil
-        let center = CookModeSessionCenter.shared
-        guard center.stepTimers.alarmIDsByStep.values.contains(alarmID) else {
-            return
-        }
-        if NSApp.isActive {
-            NSSound(named: "Glass")?.play()
-        } else {
-            NSApp.requestUserAttention(.informationalRequest)
-        }
-        center.stepTimers.forget(alarmID: alarmID)
-        center.updateTimerClock { $0.retain(activeAlarmIDs: Set(center.stepTimers.alarmIDsByStep.values)) }
-    }
-
-    /// Asks once whether Spoonjoy may notify, without holding up the timer, and schedules the end's notification if so.
-    private static func scheduleNotification(_ alarmID: UUID, after delay: TimeInterval, title: String, body: String) {
-        Task {
-            let notifications = UNUserNotificationCenter.current()
-            var status = await notifications.notificationSettings().authorizationStatus
-            if status == .notDetermined {
-                status = (try? await notifications.requestAuthorization(options: [.alert, .sound])) == true ? .authorized : .denied
-            }
-            guard status == .authorized || status == .provisional, delay > 0 else {
-                return
-            }
-            let content = UNMutableNotificationContent()
-            content.title = title
-            content.body = body
-            content.sound = .default
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
-            try? await notifications.add(UNNotificationRequest(identifier: alarmID.uuidString, content: content, trigger: trigger))
-        }
-    }
-}
-#endif
 
 enum CookModeAlarmKitTimerScheduler {
     @MainActor static var alarms: CookStepAlarms {
