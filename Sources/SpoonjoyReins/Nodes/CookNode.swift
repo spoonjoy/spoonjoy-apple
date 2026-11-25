@@ -138,7 +138,7 @@ final class SpoonjoyReinsCook {
     // MARK: Progress (CookModeView.updateProgress)
 
     func model(_ recipe: Recipe) -> CookModeViewModel {
-        CookModeViewModel(recipe: recipe, progress: shell.cookProgress(for: recipe))
+        CookModeViewModel(recipe: recipe, progress: shell.cookProgress(for: recipe), unitSystem: shell.unitSystem)
     }
 
     /// Every change made on this screen comes through here, as in the view: the store records it, and checks that
@@ -401,6 +401,7 @@ extension SpoonjoyReinsShell {
             let factor = $0.factor
             self.cook.update(recipe) { $0.progress.settingScaleFactor(factor, updatedAt: self.timestamp()) }
         })
+        actions.append(pickUnitsAction("pickUnits", "Pick the units amounts are written in, from the More menu"))
         actions.append(ReinsAction("toggleMic", "Turn the hands-free mic on or off") { [unowned self] in self.cook.toggleMic() })
         if cook.voiceNotice?.offersSettings == true {
             actions.append(ReinsAction("openVoiceSettings", "Open Settings to allow the microphone") { [unowned self] in self.cook.openSettings() })
@@ -445,8 +446,9 @@ extension SpoonjoyReinsShell {
             "timer": model.systemTimer.map { .string($0.durationLabel) } ?? .null,
             "ring": ring,
             "runningTimers": .number(Double(cook.registry.runningStepIDs(forRecipe: recipe.id).count)),
-            "more": ["Scale", "Add to list"],
+            "more": ["Scale", "Units", "Add to list"],
             "scale": .number(model.progress.scaleFactor),
+            "units": unitsState,
             "mic": ["label": .string(CookVoiceNoticeText.micLabel(for: voiceState, preparing: cook.voice?.isPreparing ?? false)), "listening": .bool(voiceState.isMicLive)],
             "voiceNotice": cook.voiceNotice.map { ["text": .string($0.text), "settings": .bool($0.offersSettings)] } ?? .null,
             "layout": cookLayout(isLastStep: isLastStep),

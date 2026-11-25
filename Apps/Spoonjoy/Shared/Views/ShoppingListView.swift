@@ -17,6 +17,8 @@ struct ShoppingListView: View {
     @State private var activeCategory = "all"
     @State private var checkHapticTick = 0
     @State private var remindersSender = SpoonjoyRemindersSender()
+    /// The units the list's amounts are written in, picked in its menu as on web, kept on the device.
+    @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .original
     /// The page container's width, measured before the page is capped, for setting the aisles in columns on an iPad.
     @State private var containerWidth: CGFloat = 0
     @FocusState private var isItemFieldFocused: Bool
@@ -244,6 +246,16 @@ struct ShoppingListView: View {
             Button("Clear all", role: .destructive) {
                 clearAll()
             }
+            // Web's Units radio group at the foot of the list's menu; one choice for the list, recipes and cook mode.
+            Picker(selection: $unitSystem) {
+                ForEach(UnitSystem.allCases) { system in
+                    Text(system.label).tag(system)
+                }
+            } label: {
+                Label("Units", systemImage: "ruler")
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("shopping.units")
         } label: {
             if usesCompactNavigation {
                 Image(systemName: "ellipsis.circle")

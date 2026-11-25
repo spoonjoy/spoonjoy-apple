@@ -57,13 +57,14 @@ extension SpoonjoyReinsShell {
             // The meta row's Serves control and the amounts it scales (`RecipeServesPopover`, `RecipeStepChecklistRow`).
             "serves": .string(serves.label(scale: progress.scaleFactor)),
             "scale": .number(progress.scaleFactor),
+            "units": unitsState,
             "ingredientRows": .array(screen.stepSections.flatMap { section in
                 CheckedIngredientOrder.ordered(section.ingredients, checkedIDs: progress.checkedIngredientIDs).map { row in
                     [
                         "id": .string(row.id),
                         "step": .number(Double(section.stepNumber)),
                         "name": .string(row.name),
-                        "amount": .string(row.quantityText(scaleFactor: progress.scaleFactor)),
+                        "amount": .string(row.quantityText(scaleFactor: progress.scaleFactor, unitSystem: unitSystem)),
                         "value": .string(progress.checkedIngredientIDs.contains(row.id) ? "used" : "not used"),
                     ]
                 }
@@ -109,6 +110,7 @@ extension SpoonjoyReinsShell {
                 self.editRecipePage(screen) { $0.scaleFactor = serves.steppedDown($0.scaleFactor) }
             })
         }
+        actions.append(pickUnitsAction("pickUnits", "Pick the units amounts are written in, under Serves"))
         if !ingredientIDs.isEmpty {
             actions.append(ReinsAction("toggleIngredient", "Check or uncheck an ingredient", input: IngredientID.self) { [unowned self] input in
                 self.editRecipePage(screen) { $0.toggleIngredient(input.id) }

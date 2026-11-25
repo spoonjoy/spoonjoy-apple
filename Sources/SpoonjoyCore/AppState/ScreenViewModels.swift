@@ -59,10 +59,13 @@ public struct CookModeSystemTimerViewModel: Equatable {
 public struct CookModeViewModel: Equatable {
     public let recipe: Recipe
     public let progress: CookModeProgress
+    /// The units the cook picked, beside Scale in cook mode's More menu; amounts are written in them.
+    public let unitSystem: UnitSystem
 
-    public init(recipe: Recipe, progress: CookModeProgress) {
+    public init(recipe: Recipe, progress: CookModeProgress, unitSystem: UnitSystem = .original) {
         self.recipe = recipe
         self.progress = progress
+        self.unitSystem = unitSystem
     }
 
     public var currentStepID: String? {
@@ -122,7 +125,8 @@ public struct CookModeViewModel: Equatable {
             CookModeChecklistRow(
                 id: ingredient.id,
                 title: ingredient.name,
-                quantityText: RecipeQuantityFormatter.quantityText(
+                quantityText: UnitConversion.amountText(
+                    in: unitSystem,
                     quantity: ingredient.quantity * progress.scaleFactor,
                     unit: ingredient.unit
                 ),

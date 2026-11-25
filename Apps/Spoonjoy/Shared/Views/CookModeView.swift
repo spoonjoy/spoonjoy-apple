@@ -127,6 +127,8 @@ struct CookModeView: View {
     @State private var coverGlanceIsWide = false
     @ObservedObject private var stepTimers: CookStepTimerRegistry
     @State private var progress: CookModeProgress
+    /// The units the cook picked here, on a recipe page or on the shopping list, kept on the device.
+    @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .original
     @State private var shoppingStatusMessage: String?
     @State private var shoppingErrorMessage: String?
     /// The fold and hinge of a foldable, read from the system (iOS 27.1 SDK); empty everywhere else.
@@ -375,7 +377,7 @@ struct CookModeView: View {
     }
 
     private var viewModel: CookModeViewModel {
-        CookModeViewModel(recipe: recipe, progress: progress)
+        CookModeViewModel(recipe: recipe, progress: progress, unitSystem: unitSystem)
     }
 
     private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
@@ -464,7 +466,7 @@ struct CookModeView: View {
             return viewModel
         }
         let shown = (try? progress.selectingStep(id: step.id, updatedAt: progress.updatedAt)) ?? progress
-        return CookModeViewModel(recipe: recipe, progress: shown)
+        return CookModeViewModel(recipe: recipe, progress: shown, unitSystem: unitSystem)
     }
 
     // MARK: Header
@@ -518,7 +520,7 @@ struct CookModeView: View {
         }
     }
 
-    /// Scale and the shopping action live here, off the cooking surface.
+    /// Scale, Units and the shopping action live here, off the cooking surface.
     private var cookMoreMenu: some View {
         Menu {
             Picker(selection: scaleBinding) {
@@ -529,6 +531,17 @@ struct CookModeView: View {
                 Label("Scale", systemImage: "person.2")
             }
             .pickerStyle(.menu)
+
+            // Web's Units control under Scale in cook mode's panel; one choice for every recipe and the list.
+            Picker(selection: $unitSystem) {
+                ForEach(UnitSystem.allCases) { system in
+                    Text(system.label).tag(system)
+                }
+            } label: {
+                Label("Units", systemImage: "ruler")
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("cook.units")
 
             Button {
                 addRecipeIngredients(scaleFactor: progress.scaleFactor)

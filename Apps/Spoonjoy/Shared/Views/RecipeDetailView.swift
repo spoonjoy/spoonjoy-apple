@@ -239,6 +239,9 @@ struct RecipeDetailView: View {
     @State private var checkedRecipeIngredientIDs: Set<String> = []
     @State private var checkedRecipeStepDependencyIDs: Set<String> = []
     @State private var shoppingScaleFactor: Double = 1
+    /// The units the cook picked under Serves, kept on the device for every recipe, cook mode and the shopping list
+    /// (web keeps the same choice in its `sj_units` cookie).
+    @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .original
     @State private var remindersSender = SpoonjoyRemindersSender()
     @State private var spreadSelection = RecipeSpreadSelection()
     /// The anchor each page of the spread is scrolled to. Setting one scrolls that page; the two pages scroll on
@@ -763,7 +766,8 @@ struct RecipeDetailView: View {
                 scaleFactor: Binding(
                     get: { shoppingScaleFactor },
                     set: { shoppingScaleFactor = RecipeServes.normalizedScale($0) }
-                )
+                ),
+                unitSystem: $unitSystem
             )
         }
         .kitchenAnimation(.snappy, value: shoppingScaleFactor)
@@ -1146,7 +1150,7 @@ struct RecipeDetailView: View {
                         RecipeStepChecklistRow(
                             title: ingredient.name,
                             note: ingredient.aisleLabel,
-                            amount: ingredient.quantityText(scaleFactor: shoppingScaleFactor),
+                            amount: ingredient.quantityText(scaleFactor: shoppingScaleFactor, unitSystem: unitSystem),
                             isChecked: ingredientIsChecked(ingredient.id),
                             showsSeparator: ingredient.id != ingredients.last?.id,
                             accessibilityID: "recipeDetail.ingredient",
@@ -1766,7 +1770,7 @@ extension RecipeDetailView {
             ForEach(orderedIngredients(group.ingredients)) { ingredient in
                 RecipeSpreadIngredientRow(
                     name: ingredient.name,
-                    amount: ingredient.quantityText(scaleFactor: shoppingScaleFactor),
+                    amount: ingredient.quantityText(scaleFactor: shoppingScaleFactor, unitSystem: unitSystem),
                     note: ingredient.aisleLabel,
                     isChecked: ingredientIsChecked(ingredient.id),
                     toggle: { toggleIngredient(id: ingredient.id) }
@@ -2024,10 +2028,12 @@ private struct RecipeActionConfirmationDialog {
     let clientMutationID: String
 }
 
-/// What "Serves 4" opens: a stepper that scales every amount on the page, in place.
+/// What "Serves 4" opens: a stepper that scales every amount on the page, in place, and the units they are written
+/// in, as web's scale popover sets Units under Scale.
 private struct RecipeServesPopover: View {
     let serves: RecipeServes
     @Binding var scaleFactor: Double
+    @Binding var unitSystem: UnitSystem
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -2055,6 +2061,12 @@ private struct RecipeServesPopover: View {
                 .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
                 .kitchenTransition(.opacity)
             }
+
+            // Web's Units segmented control under Scale; the choice holds for every recipe, cook mode and the list.
+            OuroSegmentedControl("Units", selection: $unitSystem, fullWidth: true, items: UnitSystem.allCases.map {
+                OuroSegment($0.label, value: $0)
+            })
+            .accessibilityIdentifier("recipe.units")
         }
         .padding(20)
         .frame(minWidth: 280, idealWidth: 320, maxWidth: 360, alignment: .leading)

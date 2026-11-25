@@ -119,6 +119,13 @@ private struct ShoppingReceiptRow: View {
     let isPending: Bool
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// The units picked in the list's menu, on a recipe or in cook mode, kept on the device.
+    @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .original
+
+    /// The amount in the cook's units, counted things rounded up to whole ones.
+    private var quantityText: String {
+        item.item.displayQuantity(in: unitSystem)
+    }
 
     var body: some View {
         // No aisle icon per row: the aisle heading above already says where it is.
@@ -142,8 +149,8 @@ private struct ShoppingReceiptRow: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                if !item.item.displayQuantity.isEmpty {
-                    Text(item.item.displayQuantity)
+                if !quantityText.isEmpty {
+                    Text(quantityText)
                         .font(KitchenTableTheme.bodyNote.monospacedDigit())
                         .foregroundStyle(KitchenTableTheme.ink2)
                         .lineLimit(1)
@@ -172,8 +179,8 @@ private struct ShoppingReceiptRow: View {
 
     private var detailLine: some View {
         HStack(spacing: 8) {
-            if !item.item.displayQuantity.isEmpty {
-                Text(item.item.displayQuantity)
+            if !quantityText.isEmpty {
+                Text(quantityText)
             }
             if item.item.isEffectivelyChecked {
                 Text("already in basket")
@@ -185,7 +192,7 @@ private struct ShoppingReceiptRow: View {
     }
 
     private func accessibilityText(for item: ShoppingListItem) -> String {
-        let quantity = item.displayQuantity.isEmpty ? "" : ", \(item.displayQuantity)"
+        let quantity = quantityText.isEmpty ? "" : ", \(quantityText)"
         let basket = item.isEffectivelyChecked ? ", already in basket" : ""
         return "\(item.name)\(quantity)\(basket)"
     }
