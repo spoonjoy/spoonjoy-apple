@@ -3,4 +3,4 @@ testflight: If the sign-in window closes by itself right as you click Continue w
 platforms: [mac]
 order: 22
 ---
-If the sign-in window closed by itself right as you clicked Continue with Google or GitHub, before anything appeared, Spoonjoy now opens it once more on its own.
+If the sign-in window closed itself as you clicked Continue with Google or GitHub, Spoonjoy now opens it again.

@@ -34,7 +34,7 @@ struct CookbooksView: View {
     }
 
     var body: some View {
-        KitchenTablePage(maxContentWidth: usesWideShelf ? 1120 : 860, bottomReserve: cookbookPageBottomReserve) {
+        KitchenTablePage(maxContentWidth: shelfPageWidth, bottomReserve: cookbookPageBottomReserve) {
             header
             statusBanner
 
@@ -92,7 +92,9 @@ struct CookbooksView: View {
         } label: {
             Label("New Cookbook", systemImage: "plus")
         }
-        .buttonStyle(.ouro(.solid, fullWidth: true))
+        // A phone's button spans its column; a wider page sizes it to its label at the header's trailing edge, as the
+        // website's desktop header does.
+        .buttonStyle(.ouro(.solid, fullWidth: usesCompactCookbookLayout))
     }
 
     private var usesCompactCookbookLayout: Bool {
@@ -103,13 +105,23 @@ struct CookbooksView: View {
 #endif
     }
 
-    /// A regular-width iPad sets the shelf across the Kitchen's 1,120 pt page with covers up to 300 pt wide, so a 13"
-    /// screen holds three or four real books a row instead of a row of small ones down its left side.
+    /// A regular-width iPad and the Mac set the shelf across a wide page with covers up to 300 pt wide, so a big
+    /// screen holds three or four real books a row instead of a row of small ones in a narrow column.
     private var usesWideShelf: Bool {
 #if os(iOS)
         UIDevice.current.userInterfaceIdiom == .pad && horizontalSizeClass == .regular
 #else
-        false
+        true
+#endif
+    }
+
+    /// The iPad's wide shelf uses the Kitchen's 1,120 pt page. A Mac window's shelf runs from the page's leading margin
+    /// across the window, as the website's grid does, up to 1,400 pt; a phone keeps the 860 pt column.
+    private var shelfPageWidth: CGFloat {
+#if os(macOS)
+        1400
+#else
+        usesWideShelf ? 1120 : 860
 #endif
     }
 
