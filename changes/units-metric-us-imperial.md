@@ -3,4 +3,4 @@ testflight: Pick Original, Metric, US or Imperial under Serves on a recipe, in c
 platforms: [ios, mac]
 order: 21
 ---
-A recipe wanted 1 cup of milk; your jug speaks millilitres. Pick Metric, US or Imperial under Serves, in cook mode or on the shopping list, and every amount follows: 1 cup becomes 235 ml.
+A recipe wanted 1 cup of milk; your jug speaks millilitres. Pick Metric, US or Imperial under Serves, in cook mode or on the shopping list, and their amounts follow: 1 cup becomes 235 ml.

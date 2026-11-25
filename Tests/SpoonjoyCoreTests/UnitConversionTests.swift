@@ -256,5 +256,15 @@ struct UnitConversionTests {
         #expect(UnitConversion.parseFloat(" .5") == 0.5)
         #expect(UnitConversion.parseFloat("1e2") == 100)
         #expect(UnitConversion.parseFloat("lots") == nil)
+        #expect(UnitConversion.parseFloat("1\u{0663}") == 1, "only ASCII digits count, as in JavaScript")
+        #expect(UnitConversion.parseFloat("\u{FEFF}2") == 2, "the byte-order mark is trimmed, as JavaScript trims it")
+        #expect(UnitConversion.parseFloat("\u{0085}2") == nil, "next line is not JavaScript white space")
+    }
+
+    @Test func writesDecimalsAsJavaScriptsStringDoes() {
+        #expect(UnitConversion.javaScriptString(235) == "235")
+        #expect(UnitConversion.javaScriptString(1.13) == "1.13")
+        #expect(UnitConversion.javaScriptString(.infinity) == "Infinity")
+        #expect(UnitConversion.amountText(in: .metric, quantity: 6, unit: "\u{FEFF}cup") == "1.42 l")
     }
 }

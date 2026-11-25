@@ -19,7 +19,9 @@ extension SpoonjoyReinsShell {
             hasRecipes
                 ? ReinsAction("addFromRecipe", "Add from recipe") { [unowned self] in self.navigate(to: .search(query: "", scope: .recipes)) }
                 : ReinsAction("addRecipe", "Add a recipe") { [unowned self] in self.presentAddRecipe() },
+        ] + (content.shoppingList == nil ? [] : [
+            // The list's menu, where Units sits, shows once there is a list (`ShoppingListView.shoppingHeaderTools`).
             pickUnitsAction("pickUnits", "Pick the units the list's amounts are written in, from its menu"),
-        ])
+        ]))
     }
 }

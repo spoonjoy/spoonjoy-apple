@@ -87,11 +87,14 @@ public struct SpoonjoyJourneyKitchen {
     public var cookbooks: [CookbookSpec]
     /// Saved cook progress, keyed by recipe id, as the app state keeps it.
     public var cookProgress: [String: CookModeProgress]
+    /// The shopping list the app last showed, as the app state keeps it; none by default.
+    public var shoppingList: ShoppingListState?
 
-    public init(recipes: [RecipeSpec] = [], cookbooks: [CookbookSpec] = [], cookProgress: [String: CookModeProgress] = [:]) {
+    public init(recipes: [RecipeSpec] = [], cookbooks: [CookbookSpec] = [], cookProgress: [String: CookModeProgress] = [:], shoppingList: ShoppingListState? = nil) {
         self.recipes = recipes
         self.cookbooks = cookbooks
         self.cookProgress = cookProgress
+        self.shoppingList = shoppingList
     }
 
     /// The day every journey kitchen was fetched, so a kitchen written twice is the same bytes.
@@ -125,7 +128,7 @@ public struct SpoonjoyJourneyKitchen {
             "hasCompletedFirstRun": true,
             "cookProgressByRecipeID": progress,
             "spoonCookLogDraftsByRecipeID": [String: Any](),
-            "shoppingList": NSNull(),
+            "shoppingList": try shoppingList.map { try JSONSerialization.jsonObject(with: encoder.encode($0)) } ?? NSNull(),
             "captureDraft": NSNull(),
             "pendingCaptureImport": NSNull(),
             "captureImportProviderBlocker": NSNull(),
