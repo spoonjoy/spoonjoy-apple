@@ -95,6 +95,8 @@ public struct SpoonjoyReinsPageState {
     var cookbookQuery = ""
     /// Web pages the app handed to Safari (a secure sign-out, a hand-off), in order.
     public internal(set) var openedURLs: [URL] = []
+    /// The cook's units when the shell has no kitchen folder to keep them in (Nodes/UnitSystemReins.swift).
+    var unitSystem: UnitSystem = .original
 
     public init() {}
 }

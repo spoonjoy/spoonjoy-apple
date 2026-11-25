@@ -43,7 +43,12 @@ public struct ShoppingListItem: Codable, Equatable, Sendable {
     /// The amount as web's shopping list writes it: "¼ cup", "2 cups", and counted things rounded up to a whole
     /// number with "whole" left out ("2" lemons).
     public var displayQuantity: String {
-        RecipeQuantityFormatter.amountText(quantity: quantity, unit: unit, roundCountsUp: true)
+        displayQuantity(in: .original)
+    }
+
+    /// `displayQuantity` in the cook's units, as web's shopping list writes it once a system is picked from its menu.
+    public func displayQuantity(in unitSystem: UnitSystem) -> String {
+        UnitConversion.amountText(in: unitSystem, quantity: quantity, unit: unit, roundCountsUp: true)
     }
 
     func settingChecked(_ checked: Bool, checkedAt: String?, updatedAt: String, nextSortIndex: Int) -> ShoppingListItem {

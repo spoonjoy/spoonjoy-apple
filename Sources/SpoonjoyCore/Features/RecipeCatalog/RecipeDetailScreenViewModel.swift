@@ -115,8 +115,9 @@ public struct RecipeDetailIngredientRow: Identifiable, Equatable, Sendable {
         unit = ingredient.unit
     }
 
-    public func quantityText(scaleFactor: Double = 1) -> String {
-        RecipeQuantityFormatter.quantityText(quantity: quantity * scaleFactor, unit: unit)
+    /// The amount at the page's scale, in the cook's units (`UnitSystem`): "1 ½ cups", or "355 ml" in metric.
+    public func quantityText(scaleFactor: Double = 1, unitSystem: UnitSystem = .original) -> String {
+        UnitConversion.amountText(in: unitSystem, quantity: quantity * scaleFactor, unit: unit)
     }
 
     /// Market aisle the ingredient belongs to, the same label the shopping list files it under.
