@@ -121,9 +121,9 @@ public enum UnitConversion {
         NamedUnit("pound", .mass, poundG, ["lb", "lbs", "pound", "pounds"]),
     ]
 
+    /// Every name is unique across the table, as in web's `UNITS` lookup, so a repeat would trap at launch in tests.
     private static let unitsByName: [String: KnownUnit] = Dictionary(
-        units.flatMap { named in named.names.map { ($0, named.unit) } },
-        uniquingKeysWith: { first, _ in first }
+        uniqueKeysWithValues: units.flatMap { named in named.names.map { ($0, named.unit) } }
     )
 
     /// The convertible unit a recipe's unit text names, or nil for a unit that is counted, loose or unknown.
@@ -179,10 +179,11 @@ public enum UnitConversion {
     private static let ounce = Rung(slug: "ounce", from: 0, toBase: ounceG, singular: "oz")
     private static let pound = Rung(slug: "pound", from: poundG * takeOver, toBase: poundG, singular: "lb")
 
-    private static func ladder(_ system: UnitSystem, _ dimension: KnownUnit.Dimension) -> [Rung] {
+    /// The rungs a system writes a dimension in; nil for the recipe as written.
+    private static func ladder(_ system: UnitSystem, _ dimension: KnownUnit.Dimension) -> [Rung]? {
         switch (system, dimension) {
         case (.original, _):
-            return []
+            return nil
         case (.metric, .volume):
             return [
                 teaspoon,
@@ -228,12 +229,13 @@ public enum UnitConversion {
     ///     amountText(in: .metric, quantity: 2, unit: "clove") // "2 cloves"
     public static func amountText(in system: UnitSystem, quantity: Double?, unit: String?, roundCountsUp: Bool = false) -> String {
         let asWritten = { RecipeQuantityFormatter.amountText(quantity: quantity, unit: unit, roundCountsUp: roundCountsUp) }
-        guard system != .original, let known = resolveUnit(unit), let numeric = quantity, numeric.isFinite, numeric > 0 else {
+        guard let known = resolveUnit(unit), let rungs = ladder(system, known.dimension), let numeric = quantity,
+              numeric.isFinite, numeric > 0 else {
             return asWritten()
         }
 
         let base = numeric * known.toBase
-        let rung = rung(in: ladder(system, known.dimension), for: base)
+        let rung = rung(in: rungs, for: base)
         if rung.slug == known.slug {
             return asWritten()
         }
