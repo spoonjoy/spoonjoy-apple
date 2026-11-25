@@ -63,6 +63,20 @@ struct CookCanvasTests {
         #expect(!(CookCanvas.page(width: 1000, height: 600, isPad: true).setsChecklistBesideStep))
     }
 
+    @Test func testAWideMacWindowSetsTheChecklistBesideTheStepAtItsOwnSize() {
+        // A 1440 x 900 Mac window's cook page, under the toolbar and above the dock.
+        let canvas = CookCanvas.page(width: 1400, height: 760, isPad: false, isMac: true)
+        #expect(canvas.setsChecklistBesideStep)
+        #expect(canvas.scale == 1)
+        #expect(canvas.typeSteps == 0)
+    }
+
+    @Test func testANarrowOrShortMacWindowKeepsTheStackedLayout() {
+        #expect(CookCanvas.page(width: 700, height: 900, isPad: false, isMac: true) == .reference)
+        #expect(CookCanvas.page(width: 1400, height: 600, isPad: false, isMac: true) == .reference)
+        #expect(CookCanvas.page(width: 1400, height: 900, isPad: false, isMac: true, isAccessibilityTextSize: true) == .reference)
+    }
+
     @Test func testAccessibilityTextSizesKeepTheReferenceLayout() {
         #expect(CookCanvas.page(width: 990, height: 1200, isPad: true, isAccessibilityTextSize: true) == .reference)
     }

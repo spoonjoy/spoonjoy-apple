@@ -1,10 +1,10 @@
 import Foundation
 
 /// How a cook-mode page uses the room it is given. Every iPhone page, the open iPhone Duo's included in every posture,
-/// and every Mac window keep the reference canvas and the type they were designed with. An iPad's bigger page sets
-/// the step larger so it reads from across the kitchen, and a page wide enough puts the step's checklist beside the
-/// step instead of under it, so the page is used top to bottom rather than holding a small step at the top and its
-/// checks at the foot.
+/// keeps the reference canvas and the type it was designed with. An iPad's bigger page sets the step larger so it reads
+/// from across the kitchen. On an iPad or a Mac, a page wide enough puts the step's checklist beside the step instead of
+/// under it, as the website's desktop cook mode does, so the page is used top to bottom rather than holding the step at
+/// the top and its checks at the foot. A Mac window keeps the type it was designed with at every size.
 public struct CookCanvas: Equatable, Sendable {
     /// The page every type size was designed for: about a phone's, or one page of the open Duo.
     public static let referenceWidth: Double = 480
@@ -39,20 +39,30 @@ public struct CookCanvas: Equatable, Sendable {
     /// grows only as far as both the width and the height allow. At accessibility text sizes the person's own size
     /// already makes the step large, so the page keeps the reference layout and lets their setting decide. Only an
     /// iPad's page grows (`isPad`): an iPhone's never does, so the open Duo held upright, whose single page is about as
-    /// big as an iPad mini's spread page, keeps exactly the layout it was designed with.
+    /// big as an iPad mini's spread page, keeps exactly the layout it was designed with. A Mac window (`isMac`) keeps
+    /// its type but, once wide enough, sets the checklist beside the step like an iPad's page.
     public static func page(
         width: Double,
         height: Double,
         isPad: Bool,
+        isMac: Bool = false,
         isAccessibilityTextSize: Bool = false
     ) -> CookCanvas {
-        guard isPad, !isAccessibilityTextSize, width > 0, height > 0 else {
+        guard isPad || isMac, !isAccessibilityTextSize, width > 0, height > 0 else {
             return .reference
+        }
+        if isMac {
+            return CookCanvas(scale: 1, setsChecklistBesideStep: isWideEnoughForChecklistBeside(width: width, height: height))
         }
         let room = min(width / referenceWidth, height / referenceHeight)
         let scale = min(max(room, 1), maximumScale)
         // A phone held sideways is wide but short: it keeps the checklist under the step, as on every other phone.
-        return CookCanvas(scale: scale, setsChecklistBesideStep: width >= minimumSideBySideWidth && height >= referenceHeight)
+        return CookCanvas(scale: scale, setsChecklistBesideStep: isWideEnoughForChecklistBeside(width: width, height: height))
+    }
+
+    /// The width breakpoint for the checklist column, with the page at least the reference height.
+    private static func isWideEnoughForChecklistBeside(width: Double, height: Double) -> Bool {
+        width >= minimumSideBySideWidth && height >= referenceHeight
     }
 
     /// How many Dynamic Type steps the page's checklist and timer go up: none on the reference canvas, up to

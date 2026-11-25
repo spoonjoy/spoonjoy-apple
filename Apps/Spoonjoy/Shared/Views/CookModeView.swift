@@ -763,6 +763,7 @@ struct CookModeView: View {
             width: Double(width),
             height: Double(height),
             isPad: Self.isPad,
+            isMac: Self.isNativeMac,
             isAccessibilityTextSize: dynamicTypeSize.isAccessibilitySize
         )
         // A neighbouring page is laid out exactly as it will be once current, only dimmed and inert, so nothing is
@@ -848,10 +849,20 @@ struct CookModeView: View {
     }
 
     /// Only an iPad's cook page grows with its canvas; every iPhone, the Duo included, and the native Mac app keep their
-    /// layout. The iPad app running on a Mac reports the iPad idiom, so its windows grow as an iPad's would.
+    /// type. The iPad app running on a Mac reports the iPad idiom, so its windows grow as an iPad's would.
     private static var isPad: Bool {
 #if os(iOS)
         UIDevice.current.userInterfaceIdiom == .pad
+#else
+        false
+#endif
+    }
+
+    /// The native Mac app: its type stays put, but a wide window sets the checklist beside the step, as the website's
+    /// desktop cook mode does.
+    private static var isNativeMac: Bool {
+#if os(macOS)
+        true
 #else
         false
 #endif
@@ -1559,6 +1570,7 @@ extension CookModeView {
             width: layout.trailingPage?.width ?? 0,
             height: Double(spreadStepRoom),
             isPad: Self.isPad,
+            isMac: Self.isNativeMac,
             isAccessibilityTextSize: dynamicTypeSize.isAccessibilitySize
         )
     }
