@@ -2062,10 +2062,23 @@ private struct RecipeServesPopover: View {
                 .kitchenTransition(.opacity)
             }
 
-            // Web's Units segmented control under Scale; the choice holds for every recipe, cook mode and the list.
-            OuroSegmentedControl("Units", selection: $unitSystem, fullWidth: true, items: UnitSystem.allCases.map {
-                OuroSegment($0.label, value: $0)
-            })
+            // Web's Units control under Scale; the choice holds for every recipe, cook mode and the list. A menu, as
+            // in cook mode and on the list: four segments ("Original", "Imperial") don't fit a phone's popover.
+            LabeledContent {
+                Picker("Units", selection: $unitSystem) {
+                    ForEach(UnitSystem.allCases) { system in
+                        Text(system.label).tag(system)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .tint(KitchenTableTheme.brass)
+            } label: {
+                Label("Units", systemImage: "ruler")
+                    .font(KitchenTableTheme.control)
+                    .foregroundStyle(KitchenTableTheme.ink)
+            }
+            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
             .accessibilityIdentifier("recipe.units")
         }
         .padding(20)

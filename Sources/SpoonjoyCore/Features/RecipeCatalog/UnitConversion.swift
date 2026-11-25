@@ -128,7 +128,7 @@ public enum UnitConversion {
 
     /// The convertible unit a recipe's unit text names, or nil for a unit that is counted, loose or unknown.
     public static func resolveUnit(_ text: String?) -> KnownUnit? {
-        let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trimmed = text?.trimmingCharacters(in: javaScriptWhitespace) ?? ""
         // A capital T is the tablespoon of handwritten cards; a lower-case t could be either spoon.
         if trimmed == "T" {
             return unitsByName["tbsp"]
@@ -136,7 +136,7 @@ public enum UnitConversion {
         let name = trimmed.lowercased()
             .replacingOccurrences(of: ".", with: "")
             .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: javaScriptWhitespace)
         return unitsByName[name]
     }
 
@@ -287,21 +287,32 @@ public enum UnitConversion {
 
     /// JavaScript's `Number.parseFloat`: the number a string starts with, ignoring what follows, or nil (NaN).
     static func parseFloat(_ text: String) -> Double? {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = text.trimmingCharacters(in: javaScriptWhitespace)
         if let range = trimmed.range(of: #"^[+-]?Infinity"#, options: .regularExpression) {
             return trimmed[range].hasPrefix("-") ? -.infinity : .infinity
         }
-        guard let range = trimmed.range(of: #"^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?"#, options: .regularExpression) else {
+        // ASCII digits only, as JavaScript reads them; ICU's \d would also take "٣".
+        guard let range = trimmed.range(of: #"^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?"#, options: .regularExpression) else {
             return nil
         }
         return Double(trimmed[range])
     }
 
-    /// A decimal as JavaScript's `String(number)` writes it: "235", "1.13", "1.5".
+    /// A decimal as JavaScript's `String(number)` writes it: "235", "1.13", "1.5". Past any kitchen amount (2^53 and
+    /// up) the digits may differ from JavaScript's.
     static func javaScriptString(_ value: Double) -> String {
-        if value == value.rounded(), abs(value) < 1e21 {
-            return String(format: "%.0f", value)
+        if value.isInfinite {
+            return value < 0 ? "-Infinity" : "Infinity"
+        }
+        if value == value.rounded(), abs(value) < 9_007_199_254_740_992 {
+            return String(Int64(value))
         }
         return "\(value)"
     }
+
+    /// The characters JavaScript's `trim()` strips: Unicode white space and line terminators and the byte-order mark,
+    /// but not U+0085 (next line), which Foundation counts as a newline and JavaScript doesn't.
+    static let javaScriptWhitespace = CharacterSet.whitespacesAndNewlines
+        .union(CharacterSet(charactersIn: "\u{FEFF}"))
+        .subtracting(CharacterSet(charactersIn: "\u{0085}"))
 }

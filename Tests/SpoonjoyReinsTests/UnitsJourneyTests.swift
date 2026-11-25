@@ -15,6 +15,15 @@ struct UnitsJourneyTests {
     static let flour = "ing_units_flour"
     static let garlic = "ing_units_garlic"
 
+    /// Milk by the cup and lemons counted whole, as the list last showed them; decoded as the app state stores it.
+    static let list = try! JSONDecoder().decode(ShoppingListState.self, from: Data("""
+    {"id": "list_units", "chef": {"id": "chef_kitchen_capture", "username": "ari"}, "nextCursor": "", "updatedAt": "2026-06-01T00:00:00.000Z",
+     "items": [
+      {"id": "item_units_milk", "name": "milk", "quantity": 1, "unit": "cup", "checked": false, "sortIndex": 0, "updatedAt": "2026-06-01T00:00:00.000Z"},
+      {"id": "item_units_lemons", "name": "lemons", "quantity": 1.25, "unit": "whole", "checked": false, "sortIndex": 1, "updatedAt": "2026-06-01T00:00:00.000Z"}
+     ]}
+    """.utf8))
+
     static let kitchen = SpoonjoyJourneyKitchen(recipes: [
         .init(recipe, "Journey Units Pancakes", steps: [
             .init("step_units_batter", title: "Make the batter", "Whisk the milk into the flour with the garlic.", ingredients: [
@@ -23,7 +32,11 @@ struct UnitsJourneyTests {
                 .init(garlic, "garlic", 2, "clove"),
             ]),
         ]),
-    ])
+    ], shoppingList: list)
+
+    private func listAmount(_ screen: ReinsScreen, _ name: String) -> String? {
+        screen.state["items"]?.arrayValue?.first { $0["name"] == .string(name) }?["amount"]?.stringValue
+    }
 
     private func cookAmount(_ screen: ReinsScreen, _ id: String) -> String? {
         screen.state["ingredients"]?.arrayValue?.first { $0["id"] == .string(id) }?["quantity"]?.stringValue
@@ -74,7 +87,10 @@ struct UnitsJourneyTests {
             // The shopping list's menu shares the choice; picking Original there puts the recipe back as written.
             try await app.journey.do("selectTab", ["tab": "shopping"], until: { $0.focus == "shopping" })
             #expect(app.screen.state["units"]?["picked"] == "Metric", "the list opens in the units picked on the recipe")
-            try await app.journey.do("pickUnits", ["system": "original"], until: { $0.state["units"]?["picked"] == "Original" })
+            #expect(listAmount(app.screen, "milk") == "235 ml")
+            #expect(listAmount(app.screen, "lemons") == "2", "counted things still round up to whole ones")
+            try await app.journey.do("pickUnits", ["system": "original"], until: { listAmount($0, "milk") == "1 cup" })
+            #expect(app.screen.state["units"]?["picked"] == "Original")
 
             try await app.relaunch()
             try await app.journey.do("selectTab", ["tab": "kitchen"], until: { $0.focus == "kitchen" })
