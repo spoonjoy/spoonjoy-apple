@@ -97,13 +97,11 @@ public struct SpoonjoyServerAddress: Equatable, Hashable, Sendable {
         if let port = components.port, !(scheme == "https" && port == 443), !(scheme == "http" && port == 80) {
             origin.port = port
         }
-        guard let url = origin.url else {
-            throw .unreadable
-        }
-        return SpoonjoyServerAddress(origin: url)
+        // The scheme, host and port all came out of a URL that parsed, so they always make one again.
+        return SpoonjoyServerAddress(origin: origin.url!)
     }
 
-    /// A host only the local network can reach: `localhost`, a one-word name, a `.local` or `.home.arpa` name, or a
+    /// A host only the local network can reach: `localhost`, a one-word name, a `.local` name, or a
     /// loopback, private, link-local or shared (Tailscale's 100.64/10) address. App Transport Security lets the app
     /// use plain `http://` to these (`NSAllowsLocalNetworking`).
     public static func isLocalNetworkHost(_ host: String) -> Bool {
@@ -125,7 +123,6 @@ public struct SpoonjoyServerAddress: Equatable, Hashable, Sendable {
                 return false
             }
         }
-        return host == "localhost" || !host.contains(".") || host.hasSuffix(".local") || host.hasSuffix(".localhost")
-            || host.hasSuffix(".home.arpa")
+        return host == "localhost" || !host.contains(".") || host.hasSuffix(".local")
     }
 }

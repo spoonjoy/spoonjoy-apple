@@ -28,7 +28,8 @@ struct SpoonjoyServerAddressTests {
         ("localhost:8080", "http://localhost:8080"),
         ("kitchen:8080", "http://kitchen:8080"),
         ("kitchen.local:8080", "http://kitchen.local:8080"),
-        ("pantry.home.arpa", "http://pantry.home.arpa"),
+        ("pantry.home.arpa", "https://pantry.home.arpa"),
+        ("[fd12::1]:8080", "http://[fd12::1]:8080"),
         ("8.8.8.8", "https://8.8.8.8")
     ])
     func guessesTheScheme(input: String, expected: String) throws {
@@ -43,7 +44,8 @@ struct SpoonjoyServerAddressTests {
         ("ftp://recipes.example.com", .unsupportedScheme("ftp")),
         ("https://ari:secret@recipes.example.com", .credentialsNotAllowed),
         ("http://recipes.example.com", .insecureRemoteHost("recipes.example.com")),
-        ("http://8.8.8.8:8080", .insecureRemoteHost("8.8.8.8"))
+        ("http://8.8.8.8:8080", .insecureRemoteHost("8.8.8.8")),
+        ("http://pantry.home.arpa", .insecureRemoteHost("pantry.home.arpa"))
     ])
     func refusesAnUnusableAddress(input: String, expected: SpoonjoyServerAddressError) {
         #expect(throws: expected) {
@@ -75,7 +77,7 @@ struct SpoonjoyServerAddressTests {
     }
 
     @Test("local network hosts are the ones App Transport Security lets the app reach over http", arguments: [
-        ("localhost", true), ("kitchen", true), ("kitchen.local", true), ("app.localhost", true), ("pantry.home.arpa", true),
+        ("localhost", true), ("kitchen", true), ("kitchen.local", true), ("app.localhost", false), ("pantry.home.arpa", false),
         ("127.0.0.1", true), ("10.1.2.3", true), ("192.168.0.9", true), ("169.254.3.4", true),
         ("172.16.0.1", true), ("172.31.255.1", true), ("172.32.0.1", false), ("172.15.0.1", false),
         ("100.64.0.1", true), ("100.127.0.1", true), ("100.128.0.1", false), ("100.63.0.1", false),
@@ -129,10 +131,28 @@ struct SpoonjoyServerCheckTests {
         }
     }
 
+    @Test("no answer from a server on the local network says the cook may have to allow finding it")
+    func unreachableOnLocalNetwork() async throws {
+        let address = try SpoonjoyServerAddress.parse("192.168.1.20:8080")
+        await #expect(throws: SpoonjoyServerCheckError.unreachableOnLocalNetwork("http://192.168.1.20:8080")) {
+            try await SpoonjoyServerCheck.check(address, session: ServerCheckSession(.failure))
+        }
+    }
+
+    @Test("only a local host other than this device needs local network permission", arguments: [
+        ("192.168.1.20:8080", true), ("kitchen.local", true), ("[fd12::1]:8080", true),
+        ("localhost:8080", false), ("127.0.0.1:8080", false), ("[::1]:8080", false), ("recipes.example.com", false)
+    ])
+    func localNetworkPermission(input: String, needs: Bool) throws {
+        #expect(SpoonjoyServerCheck.needsLocalNetworkPermission(try SpoonjoyServerAddress.parse(input)) == needs)
+    }
+
     @Test("both outcomes name the server for the cook")
     func messages() {
         #expect(SpoonjoyServerCheckError.unreachable("http://192.168.1.20:8080").message
             == "Spoonjoy couldn't reach http://192.168.1.20:8080. Check the address, and that the server is running and on this network.")
+        #expect(SpoonjoyServerCheckError.unreachableOnLocalNetwork("kitchen.local").message
+            == "Spoonjoy couldn't reach kitchen.local. If Spoonjoy asked to find devices on your local network, allow it, then try again.")
         #expect(SpoonjoyServerCheckError.notSpoonjoy("recipes.example.com").message
             == "recipes.example.com answered, but it isn't a Spoonjoy server.")
     }
@@ -189,6 +209,19 @@ struct ChosenServerAuthorizationTests {
         #expect(components.port == 8080)
         #expect(components.path == "/oauth/authorize")
         #expect(components.queryItems?.first { $0.name == "redirect_uri" }?.value == "https://spoonjoy.app/oauth/callback")
+    }
+
+    @Test("an IPv6 server keeps its brackets in the authorize page's address")
+    func authorizeOnAnIPv6Server() throws {
+        let url = try NativeAuthSession.authorizationURL(
+            clientID: "client",
+            redirectURI: NativeAuthSession.redirectURI,
+            scope: NativeAuthSession.defaultScope,
+            state: try #require(OAuthState(rawValue: "state-123")),
+            codeChallenge: "challenge",
+            serverBaseURL: try SpoonjoyServerAddress.parse("[fd12::1]:8080").baseURL
+        )
+        #expect(url.absoluteString.hasPrefix("http://[fd12::1]:8080/oauth/authorize?"))
     }
 
     @Test("without a server named, the authorize page stays spoonjoy.app's")

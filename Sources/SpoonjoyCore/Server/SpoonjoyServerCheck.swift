@@ -4,6 +4,8 @@ import Foundation
 public enum SpoonjoyServerCheckError: Error, Equatable, Sendable {
     /// Nothing answered: the address is wrong, the server is down, or the network is.
     case unreachable(String)
+    /// Nothing answered from a server on the local network, which the cook may first have to let Spoonjoy find.
+    case unreachableOnLocalNetwork(String)
     /// Something answered, but not as a Spoonjoy server does.
     case notSpoonjoy(String)
 
@@ -11,6 +13,8 @@ public enum SpoonjoyServerCheckError: Error, Equatable, Sendable {
         switch self {
         case .unreachable(let name):
             "Spoonjoy couldn't reach \(name). Check the address, and that the server is running and on this network."
+        case .unreachableOnLocalNetwork(let name):
+            "Spoonjoy couldn't reach \(name). If Spoonjoy asked to find devices on your local network, allow it, then try again."
         case .notSpoonjoy(let name):
             "\(name) answered, but it isn't a Spoonjoy server."
         }
@@ -38,6 +42,14 @@ public enum SpoonjoyServerCheck {
         return request
     }
 
+    /// Whether reaching the server needs the system's local network permission: a local host other than this device.
+    public static func needsLocalNetworkPermission(_ address: SpoonjoyServerAddress) -> Bool {
+        let host = (address.baseURL.host(percentEncoded: false) ?? "").lowercased()
+            .trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        let loopback = host == "localhost" || host == "::1" || host.hasPrefix("127.")
+        return SpoonjoyServerAddress.isLocalNetworkHost(host) && !loopback
+    }
+
     /// Whether an answer to `urlRequest(for:)` is a Spoonjoy server's.
     public static func isSpoonjoyHealth(_ data: Data, response: URLResponse) -> Bool {
         guard let http = response as? HTTPURLResponse, http.statusCode == 200,
@@ -56,7 +68,9 @@ public enum SpoonjoyServerCheck {
         do {
             (data, response) = try await session.data(for: urlRequest(for: address))
         } catch {
-            throw .unreachable(address.displayName)
+            // The first request to a server on the local network asks the cook's permission and fails meanwhile;
+            // loopback never asks.
+            throw needsLocalNetworkPermission(address) ? .unreachableOnLocalNetwork(address.displayName) : .unreachable(address.displayName)
         }
         guard isSpoonjoyHealth(data, response: response) else {
             throw .notSpoonjoy(address.displayName)
