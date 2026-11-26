@@ -451,6 +451,24 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    /// A page header's trailing control (New Cookbook, Edit) keeps its own width beside the title. A full-width
+    /// button must not split the row with the subtitle and wrap its label onto two lines; when the row is too
+    /// narrow, the header stacks it under the title instead, where it may span the column.
+    @Test("Page headers never wrap a trailing control beside the title")
+    func pageHeadersNeverWrapATrailingControlBesideTheTitle() throws {
+        let themePath = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
+        let theme = uncommentedSwift(try readRepoFile(themePath))
+
+        expectContent(
+            theme,
+            in: themePath,
+            contains: [
+                "struct KitchenTableHeader<Trailing: View>: View",
+                "Spacer(minLength: 12)\n                trailing()\n                    .fixedSize()"
+            ]
+        )
+    }
+
     /// The rule runs under the header, so it never squeezes the title; when the title and its meta don't fit on one
     /// line, the meta drops under the title and the title wraps instead of ending in an ellipsis.
     @Test("Spoonjoy section headers keep titles legible before drawing dividers")
