@@ -6,6 +6,13 @@ enum JourneyID {
     static let passwordSignIn = "native password sign-in"
     static let signInStatus = "native sign-in status"
     static let signInSettings = "signin.settings"
+    // The server picker: the sign-in screen's Server row and its sheet (ServerPickerSheet).
+    static let signInServer = "signin.server"
+    static let serverBuiltIn = "server.builtIn"
+    static let serverOwn = "server.own"
+    static let serverAddress = "server.address"
+    static let serverUse = "server.use"
+    static let serverProblem = "server.problem"
 
     static let settingsEnvironmentValue = "settings.environment.value"
     static let settingsClose = "settings.close"
