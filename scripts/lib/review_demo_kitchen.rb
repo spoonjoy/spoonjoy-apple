@@ -10,8 +10,14 @@ require "uri"
 # the account was deleted recreates it. Passwords come from the environment and are never printed.
 module ReviewDemoKitchen
   USERNAME = /\A[A-Za-z0-9._-]{3,50}\z/
+  # Checked-in CC0 and public-domain photos the seeder uploads as covers (sources in SOURCES.md there).
+  COVERS_DIR = File.expand_path("../../distribution/app-store/review-demo-covers", __dir__)
 
   module_function
+
+  def cover_photo_path(recipe)
+    File.join(COVERS_DIR, recipe["coverPhoto"].to_s)
+  end
 
   # Problems that would make the API reject the kitchen, found without the network.
   def validate(kitchen)
@@ -28,7 +34,7 @@ module ReviewDemoKitchen
         titles << recipe["title"]
         errors << "#{label}: title must be 1-200 characters" unless (1..200).cover?(recipe["title"].to_s.strip.length)
         errors << "#{label}: description is over 2,000 characters" if recipe["description"].to_s.length > 2000
-        errors << "#{label}: coverPrompt is over 240 characters" if recipe["coverPrompt"].to_s.length > 240
+        errors << "#{label}: coverPhoto #{recipe['coverPhoto']} is not in #{COVERS_DIR}" unless cover_photo?(recipe)
         errors << "#{label}: needs at least one step" if Array(recipe["steps"]).empty?
         names = []
         Array(recipe["steps"]).each_with_index do |step, index|
@@ -48,7 +54,7 @@ module ReviewDemoKitchen
       Array(chef["forks"]).each do |fork|
         recipe_keys["#{chef_key}.#{fork['key']}"] = true
         titles << fork["title"]
-        errors << "#{chef_key}.#{fork['key']}: coverPrompt is over 240 characters" if fork["coverPrompt"].to_s.length > 240
+        errors << "#{chef_key}.#{fork['key']}: coverPhoto #{fork['coverPhoto']} is not in #{COVERS_DIR}" unless cover_photo?(fork)
       end
       titles.tally.each { |title, count| errors << "#{chef_key}: title #{title} is used #{count} times" if count > 1 }
     end
@@ -69,6 +75,10 @@ module ReviewDemoKitchen
     errors
   end
 
+  def cover_photo?(recipe)
+    recipe["coverPhoto"].to_s.match?(/\A[\w-]+\.jpg\z/) && File.file?(cover_photo_path(recipe))
+  end
+
   class Error < StandardError; end
 
   class Http
@@ -79,16 +89,31 @@ module ReviewDemoKitchen
     end
 
     def json(method, path, token: nil, body: nil, ok: [200, 201])
+      call(method, path, token: token, ok: ok) do |request|
+        next unless body
+
+        request["Content-Type"] = "application/json"
+        request.body = JSON.generate(body)
+      end
+    end
+
+    # Posts fields plus one JPEG as multipart/form-data.
+    def upload(path, token:, fields:, file:)
+      call(:post, path, token: token, ok: [200, 201]) do |request|
+        parts = fields.map { |name, value| [name, value.to_s] }
+        parts << ["photo", File.binread(file), { filename: File.basename(file), content_type: "image/jpeg" }]
+        request.set_form(parts, "multipart/form-data")
+      end
+    end
+
+    def call(method, path, token:, ok:)
       attempts = 0
       loop do
         attempts += 1
         request = Net::HTTP.const_get(method.capitalize).new(URI.join(@base, path))
         request["Accept"] = "application/json"
         request["Authorization"] = "Bearer #{token}" if token
-        if body
-          request["Content-Type"] = "application/json"
-          request.body = JSON.generate(body)
-        end
+        yield request
         response = perform(request)
         parsed = response.body.to_s.empty? ? {} : (JSON.parse(response.body) rescue { "raw" => response.body[0, 200] })
         status = response.code.to_i
@@ -143,17 +168,11 @@ module ReviewDemoKitchen
   class Seeder
     attr_reader :log
 
-    COVER_POLL_SECONDS = 10
-
-    # cover_wait_seconds bounds how long a run waits for requested covers to finish generating.
-    def initialize(kitchen:, http:, env:, out: $stdout, cover_wait_seconds: 300, sleeper: ->(seconds) { sleep(seconds) })
+    def initialize(kitchen:, http:, env:, out: $stdout)
       @kitchen = kitchen
       @http = http
       @env = env
       @out = out
-      @cover_wait_seconds = cover_wait_seconds
-      @sleeper = sleeper
-      @pending_covers = []
       @tokens = {}
       @usernames = {}
       @recipe_ids = {}
@@ -179,7 +198,6 @@ module ReviewDemoKitchen
         chef = @kitchen["chefs"][chef_key]
         (Array(chef["recipes"]) + Array(chef["forks"])).each { |recipe| ensure_cover(chef_key, recipe) }
       end
-      wait_for_covers
       say "#{@changes} change(s). Kitchens: #{@usernames.values.map { |name| "#{@http.base}/users/#{name}" }.join(', ')}"
       @changes
     end
@@ -338,60 +356,16 @@ module ReviewDemoKitchen
       body["data"] || {}
     end
 
-    # A recipe with an active cover is left alone. Otherwise an in-flight generation is awaited, a finished but
-    # inactive cover is switched on, and only a recipe with neither gets a new AI cover, so reruns never pile up covers.
+    # A recipe with an active cover is left alone; otherwise its checked-in photo is uploaded as is (no AI
+    # restyle) and switched on, so a run needs no image-generation provider and reruns never pile up covers.
     def ensure_cover(chef_key, recipe)
-      label = "#{chef_key}.#{recipe['key']}"
-      recipe_id = @recipe_ids.fetch(label)
-      data = covers(chef_key, recipe_id)
-      return if data["activeCover"]
+      recipe_id = @recipe_ids.fetch("#{chef_key}.#{recipe['key']}")
+      return if covers(chef_key, recipe_id)["activeCover"]
 
-      candidates = Array(data["covers"])
-      if candidates.any? { |cover| cover["generationStatus"] == "processing" }
-        @pending_covers << [chef_key, recipe_id, recipe["title"]]
-        return
-      end
-
-      ready = candidates.find { |cover| cover["displayUrl"] }
-      if ready
-        variant = ready["stylizedImageUrl"] ? "stylized" : "image"
-        @http.json(:patch, "/api/v1/recipes/#{recipe_id}/covers/#{ready['id']}", token: @tokens[chef_key],
-                                                                               body: { "clientMutationId" => mutation_id, "variant" => variant })
-        @changes += 1
-        say "Switched on the existing cover for #{recipe['title']}"
-        return
-      end
-
-      @http.json(:post, "/api/v1/recipes/#{recipe_id}/covers/generate", token: @tokens[chef_key], body: {
-        "clientMutationId" => mutation_id, "promptAddition" => recipe["coverPrompt"], "activateWhenReady" => true
-      })
+      @http.upload("/api/v1/recipes/#{recipe_id}/image", token: @tokens[chef_key], file: ReviewDemoKitchen.cover_photo_path(recipe),
+                                                         fields: { "clientMutationId" => mutation_id, "generateEditorial" => false, "activateWhenReady" => true })
       @changes += 1
-      @pending_covers << [chef_key, recipe_id, recipe["title"]]
-      say "Asked for a cover for #{recipe['title']}"
-    end
-
-    def wait_for_covers
-      return if @pending_covers.empty?
-
-      waited = 0
-      loop do
-        @pending_covers.reject! do |chef_key, recipe_id, title|
-          data = covers(chef_key, recipe_id)
-          if data["activeCover"]
-            say "Cover ready for #{title}"
-            true
-          elsif Array(data["covers"]).none? { |cover| cover["generationStatus"] == "processing" }
-            reasons = Array(data["covers"]).map { |cover| cover["failureReason"] }.compact.uniq
-            because = reasons.empty? ? "" : " (#{reasons.join('; ')})"
-            raise Error, "Cover generation for #{title} finished without an active cover#{because}. Run the workflow again to retry."
-          end
-        end
-        break if @pending_covers.empty? || waited >= @cover_wait_seconds
-
-        @sleeper.call(COVER_POLL_SECONDS)
-        waited += COVER_POLL_SECONDS
-      end
-      @pending_covers.each { |_, _, title| say "Cover for #{title} is still generating; it switches on by itself when ready." }
+      say "Uploaded the cover photo for #{recipe['title']}"
     end
 
     def ensure_cook(cook)
