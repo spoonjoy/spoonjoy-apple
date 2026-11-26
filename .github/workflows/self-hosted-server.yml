@@ -1,0 +1,196 @@
+name: Self-hosted server
+
+# The app on a Spoonjoy server someone runs themselves. This job builds that server from spoonjoy-v2's self-host/
+# folder and runs it on the runner at http://localhost:8080, where the simulator, which shares the runner's network,
+# reaches it. SpoonjoySelfHostedJourneys then picks it on the sign-in screen, is refused a server that is not Spoonjoy,
+# signs in, sees and renames a recipe only that server holds, and is still there after a relaunch.
+#
+# The server is built from source rather than pulled as ghcr.io/spoonjoy/spoonjoy: GitHub's macOS runners have no
+# Docker, and the image is private. The build does what self-host/Dockerfile does (the production Worker build, the
+# self-host runtime's npm install, build/server as an ES module), run under Node instead of inside the image.
+on:
+  # Pull requests run this from Native, after every required check passes (see native.yml).
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Read: the superseded check lists runs.
+  actions: read
+
+concurrency:
+  group: self-hosted-server-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # The spoonjoy-v2 commit whose self-host/ server the journey runs against.
+  SPOONJOY_V2_REF: 3e8dae4199a6600fcc58dd0f0648362709d8f52b
+  SERVER_URL: http://localhost:8080
+  # Answers every path with 404, the way a web server that isn't Spoonjoy answers /api/v1/health.
+  NOT_SPOONJOY_URL: http://localhost:8081
+
+jobs:
+  self-hosted-journey:
+    name: Self-hosted server journey
+    runs-on: xcode-27
+    # Lane c of 3: see the note on macOS lanes at the top of native.yml.
+    concurrency:
+      group: >-
+        ${{ (github.event_name == 'merge_group' || github.event_name == 'push')
+        && format('self-hosted-server-{0}-{1}-{2}', github.run_id, github.run_attempt, strategy.job-index)
+        || 'spoonjoy-macos-lane-c3' }}
+      queue: max
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/skip-if-superseded
+      - name: Check out the Spoonjoy server
+        if: env.SPOONJOY_SUPERSEDED != 'true'
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: spoonjoy/spoonjoy-v2
+          ref: ${{ env.SPOONJOY_V2_REF }}
+          path: .ci/spoonjoy-v2
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        if: env.SPOONJOY_SUPERSEDED != 'true'
+        with:
+          node-version: '22'
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        if: env.SPOONJOY_SUPERSEDED != 'true'
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - uses: ./.github/actions/select-xcode
+        if: env.SPOONJOY_SUPERSEDED != 'true'
+      - name: Build the self-hosted server
+        if: env.SPOONJOY_SUPERSEDED != 'true'
+        timeout-minutes: 20
+        working-directory: .ci/spoonjoy-v2
+        env:
+          VITE_POSTHOG_DISABLED: '1'
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare pnpm@10.28.1 --activate
+          pnpm install --frozen-lockfile
+          pnpm run build
+          (cd self-host && npm ci --omit=dev --no-audit --no-fund)
+          echo '{"type":"module"}' > build/server/package.json
+      - name: Start the self-hosted server, and a web server that isn't Spoonjoy
+        if: env.SPOONJOY_SUPERSEDED != 'true'
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/self-hosted/data" "$RUNNER_TEMP/self-hosted/not-spoonjoy"
+          APP_DIR="$GITHUB_WORKSPACE/.ci/spoonjoy-v2" DATA_DIR="$RUNNER_TEMP/self-hosted/data" PORT=8080 NODE_ENV=production \
+            nohup node "$GITHUB_WORKSPACE/.ci/spoonjoy-v2/self-host/server.mjs" > "$RUNNER_TEMP/self-hosted/server.log" 2>&1 &
+          (cd "$RUNNER_TEMP/self-hosted/not-spoonjoy" && nohup python3 -m http.server 8081 --bind 127.0.0.1 > "$RUNNER_TEMP/self-hosted/not-spoonjoy.log" 2>&1 &)
+          ready=""
+          for _ in $(seq 1 120); do
+            if curl -sf -o /dev/null "$SERVER_URL/health/ready"; then ready=1; break; fi
+            sleep 1
+          done
+          [ -n "$ready" ] || { tail -n 60 "$RUNNER_TEMP/self-hosted/server.log"; echo "::error::The self-hosted server did not become ready on $SERVER_URL"; exit 1; }
+          curl -sf "$SERVER_URL/api/v1/health"; echo
+          [ "$(curl -s -o /dev/null -w '%{http_code}' "$NOT_SPOONJOY_URL/api/v1/health")" = "404" ] || { echo "::error::The not-Spoonjoy server is not answering 404"; exit 1; }
+      - name: Create the journey account on the self-hosted server
+        if: env.SPOONJOY_SUPERSEDED != 'true'
+        run: scripts/self-hosted-journey-account.sh --base-url "$SERVER_URL" --out "$RUNNER_TEMP/self-hosted-secrets/accounts.json"
+      - name: Resolve iPhone simulator
+        if: env.SPOONJOY_SUPERSEDED != 'true'
+        id: sim
+        run: |
+          set -euo pipefail
+          destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
+          [[ "$destination" == "platform=iOS Simulator,arch="*",id="* ]] || { echo "::error::Unexpected simulator destination: $destination"; exit 1; }
+          echo "destination=$destination" >> "$GITHUB_OUTPUT"
+          echo "udid=$(sed 's/.*,id=//' <<<"$destination")" >> "$GITHUB_OUTPUT"
+      - name: Boot the simulator
+        if: env.SPOONJOY_SUPERSEDED != 'true'
+        id: boot
+        # As in the Live journeys job: booted before the build, so its first-boot work runs while the app builds.
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          udid="${{ steps.sim.outputs.udid }}"
+          # 0 tells the settle step the simulator was already booted, so the boot time is unknown.
+          if xcrun simctl list devices | grep -F "($udid) (Booted)" >/dev/null; then booted_at=0; else booted_at="$(date +%s)"; fi
+          echo "booted-at=$booted_at" >> "$GITHUB_OUTPUT"
+          xcrun simctl bootstatus "$udid" -b
+      - name: Build the self-hosted journey for testing
+        if: env.SPOONJOY_SUPERSEDED != 'true'
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/self-hosted"
+          log="$RUNNER_TEMP/self-hosted/build.log"
+          xcodebuild build-for-testing -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+            -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoySelfHostedJourneys \
+            -derivedDataPath "$RUNNER_TEMP/self-hosted/DerivedData" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$log"
+          ruby scripts/fail-on-warning.rb --log "$log"
+      - name: Wait for the simulator to settle
+        if: env.SPOONJOY_SUPERSEDED != 'true'
+        timeout-minutes: 8
+        run: python3 .github/scripts/wait-for-simulator-settle.py "${{ steps.sim.outputs.udid }}" --booted-at "${{ steps.boot.outputs.booted-at }}"
+      - name: Run the self-hosted journey
+        if: env.SPOONJOY_SUPERSEDED != 'true'
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          # As in the Journeys job, the runner gets only the path of the accounts file, never a credential.
+          export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/self-hosted-secrets/accounts.json"
+          export TEST_RUNNER_SPOONJOY_JOURNEY_SUMMARY_FILE="$GITHUB_STEP_SUMMARY"
+          # Typed as a cook types them: no scheme, so the app picks http:// for a server on this network.
+          export TEST_RUNNER_SPOONJOY_SELF_HOSTED_SERVER="${SERVER_URL#http://}"
+          export TEST_RUNNER_SPOONJOY_NOT_SPOONJOY_SERVER="${NOT_SPOONJOY_URL#http://}"
+          xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+            -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoySelfHostedJourneys \
+            -derivedDataPath "$RUNNER_TEMP/self-hosted/DerivedData" \
+            -parallel-testing-enabled NO -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 600 -maximum-test-execution-time-allowance 900 \
+            -collect-test-diagnostics never \
+            -resultBundlePath "$RUNNER_TEMP/self-hosted/SpoonjoySelfHostedJourneys.xcresult" 2>&1 | tee "$RUNNER_TEMP/self-hosted/test.log"
+      - name: Export the journey's screenshots
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (!cancelled()) }}
+        run: |
+          bundle="$RUNNER_TEMP/self-hosted/SpoonjoySelfHostedJourneys.xcresult"
+          out="$RUNNER_TEMP/self-hosted/screens"
+          mkdir -p "$out"
+          [ -d "$bundle" ] && xcrun xcresulttool export attachments --path "$bundle" --output-path "$out" > /dev/null 2>&1 || true
+          ls -la "$out" || true
+      - name: Print the server's log
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
+        run: tail -n 120 "$RUNNER_TEMP/self-hosted/server.log" || true
+      - name: Print app crash reports
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (failure()) }}
+        run: python3 .github/scripts/print-crash-reports.py "$HOME/Library/Logs/DiagnosticReports"
+      - name: Scan the self-hosted journey artifacts for the password
+        id: scan
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (always()) }}
+        run: |
+          scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/self-hosted-secrets/accounts.json" \
+            "$RUNNER_TEMP/self-hosted/build.log" \
+            "$RUNNER_TEMP/self-hosted/test.log" \
+            "$RUNNER_TEMP/self-hosted/server.log" \
+            "$RUNNER_TEMP/self-hosted/screens" \
+            "$RUNNER_TEMP/self-hosted/SpoonjoySelfHostedJourneys.xcresult"
+      - name: Remove credentials
+        if: ${{ always() }}
+        run: rm -rf "$RUNNER_TEMP/self-hosted-secrets"
+      - name: Upload the self-hosted journey result bundle
+        # Only once no password was found in these files.
+        if: ${{ env.SPOONJOY_SUPERSEDED != 'true' && (!cancelled() && steps.scan.outcome == 'success') }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: self-hosted-journey-xcresult-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/self-hosted/SpoonjoySelfHostedJourneys.xcresult
+            ${{ runner.temp }}/self-hosted/screens
+            ${{ runner.temp }}/self-hosted/test.log
+            ${{ runner.temp }}/self-hosted/build.log
+            ${{ runner.temp }}/self-hosted/server.log
+          if-no-files-found: warn
+          retention-days: 30
