@@ -113,6 +113,8 @@ module ReviewDemoKitchen
         request = Net::HTTP.const_get(method.capitalize).new(URI.join(@base, path))
         request["Accept"] = "application/json"
         request["Authorization"] = "Bearer #{token}" if token
+        # Cook-session writes must carry the site's own origin, even with a bearer token.
+        request["Origin"] = "#{@base.scheme}://#{@base.host}#{":#{@base.port}" unless @base.port == @base.default_port}"
         yield request
         response = perform(request)
         parsed = response.body.to_s.empty? ? {} : (JSON.parse(response.body) rescue { "raw" => response.body[0, 200] })
@@ -196,6 +198,7 @@ module ReviewDemoKitchen
         ensure_shopping_list(chef_key, chef["shoppingList"]) if chef["shoppingList"]
       end
       Array(@kitchen["cooks"]).each { |cook| ensure_cook(cook) }
+      order.each { |chef_key| clear_cooking_now(chef_key) }
       order.each do |chef_key|
         chef = @kitchen["chefs"][chef_key]
         (Array(chef["recipes"]) + Array(chef["forks"])).each { |recipe| ensure_cover(chef_key, recipe) }
@@ -390,6 +393,32 @@ module ReviewDemoKitchen
                                                          fields: { "clientMutationId" => mutation_id, "generateEditorial" => false, "activateWhenReady" => true })
       @changes += 1
       say "Uploaded the cover photo for #{recipe['title']}"
+    end
+
+    # Store shots open cook mode, which leaves the recipe under Cooking now in the kitchen. A recipe leaves Cooking now
+    # when a write takes its checked count from some to none (spoonjoy-v2 docs/api.md), so check one ingredient and
+    # uncheck it.
+    def clear_cooking_now(chef_key)
+      token = @tokens[chef_key]
+      _, now = @http.json(:get, "/api/v1/cooking-now", token: token)
+      Array(now.dig("data", "recipes")).each do |entry|
+        id = entry.dig("recipe", "id")
+        _, detail = @http.json(:get, "/api/v1/recipes/#{id}", token: token)
+        ingredient = Array(detail.dig("data", "recipe", "steps")).flat_map { |step| Array(step["ingredients"]) }.first
+        next unless ingredient
+
+        _, session = @http.json(:get, "/api/cook-sessions/#{id}", token: token)
+        state = session["state"]
+        [[ingredient["id"]], []].each do |checked|
+          _, written = @http.json(:patch, "/api/cook-sessions/#{id}", token: token, body: {
+            "attemptId" => state["attemptId"], "expectedRevision" => state["revision"], "mutationId" => mutation_id,
+            "changes" => { "checkedIngredientIds" => checked }
+          })
+          state = written["state"]
+        end
+        @changes += 1
+        say "Cleared #{entry.dig('recipe', 'title')} from Cooking now"
+      end
     end
 
     def ensure_cook(cook)

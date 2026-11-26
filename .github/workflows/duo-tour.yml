@@ -4,16 +4,17 @@ name: Duo tour
 # half-open, and the tabletop journey runs there with the real hinge instead of the forced posture. Opened flat and
 # wide, the spread journeys run, and the last journey leaves a step timer running. The tour then folds the phone through
 # open flat, tabletop and shut without relaunching the app, and fails if the timer's end date moves. Last, the app is
-# photographed half-open, open tall, open wide and closed, and its page turn halfway. It drives DeviceHub's window
+# photographed half-open, open tall, open wide and closed, and its page turn halfway. With store_shots it also
+# photographs the App Store scenes on the review demo kitchen in each pose. It drives DeviceHub's window
 # through accessibility, so it runs on demand rather than on every pull request.
 
 on:
   workflow_dispatch:
     inputs:
-      store_links:
-        description: Space-separated spoonjoy:// links to photograph open wide, half-open and closed (for App Store art)
-        required: false
-        default: ''
+      store_shots:
+        description: Also photograph the App Store scenes on the review demo kitchen in every pose (from main only)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -38,6 +39,8 @@ jobs:
       queue: max
     # The whole tour took 55 minutes on 2026-11-11 with a 14-minute build; the build alone now nears 15.
     timeout-minutes: 90
+    # The review demo credentials live in internal-testflight, which only main may use.
+    environment: ${{ inputs.store_shots && 'internal-testflight' || '' }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -412,40 +415,58 @@ jobs:
           shoot_pose 32-open-wide
           "$hub" press "Closed"; sleep 6
           ls -la "$shots"
-      - name: Photograph the store links
-        if: ${{ !cancelled() && inputs.store_links != '' }}
-        timeout-minutes: 15
+      - name: Photograph the App Store scenes
+        if: ${{ !cancelled() && inputs.store_shots }}
+        timeout-minutes: 20
         env:
-          STORE_LINKS: ${{ inputs.store_links }}
+          SPOONJOY_REVIEW_DEMO_USERNAME: ${{ secrets.SPOONJOY_REVIEW_DEMO_USERNAME }}
+          SPOONJOY_REVIEW_DEMO_PASSWORD: ${{ secrets.SPOONJOY_REVIEW_DEMO_PASSWORD }}
+          SPOONJOY_REVIEW_FRIEND_USERNAME: ${{ secrets.SPOONJOY_REVIEW_FRIEND_USERNAME }}
+          SPOONJOY_REVIEW_FRIEND_PASSWORD: ${{ secrets.SPOONJOY_REVIEW_FRIEND_PASSWORD }}
         run: |
-          set -uo pipefail
+          set -euo pipefail
           udid="${{ steps.sim.outputs.udid }}"
           hub="$RUNNER_TEMP/duo/devicehub"
           shots="$RUNNER_TEMP/duo/shots/store"
-          mkdir -p "$shots"
-          # The previous step leaves the Duo closed in its default (wide) orientation, signed in as a journey account.
-          shoot_links() {
-            pose="$1"; n=0
-            for link in $STORE_LINKS; do
-              n=$((n + 1))
-              SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="$link" \
-                xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+          scenes="$RUNNER_TEMP/store-secrets/scenes.json"
+          mkdir -p "$shots" "$RUNNER_TEMP/store-secrets"
+          # Each pose starts from a freshly seeded kitchen: the seeder repairs it, takes cook mode's last cook off Cooking
+          # now and signs the app in as the demo chef (a DEBUG build reads debug-auth-session.json), with no journey
+          # account's state left behind.
+          sign_in() {
+            ruby scripts/seed-review-demo-account.rb --store-scenes "$scenes" >/dev/null
+            xcrun simctl terminate "$udid" app.spoonjoy 2>/dev/null || true
+            dir="$(xcrun simctl get_app_container "$udid" app.spoonjoy data)/Library/Application Support/Spoonjoy"
+            rm -rf "$dir"; mkdir -p "$dir"
+            python3 -c 'import json,sys; json.dump(json.load(open(sys.argv[1]))["session"], open(sys.argv[2], "w"))' "$scenes" "$dir/debug-auth-session.json"
+          }
+          shoot() {
+            pose="$1"; sign_in
+            # Cook mode goes last: opening it puts the recipe under Cooking now.
+            for scene in kitchen recipe cookbook shopping cook; do
+              link="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["links"][sys.argv[2]])' "$scenes" "$scene")"
+              SIMCTL_CHILD_SPOONJOY_API_BASE_URL=https://spoonjoy.app SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="$link" \
+                xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy >/dev/null
               sleep 14
               for display in 1 3; do
-                xcrun simctl io "$udid" screenshot --display="$display" "$shots/$pose-$n-display$display.png" >/dev/null 2>&1 || true
+                xcrun simctl io "$udid" screenshot --display="$display" "$shots/$pose-$scene-display$display.png" >/dev/null 2>&1 || true
               done
-              echo "$pose-$n: $link"
+              echo "$pose: $scene"
             done
           }
           xcrun simctl status_bar "$udid" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+          # The previous step leaves the Duo closed in its default (wide) orientation. Closing from open wide shows the
+          # outer screen upright; closing from tall leaves it sideways.
           "$hub" press "Open"; sleep 6
-          shoot_links open-wide
-          "$hub" press "Rotate Right"; sleep 4
-          shoot_links open-tall
-          "$hub" press "Partially Open"; sleep 6
-          shoot_links half-open-tall
+          shoot open-wide
           "$hub" press "Closed"; sleep 6
-          shoot_links closed
+          shoot closed
+          "$hub" press "Open"; sleep 6
+          "$hub" press "Rotate Right"; sleep 4
+          shoot open-tall
+          "$hub" press "Partially Open"; sleep 6
+          shoot half-open
+          ruby scripts/seed-review-demo-account.rb >/dev/null
           ls -la "$shots"
       - name: Print app crash reports
         if: failure()
@@ -464,7 +485,7 @@ jobs:
             "$RUNNER_TEMP/duo/test-timer.log" "$RUNNER_TEMP/duo/DuoTimer.xcresult"
       - name: Remove credentials
         if: always()
-        run: rm -rf "$RUNNER_TEMP/duo-secrets"
+        run: rm -rf "$RUNNER_TEMP/duo-secrets" "$RUNNER_TEMP/store-secrets"
       - name: Upload the tour
         if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

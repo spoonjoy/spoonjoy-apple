@@ -47,6 +47,14 @@ class ReviewDemoKitchenTest < Minitest::Test
       @shopping = Hash.new { |hash, key| hash[key] = [] }
       @covers = Hash.new { |hash, key| hash[key] = { "covers" => [], "activeCover" => nil } }
       @writes = []
+      @cooking = {}
+    end
+
+    attr_reader :cooking
+
+    # Starts a cook of recipe_id with one ingredient checked, as cook mode would leave it.
+    def start_cook(recipe_id)
+      @cooking[recipe_id] = { "attemptId" => "a-#{recipe_id}", "revision" => 0, "checked" => ["ing-#{recipe_id}"] }
     end
 
     def form(path, fields)
@@ -111,6 +119,25 @@ class ReviewDemoKitchenTest < Minitest::Test
       in [:patch, %r{\A/api/v1/shopping-list/items/(i\d+)\z}]
         @shopping[user(token)].find { |i| i["id"] == Regexp.last_match(1) }["checked"] = body["checked"]
         [200, {}]
+      in [:get, "/api/v1/cooking-now"]
+        [200, { "data" => { "recipes" => @cooking.keys.map { |id| { "recipe" => @recipes.find { |r| r["id"] == id }.slice("id", "title") } } } }]
+      in [:get, %r{\A/api/v1/recipes/(r\d+)\z}]
+        id = Regexp.last_match(1)
+        [200, { "data" => { "recipe" => { "id" => id, "steps" => [{ "ingredients" => [] }, { "ingredients" => [{ "id" => "ing-#{id}" }] }] } } }]
+      in [:get, %r{\A/api/cook-sessions/(r\d+)\z}]
+        session = @cooking[Regexp.last_match(1)]
+        [200, { "state" => session && { "attemptId" => session["attemptId"], "revision" => session["revision"] } }]
+      in [:patch, %r{\A/api/cook-sessions/(r\d+)\z}]
+        id = Regexp.last_match(1)
+        session = @cooking.fetch(id)
+        return [409, {}] unless body["attemptId"] == session["attemptId"] && body["expectedRevision"] == session["revision"]
+
+        before = session["checked"]
+        session["checked"] = body.dig("changes", "checkedIngredientIds")
+        session["revision"] += 1
+        state = { "attemptId" => session["attemptId"], "revision" => session["revision"] }
+        @cooking.delete(id) if before.any? && session["checked"].empty?
+        [200, { "state" => state }]
       in [:get, %r{\A/api/v1/recipes/(r\d+)/spoons\z}]
         [200, { "data" => { "spoons" => @spoons.select { |s| s["recipeId"] == Regexp.last_match(1) } } }]
       in [:get, %r{\A/api/v1/recipes/(r\d+)/covers\z}]
@@ -180,6 +207,17 @@ class ReviewDemoKitchenTest < Minitest::Test
     # The friend's crumble is r0, so the demo chef's galette is r1.
     assert_equal "spoonjoy://recipes/r1/cook", scenes.dig("links", "cook")
     assert_match %r{\Aspoonjoy://cookbooks/c\d+\z}, scenes.dig("links", "cookbook")
+  end
+
+  def test_a_recipe_left_under_cooking_now_is_cleared
+    api = FakeApi.new
+    seeder = -> { ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: StringIO.new).run }
+    seeder.call
+    api.start_cook("r1")
+    seeder.call
+    assert_empty api.cooking
+    assert_equal 2, api.writes.count("patch /api/cook-sessions/r1")
+    assert_equal 0, seeder.call
   end
 
   def test_http_upload_sends_the_fields_and_the_jpeg_as_multipart
