@@ -99,9 +99,9 @@ private actor SpoonjoyScreenshotValidationTokenVault: TokenVault {
 /// the switches saved at the last refresh, without the network, so launch never waits for it.
 enum SpoonjoyKillSwitches {
     static let center: NativeKillSwitchCenter = {
-        let baseURL = SpoonjoyAppServer.configuration().baseURL
-        return NativeKillSwitchCenter(store: NativeKillSwitchStore()) {
-            try await NativeConfigRequests.fetch(baseURL: baseURL)
+        // The server is read on each refresh, so a server the cook chooses later is the one asked.
+        NativeKillSwitchCenter(store: NativeKillSwitchStore()) {
+            try await NativeConfigRequests.fetch(baseURL: SpoonjoyAppServer.configuration().baseURL)
         }
     }()
 }
@@ -109,11 +109,48 @@ enum SpoonjoyKillSwitches {
 /// The server the app signs in to, for the app and for every App Intent in its process; it sits beside the vault
 /// because a session only works on the server that issued it.
 ///
-/// A Release build always talks to spoonjoy.app. A debug build may be pointed elsewhere by `SPOONJOY_API_BASE_URL`
-/// (the journeys point it at QA), and Siri has to follow: with spoonjoy.app of their own, the intents sent QA's session
-/// to production, and a shopping item Siri added never reached QA's list (Journeys run 43201022926).
+/// That is the server the cook chose on the sign-in screen (`SpoonjoyServerChoiceStore`), else the app's own:
+/// spoonjoy.app in a Release build. A debug build's own server may be set by `SPOONJOY_API_BASE_URL` (the journeys point
+/// it at QA), and Siri has to follow: with spoonjoy.app of their own, the intents sent QA's session to production, and a
+/// shopping item Siri added never reached QA's list (Journeys run 43201022926).
 enum SpoonjoyAppServer {
+    /// Posted on the main actor after the cook chooses another server; each window's shell then starts over on it.
+    static let didChange = Notification.Name("SpoonjoyAppServerDidChange")
+
     static func configuration(environment: [String: String] = ProcessInfo.processInfo.environment) -> APIClientConfiguration {
+        if let chosen = chosen() {
+            return APIClientConfiguration(baseURL: chosen.baseURL)
+        }
+        return builtInConfiguration(environment: environment)
+    }
+
+    /// The server the cook chose, or nil while they use the app's own.
+    static func chosen() -> SpoonjoyServerAddress? {
+        SpoonjoyServerChoiceStore().load()
+    }
+
+    /// The server the app talks to while the cook has chosen none.
+    static func builtIn(environment: [String: String] = ProcessInfo.processInfo.environment) -> SpoonjoyServerAddress {
+        SpoonjoyServerAddress(baseURL: builtInConfiguration(environment: environment).baseURL) ?? .spoonjoyApp
+    }
+
+    static func current(environment: [String: String] = ProcessInfo.processInfo.environment) -> SpoonjoyServerAddress {
+        chosen() ?? builtIn(environment: environment)
+    }
+
+    /// Makes `address` the server the app talks to (nil, or the app's own server, forgets the choice) and tells each
+    /// window to start over on it. The caller signs out of the old server first.
+    @MainActor
+    static func choose(_ address: SpoonjoyServerAddress?, environment: [String: String] = ProcessInfo.processInfo.environment) {
+        let choice = address == builtIn(environment: environment) ? nil : address
+        guard choice != chosen() else {
+            return
+        }
+        SpoonjoyServerChoiceStore().save(choice)
+        NotificationCenter.default.post(name: didChange, object: nil)
+    }
+
+    private static func builtInConfiguration(environment: [String: String]) -> APIClientConfiguration {
 #if DEBUG
         if let rawURL = environment["SPOONJOY_API_BASE_URL"]?.trimmingCharacters(in: .whitespacesAndNewlines),
            !rawURL.isEmpty,

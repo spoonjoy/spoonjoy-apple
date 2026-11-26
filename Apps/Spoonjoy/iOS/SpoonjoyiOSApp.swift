@@ -6,8 +6,8 @@ import UIKit
 struct SpoonjoyiOSApp: App {
     @UIApplicationDelegateAdaptor(SpoonjoyiOSAppDelegate.self) private var appDelegate
     /// One store and one Cooking now list for every window, so two windows side by side show the same kitchen and
-    /// sync it once.
-    @StateObject private var liveStore = NativeLiveAppStore(dependencies: SpoonjoyRootView.defaultDependencies())
+    /// sync it once. The store is made again for a server the cook chooses on the sign-in screen.
+    @StateObject private var server = SpoonjoyServerScopedStore()
     @State private var cookingNow = CookingNowCenter()
     /// After launches in a row that never finished opening, windows show a plain safe page instead of the shell.
     @State private var launchSafeMode = LaunchSafeModeController()
@@ -33,7 +33,8 @@ struct SpoonjoyiOSApp: App {
         // forward, so a recipe is never open twice.
         WindowGroup(for: WindowRoute.self) { $windowRoute in
             LaunchSafeModeGate(controller: launchSafeMode) {
-                SpoonjoyRootView(liveStore: liveStore, cookingNow: cookingNow, windowValue: windowRoute)
+                SpoonjoyRootView(liveStore: server.liveStore, cookingNow: cookingNow, windowValue: windowRoute)
+                    .id(server.serverBaseURL)
             }
             .debugReduceMotion()
             .journeyQuietMode()

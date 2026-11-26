@@ -1255,7 +1255,7 @@ struct SettingsTokenConnectionTests {
             "show-main-window-existing-app-window",
             "SPOONJOY_MAC_LAUNCH_PROOF_PATH",
             "SpoonjoyMacLaunchProof.record",
-            "NSHostingController(rootView: SpoonjoyRootView())",
+            "NSHostingController(rootView: SpoonjoyServerScopedRoot { SpoonjoyRootView() })",
             "window.minSize = NSSize(width: 900, height: 620)"
         ] {
             #expect(macApp.contains(token), "SpoonjoyMacApp.swift missing \(token)")
