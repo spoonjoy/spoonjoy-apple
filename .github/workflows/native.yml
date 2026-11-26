@@ -306,7 +306,7 @@ jobs:
           ruby scripts/check-cook-shopping-surfaces.rb
           ruby scripts/check-search-capture-settings-surfaces.rb
       - name: Check journey house rules
-        run: swift run -Xswiftc -warnings-as-errors SpoonjoyJourneyRules Apps/Spoonjoy/Journeys .github/workflows/journeys.yml scripts/journey-qa-accounts.sh
+        run: swift run -Xswiftc -warnings-as-errors SpoonjoyJourneyRules Apps/Spoonjoy/Journeys .github/workflows/journeys.yml .github/workflows/self-hosted-server.yml scripts/journey-qa-accounts.sh scripts/self-hosted-journey-account.sh
       - name: Generate AASA validation or blocker artifact
         run: ruby scripts/validate-aasa.rb --artifact-root "$RUNNER_TEMP/aasa"
       - name: Run native scenario verifier
@@ -550,6 +550,13 @@ jobs:
     if: github.event_name == 'pull_request'
     needs: [contracts, swift-tests, reins-journeys, native-scenario-verifier, app-bundle]
     uses: ./.github/workflows/beta-sdk.yml
+
+  # The app on a Spoonjoy server someone runs themselves, built from spoonjoy-v2's self-host/ folder on the runner.
+  self-hosted-server:
+    name: Self-hosted server
+    if: github.event_name == 'pull_request'
+    needs: [contracts, swift-tests, reins-journeys, native-scenario-verifier, app-bundle]
+    uses: ./.github/workflows/self-hosted-server.yml
 
   # Continue with Google or GitHub on an iOS simulator: SpoonjoyBrowserSignInTests (fresh state per tap, one sheet
   # open app-wide, the callback checked against its own attempt, the server's exact code and error returns) with a
