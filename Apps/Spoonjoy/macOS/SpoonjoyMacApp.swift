@@ -26,7 +26,7 @@ struct SpoonjoyMacApp: App {
 
     var body: some Scene {
         WindowGroup {
-            SpoonjoyRootView()
+            SpoonjoyServerScopedRoot { SpoonjoyRootView() }
                 .frame(minWidth: 900, minHeight: 620)
                 // A spoonjoy:// or spoonjoy.app link goes to the window already open. Without this, SwiftUI opens
                 // another window at the default size for every link.
@@ -237,7 +237,7 @@ final class SpoonjoyMacMainWindowCoordinator {
         )
         window.title = "Spoonjoy"
         window.minSize = NSSize(width: 900, height: 620)
-        window.contentViewController = NSHostingController(rootView: SpoonjoyRootView())
+        window.contentViewController = NSHostingController(rootView: SpoonjoyServerScopedRoot { SpoonjoyRootView() })
         window.isReleasedWhenClosed = false
         window.center()
         fallbackWindow = window

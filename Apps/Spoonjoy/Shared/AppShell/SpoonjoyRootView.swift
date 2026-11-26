@@ -866,10 +866,13 @@ struct SpoonjoyRootView: View {
 
     static func defaultDependencies() -> NativeLiveAppStoreDependencies {
         let environment = ProcessInfo.processInfo.environment
+#if DEBUG
+        // Before the server is read: the reset clears the defaults, where a server an earlier journey chose is kept.
+        _ = Self.journeyLaunchReset
+#endif
         let configuration = Self.defaultAPIConfiguration(environment: environment)
         let appDirectory = NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()
 #if DEBUG
-        _ = Self.journeyLaunchReset
         let bootstrapMode: NativeLiveAppBootstrapMode = screenshotRestoreCacheOnlyEnabled(environment: environment)
             ? .restoreCacheOnly
             : .liveFirst
@@ -1100,6 +1103,13 @@ struct SpoonjoyRootView: View {
     }
 
     private static func defaultCacheEnvironment(configuration: APIClientConfiguration) -> NativeCacheEnvironment {
+        // A server the cook chose keeps its own cache, keyed by its whole address, so two servers on one host
+        // (or one on this Mac beside local development) never share recipes or parked changes.
+        if let chosen = SpoonjoyAppServer.chosen(), chosen.baseURL == configuration.baseURL {
+            // Letters, digits, dots and dashes only: the name is also a folder for staged photos.
+            let key = String(chosen.baseURL.absoluteString.lowercased().map { $0.isLetter || $0.isNumber || $0 == "." ? $0 : "-" })
+            return .preview(host: key)
+        }
         let host = configuration.baseURL.host(percentEncoded: false)?.lowercased() ?? ""
         if host == "localhost" || host == "127.0.0.1" || host == "::1" {
             return .local
