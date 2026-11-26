@@ -9,6 +9,8 @@ struct SignedOutSetupView: View {
     private static let livePasswordSignInIdentifier = "native password sign-in"
     fileprivate static let liveGoogleOAuthSignInIdentifier = "native Google OAuth sign-in"
     fileprivate static let liveGitHubOAuthSignInIdentifier = "native GitHub OAuth sign-in"
+    private static let liveServerBrowserSignInIdentifier = "native server browser sign-in"
+    private static let serverRowIdentifier = "signin.server"
     private static let browserSignInLogger = Logger(subsystem: "app.spoonjoy", category: "auth.browser")
     private static let appleSignInEntitlement = "com.apple.developer.applesignin"
 
@@ -28,11 +30,17 @@ struct SignedOutSetupView: View {
     @State private var canDisconnect = false
     @State private var currentNonce: String?
     @State private var pendingOAuthProvider: OAuthProviderHint?
+    /// True while a browser sign-in is under way; with `pendingOAuthProvider` nil, it is the server's own page.
+    @State private var browserSignInPending = false
     @State private var browserSignIn: NativeBrowserOAuthSignIn?
     /// True while browser sign-in waits to retry after the system's early cancel (spoonjoy-apple#344): no sheet is up,
     /// so the status row offers Cancel.
     @State private var browserSignInRetryPending = false
     @State private var appleSignInCapability = Self.currentAppleSignInCapability()
+    /// The server this screen signs in to, and the one the cook chose, if any (nil while they use the app's own).
+    @State private var server = SpoonjoyAppServer.current()
+    @State private var chosenServer = SpoonjoyAppServer.chosen()
+    @State private var showsServerPicker = false
     @FocusState private var focusedField: SignInField?
 
     init(
@@ -60,6 +68,16 @@ struct SignedOutSetupView: View {
         .onDisappear {
             // A start still waiting on its request must not open a sheet for a window that has gone.
             browserSignIn?.cancelStart()
+        }
+        .sheet(isPresented: $showsServerPicker) {
+            ServerPickerSheet(
+                builtIn: SpoonjoyAppServer.builtIn(),
+                current: server,
+                onChoose: { address in
+                    await chooseServer(address)
+                },
+                cancel: { showsServerPicker = false }
+            )
         }
     }
 
@@ -139,12 +157,19 @@ struct SignedOutSetupView: View {
                 .foregroundStyle(KitchenTableTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
-            Text("Sign in to cook, fork, save, and remember the recipes that actually make it to your table. Your spoonjoy.app account works here too.")
+            Text(signInLeadSentence)
                 .font(KitchenTableTheme.story)
                 .foregroundStyle(KitchenTableTheme.ink2)
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    /// The lead's last sentence names the server whose account works here.
+    private var signInLeadSentence: String {
+        let accountLine = chosenServer.map { "Your account on \($0.displayName) works here." }
+            ?? "Your spoonjoy.app account works here too."
+        return "Sign in to cook, fork, save, and remember the recipes that actually make it to your table. \(accountLine)"
     }
 
     private var identityHeader: some View {
@@ -209,32 +234,17 @@ struct SignedOutSetupView: View {
                 appleUnavailableRow
             }
 
-            VStack(spacing: 10) {
-                ForEach(OAuthProviderHint.allCases, id: \.self) { provider in
-                    Button {
-                        Task {
-                            await handleBrowserOAuthSignIn(provider: provider)
-                        }
-                    } label: {
-                        HStack(spacing: 10) {
-                            if pendingOAuthProvider == provider && isSigningIn {
-                                ProgressView()
-                                    .controlSize(.small)
-                            }
-                            Image(systemName: provider.signInSystemImage)
-                                .imageScale(.medium)
-                            Text(provider.signInButtonTitle)
-                                .font(KitchenTableTheme.control)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(isSigningIn ? KitchenTableTheme.ink.opacity(0.46) : KitchenTableTheme.ink)
-                    .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
-                    .disabled(isSigningIn)
-                    .accessibilityIdentifier(provider.signInAccessibilityIdentifier)
-                }
+            if let chosenServer {
+                // Google and GitHub are spoonjoy.app's. Another server's own sign-in page offers what it has: a
+                // password, its own identity provider, or passkeys where its address allows them.
+                browserSignInButton(
+                    provider: nil,
+                    systemImage: "safari",
+                    title: "Sign In on \(chosenServer.displayName)",
+                    identifier: Self.liveServerBrowserSignInIdentifier
+                )
+            } else {
+                providerButtons
             }
 
             HStack(alignment: .center, spacing: 12) {
@@ -320,6 +330,20 @@ struct SignedOutSetupView: View {
                 }
                 .accessibilityIdentifier("signin.settings")
 
+                // One place to choose the server: it opens the server sheet, and names the server signed in to.
+                Button {
+                    showsServerPicker = true
+                } label: {
+                    Label(server.displayName, systemImage: "server.rack")
+                        .foregroundStyle(KitchenTableTheme.ink2)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .disabled(isSigningIn)
+                .accessibilityLabel("Server, \(server.displayName)")
+                .accessibilityHint("Chooses the Spoonjoy server to sign in to")
+                .accessibilityIdentifier(Self.serverRowIdentifier)
+
                 if canDisconnect {
                     Button(role: .destructive) {
                         Task {
@@ -336,6 +360,50 @@ struct SignedOutSetupView: View {
             .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
         }
         .frame(maxWidth: 430, alignment: .leading)
+    }
+
+    private var providerButtons: some View {
+        VStack(spacing: 10) {
+            ForEach(OAuthProviderHint.allCases, id: \.self) { provider in
+                browserSignInButton(
+                    provider: provider,
+                    systemImage: provider.signInSystemImage,
+                    title: provider.signInButtonTitle,
+                    identifier: provider.signInAccessibilityIdentifier
+                )
+            }
+        }
+    }
+
+    private func browserSignInButton(
+        provider: OAuthProviderHint?,
+        systemImage: String,
+        title: String,
+        identifier: String
+    ) -> some View {
+        Button {
+            Task {
+                await handleBrowserOAuthSignIn(provider: provider)
+            }
+        } label: {
+            HStack(spacing: 10) {
+                if browserSignInPending && pendingOAuthProvider == provider && isSigningIn {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+                Image(systemName: systemImage)
+                    .imageScale(.medium)
+                Text(title)
+                    .font(KitchenTableTheme.control)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isSigningIn ? KitchenTableTheme.ink.opacity(0.46) : KitchenTableTheme.ink)
+        .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
+        .disabled(isSigningIn)
+        .accessibilityIdentifier(identifier)
     }
 
     private var appleUnavailableRow: some View {
@@ -411,6 +479,30 @@ struct SignedOutSetupView: View {
         }
     }
 
+    /// Moves sign-in to another server. A session still stored for the old one is signed out there first, so its
+    /// tokens never reach the new server; then the app's windows start over on the new server.
+    /// Nothing else on the screen can start a sign-in meanwhile, and if the old session cannot be signed out the
+    /// server stays as it was.
+    private func chooseServer(_ address: SpoonjoyServerAddress?) async {
+        guard (address ?? SpoonjoyAppServer.builtIn()) != server else {
+            showsServerPicker = false
+            return
+        }
+        isSigningIn = true
+        defer {
+            isSigningIn = false
+            showsServerPicker = false
+        }
+        if canDisconnect {
+            guard await revokeAndLogout() else {
+                return
+            }
+        }
+        SpoonjoyAppServer.choose(address)
+        server = SpoonjoyAppServer.current()
+        chosenServer = SpoonjoyAppServer.chosen()
+    }
+
     private func restoreState() async {
         do {
             switch try await authRepository.restoreState() {
@@ -436,15 +528,21 @@ struct SignedOutSetupView: View {
     /// Google or GitHub in the system browser sheet. `NativeBrowserOAuthSignIn` gives each attempt its own state and
     /// verifier and keeps one sheet open app-wide, because the web app holds one provider sign-in per browser cookie
     /// jar: a second start would turn the first one's return into `invalid_state`.
-    private func handleBrowserOAuthSignIn(provider: OAuthProviderHint) async {
+    /// What a browser sign-in is named in its status lines: Google or GitHub, or the server whose page it opens.
+    private func signInName(_ provider: OAuthProviderHint?) -> String {
+        provider?.displayName ?? server.displayName
+    }
+
+    private func handleBrowserOAuthSignIn(provider: OAuthProviderHint?) async {
         guard !isSigningIn else {
             return
         }
 
         isSigningIn = true
         pendingOAuthProvider = provider
+        browserSignInPending = true
         statusTone = .progress
-        authStatus = "Opening \(provider.displayName) sign-in."
+        authStatus = "Opening \(signInName(provider)) sign-in."
 
         let signIn = browserSignIn ?? NativeBrowserOAuthSignIn(
             repository: authRepository,
@@ -459,7 +557,7 @@ struct SignedOutSetupView: View {
             // The system ended the sheet before showing it and a retry is coming (spoonjoy-apple#344).
             browserSignInRetryPending = phase != .started
             statusTone = .progress
-            authStatus = NativeBrowserOAuthEarlyCancel.status(for: phase, providerName: provider.displayName)
+            authStatus = NativeBrowserOAuthEarlyCancel.status(for: phase, providerName: signInName(provider))
         }) { finish in
             // The sign-in has ended: no Cancel for a pending retry from here on.
             browserSignInRetryPending = false
@@ -469,16 +567,18 @@ struct SignedOutSetupView: View {
         }
         switch start {
         case .opened, .alreadyInProgress:
-            authStatus = "Finish \(provider.displayName) sign-in in the browser."
+            authStatus = "Finish \(signInName(provider)) sign-in in the browser."
         case .canceled:
             // Stopped before the sheet opened (the view went away): free the buttons quietly.
             pendingOAuthProvider = nil
+            browserSignInPending = false
             isSigningIn = false
             statusTone = .neutral
             authStatus = "Browser sign-in canceled."
         case .superseded:
             // Another window's sign-in claimed the gate while this one waited to retry its request.
             pendingOAuthProvider = nil
+            browserSignInPending = false
             isSigningIn = false
             statusTone = .neutral
             authStatus = "Browser sign-in continued in another window."
@@ -486,9 +586,10 @@ struct SignedOutSetupView: View {
             let reason = signIn.startFailure.map(NativeBrowserOAuthSignIn.diagnosticReason) ?? "unknown"
             Self.browserSignInLogger.error("Browser sign-in did not start: \(reason, privacy: .public)")
             pendingOAuthProvider = nil
+            browserSignInPending = false
             isSigningIn = false
             statusTone = .error
-            authStatus = "Could not open \(provider.displayName) sign-in. Check your connection and try again."
+            authStatus = "Could not open \(signInName(provider)) sign-in. Check your connection and try again."
         }
     }
 
@@ -505,8 +606,9 @@ struct SignedOutSetupView: View {
     }
 
     @MainActor
-    private func handleBrowserOAuthFinish(_ finish: NativeBrowserOAuthFinish, provider: OAuthProviderHint) async {
+    private func handleBrowserOAuthFinish(_ finish: NativeBrowserOAuthFinish, provider: OAuthProviderHint?) async {
         pendingOAuthProvider = nil
+        browserSignInPending = false
         switch finish {
         case .signedIn:
             canDisconnect = true
@@ -518,7 +620,7 @@ struct SignedOutSetupView: View {
             authStatus = "Could not finish browser sign-in. Try again."
         case .canceled(let error):
             // NativeBrowserOAuthSignIn logs the cancel's domain, code and timing.
-            let ended = NativeBrowserOAuthEarlyCancel.endedStatus(error: error, providerName: provider.displayName)
+            let ended = NativeBrowserOAuthEarlyCancel.endedStatus(error: error, providerName: signInName(provider))
             statusTone = ended.isProblem ? .error : .neutral
             authStatus = ended.text
             if ended.isProblem {
@@ -763,16 +865,19 @@ struct SignedOutSetupView: View {
         NativeAppleSignInNonce.sha256(input)
     }
 
-    private func revokeAndLogout() async {
+    @discardableResult
+    private func revokeAndLogout() async -> Bool {
         do {
             try await authRepository.revokeAndLogout()
             authStatus = "Signed out."
             statusTone = .neutral
             canDisconnect = false
             isSigningIn = false
+            return true
         } catch {
             statusTone = .error
             authStatus = "Could not disconnect this device. Check your connection and try again."
+            return false
         }
     }
 

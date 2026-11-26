@@ -677,9 +677,9 @@ struct NativeAuthSessionTests {
             contains: [
                 "}, onRetry: { phase in",
                 "browserSignInRetryPending = phase != .started",
-                "authStatus = NativeBrowserOAuthEarlyCancel.status(for: phase, providerName: provider.displayName)",
+                "authStatus = NativeBrowserOAuthEarlyCancel.status(for: phase, providerName: signInName(provider))",
                 "}) { finish in\n            // The sign-in has ended: no Cancel for a pending retry from here on.\n            browserSignInRetryPending = false\n            Task {",
-                "let ended = NativeBrowserOAuthEarlyCancel.endedStatus(error: error, providerName: provider.displayName)",
+                "let ended = NativeBrowserOAuthEarlyCancel.endedStatus(error: error, providerName: signInName(provider))",
                 "authStatus = ended.text",
                 "AccessibilityNotification.Announcement(ended.text).post()",
                 "if browserSignInRetryPending {\n                Button(\"Cancel\", action: cancelBrowserSignInRetry)",

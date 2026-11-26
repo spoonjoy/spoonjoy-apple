@@ -32,6 +32,13 @@
 	<string>Spoonjoy listens for "next", "back", "repeat" and "timer" while cook mode is open, on this device only.</string>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>Spoonjoy can set system cooking timers for timed recipe steps.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Spoonjoy connects to the Spoonjoy server you run on your home network, when you choose one at sign-in.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Spoonjoy uses selected photos to create local recipe capture drafts.</string>
 	<key>UIApplicationSceneManifest</key>
