@@ -54,7 +54,7 @@ class ReviewDemoKitchenTest < Minitest::Test
 
     # Starts a cook of recipe_id with one ingredient checked, as cook mode would leave it.
     def start_cook(recipe_id)
-      @cooking[recipe_id] = { "attemptId" => "a-#{recipe_id}", "revision" => 0, "checked" => ["ing-#{recipe_id}"] }
+      @cooking[recipe_id] = { "attemptId" => "a-#{recipe_id}", "revision" => 0, "checked" => ["ing-#{recipe_id}", "out-#{recipe_id}"] }
     end
 
     def form(path, fields)
@@ -133,7 +133,9 @@ class ReviewDemoKitchenTest < Minitest::Test
         return [409, {}] unless body["attemptId"] == session["attemptId"] && body["expectedRevision"] == session["revision"]
 
         before = session["checked"]
-        session["checked"] = body.dig("changes", "checkedIngredientIds")
+        changes = body["changes"]
+        session["checked"] = changes.fetch("checkedIngredientIds", session["checked"].grep(/\Aing-/)) +
+                             changes.fetch("checkedStepOutputIds", session["checked"].grep(/\Aout-/))
         session["revision"] += 1
         state = { "attemptId" => session["attemptId"], "revision" => session["revision"] }
         @cooking.delete(id) if before.any? && session["checked"].empty?

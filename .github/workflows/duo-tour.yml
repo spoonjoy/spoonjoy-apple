@@ -419,6 +419,7 @@ jobs:
         if: ${{ !cancelled() && inputs.store_shots }}
         timeout-minutes: 20
         env:
+          SPOONJOY_BASE_URL: https://spoonjoy.app
           SPOONJOY_REVIEW_DEMO_USERNAME: ${{ secrets.SPOONJOY_REVIEW_DEMO_USERNAME }}
           SPOONJOY_REVIEW_DEMO_PASSWORD: ${{ secrets.SPOONJOY_REVIEW_DEMO_PASSWORD }}
           SPOONJOY_REVIEW_FRIEND_USERNAME: ${{ secrets.SPOONJOY_REVIEW_FRIEND_USERNAME }}
@@ -433,19 +434,20 @@ jobs:
           # Each pose starts from a freshly seeded kitchen: the seeder repairs it, takes cook mode's last cook off Cooking
           # now and signs the app in as the demo chef (a DEBUG build reads debug-auth-session.json), with no journey
           # account's state left behind.
+          # Stop the app before seeding, so a write from the last pose's cook mode can't list its recipe again.
           sign_in() {
-            ruby scripts/seed-review-demo-account.rb --store-scenes "$scenes" >/dev/null
             xcrun simctl terminate "$udid" app.spoonjoy 2>/dev/null || true
+            ruby scripts/seed-review-demo-account.rb --store-scenes "$scenes" >/dev/null
             dir="$(xcrun simctl get_app_container "$udid" app.spoonjoy data)/Library/Application Support/Spoonjoy"
             rm -rf "$dir"; mkdir -p "$dir"
-            python3 -c 'import json,sys; json.dump(json.load(open(sys.argv[1]))["session"], open(sys.argv[2], "w"))' "$scenes" "$dir/debug-auth-session.json"
+            umask 077; python3 -c 'import json,sys; json.dump(json.load(open(sys.argv[1]))["session"], open(sys.argv[2], "w"))' "$scenes" "$dir/debug-auth-session.json"
           }
           shoot() {
             pose="$1"; sign_in
             # Cook mode goes last: opening it puts the recipe under Cooking now.
             for scene in kitchen recipe cookbook shopping cook; do
               link="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["links"][sys.argv[2]])' "$scenes" "$scene")"
-              SIMCTL_CHILD_SPOONJOY_API_BASE_URL=https://spoonjoy.app SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="$link" \
+              SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_BASE_URL" SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="$link" \
                 xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy >/dev/null
               sleep 14
               for display in 1 3; do
@@ -454,6 +456,8 @@ jobs:
               echo "$pose: $scene"
             done
           }
+          # Leave no cook progress on the App Review account, even when a pose fails.
+          trap 'xcrun simctl terminate "$udid" app.spoonjoy 2>/dev/null; ruby scripts/seed-review-demo-account.rb >/dev/null || true' EXIT
           xcrun simctl status_bar "$udid" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
           # The previous step leaves the Duo closed in its default (wide) orientation. Closing from open wide shows the
           # outer screen upright; closing from tall leaves it sideways.
@@ -466,7 +470,6 @@ jobs:
           shoot open-tall
           "$hub" press "Partially Open"; sleep 6
           shoot half-open
-          ruby scripts/seed-review-demo-account.rb >/dev/null
           ls -la "$shots"
       - name: Print app crash reports
         if: failure()

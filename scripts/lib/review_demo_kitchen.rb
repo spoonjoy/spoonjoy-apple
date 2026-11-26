@@ -405,16 +405,22 @@ module ReviewDemoKitchen
         id = entry.dig("recipe", "id")
         _, detail = @http.json(:get, "/api/v1/recipes/#{id}", token: token)
         ingredient = Array(detail.dig("data", "recipe", "steps")).flat_map { |step| Array(step["ingredients"]) }.first
-        next unless ingredient
+
+        raise Error, "#{entry.dig('recipe', 'title')} is under Cooking now but has no ingredient to check" unless ingredient
 
         _, session = @http.json(:get, "/api/cook-sessions/#{id}", token: token)
-        state = session["state"]
+        state = session["state"] or raise Error, "#{entry.dig('recipe', 'title')} is under Cooking now with no cook session"
+        # The checked count is ingredients plus step outputs, so both go empty on the second write.
         [[ingredient["id"]], []].each do |checked|
           _, written = @http.json(:patch, "/api/cook-sessions/#{id}", token: token, body: {
             "attemptId" => state["attemptId"], "expectedRevision" => state["revision"], "mutationId" => mutation_id,
-            "changes" => { "checkedIngredientIds" => checked }
+            "changes" => { "checkedIngredientIds" => checked, "checkedStepOutputIds" => [] }
           })
           state = written["state"]
+        end
+        _, after = @http.json(:get, "/api/v1/cooking-now", token: token)
+        if Array(after.dig("data", "recipes")).any? { |left| left.dig("recipe", "id") == id }
+          raise Error, "#{entry.dig('recipe', 'title')} is still under Cooking now after clearing its progress"
         end
         @changes += 1
         say "Cleared #{entry.dig('recipe', 'title')} from Cooking now"
