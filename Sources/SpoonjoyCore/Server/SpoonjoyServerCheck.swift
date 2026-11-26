@@ -44,7 +44,8 @@ public enum SpoonjoyServerCheck {
 
     /// Whether reaching the server needs the system's local network permission: a local host other than this device.
     public static func needsLocalNetworkPermission(_ address: SpoonjoyServerAddress) -> Bool {
-        let host = (address.baseURL.host(percentEncoded: false) ?? "").lowercased()
+        // Every server address has a host: parsing refuses one without.
+        let host = address.baseURL.host(percentEncoded: false)!.lowercased()
             .trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
         let loopback = host == "localhost" || host == "::1" || host.hasPrefix("127.")
         return SpoonjoyServerAddress.isLocalNetworkHost(host) && !loopback
