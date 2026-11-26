@@ -233,5 +233,10 @@ final class StoreScenesUITests: XCTestCase {
         paste.tap()
         signIn.tap()
         XCTAssertTrue(kitchen.waitForExistence(timeout: Self.networkTimeout), "Signing in as the review demo account did not open the kitchen.")
+        // iOS may offer to save the password a little after the kitchen opens; a screenshot would show the alert.
+        let notNow = app.alerts["Save Password?"].buttons["Not Now"]
+        if notNow.waitForExistence(timeout: 8) {
+            notNow.tap()
+        }
     }
 }

@@ -354,8 +354,22 @@ module ReviewDemoKitchen
       (item["name"] || item.dig("ingredient", "name")).to_s.downcase
     end
 
+    # Makes the list exactly the seed: App Review and earlier store runs add recipes to it, and a 25-item list with
+    # repeats made a poor App Store shot (Store scenes run 45766699742).
     def ensure_shopping_list(chef_key, wanted)
       token = @tokens[chef_key]
+      names = wanted.map { |entry| entry["name"].downcase }
+      kept = []
+      shopping_items(token).each do |item|
+        if names.include?(item_name(item)) && !kept.include?(item_name(item))
+          kept << item_name(item)
+          next
+        end
+
+        @http.json(:delete, "/api/v1/shopping-list/items/#{item['id']}", token: token, body: { "clientMutationId" => mutation_id })
+        @changes += 1
+        say "Removed #{item_name(item)} from the shopping list"
+      end
       items = shopping_items(token)
       wanted.each do |entry|
         next if items.any? { |item| item_name(item) == entry["name"].downcase }
