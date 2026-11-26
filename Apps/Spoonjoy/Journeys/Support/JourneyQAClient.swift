@@ -41,15 +41,16 @@ enum JourneyQAClientError: Error, CustomStringConvertible {
 struct JourneyQAClient: Sendable {
     let configuration: APIClientConfiguration
 
-    static func signIn(_ account: JourneyAccount) async throws -> JourneyQAClient {
+    /// Signs `account` in on `server`: the QA mirror, or the self-hosted server the Self-hosted server job runs.
+    static func signIn(_ account: JourneyAccount, on server: URL = JourneyQA.baseURL) async throws -> JourneyQAClient {
         let builder = try NativePasswordSignInRequests.exchangeCredential(
             NativePasswordSignInCredential(emailOrUsername: account.username, password: account.password)
         )
-        let data = try await send(builder, configuration: APIClientConfiguration(baseURL: JourneyQA.baseURL))
+        let data = try await send(builder, configuration: APIClientConfiguration(baseURL: server))
         let token = try (try? APIEnvelope<OAuthTokenResponse>.decode(data).data) ??
             JSONDecoder().decode(OAuthTokenResponse.self, from: data)
         return JourneyQAClient(
-            configuration: APIClientConfiguration(baseURL: JourneyQA.baseURL, bearerToken: token.accessToken)
+            configuration: APIClientConfiguration(baseURL: server, bearerToken: token.accessToken)
         )
     }
 

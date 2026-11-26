@@ -328,7 +328,7 @@ struct JourneyHouseRulesTests {
         ])
         #expect(found.first?.message == "`&&` after a test command stops its failure from failing the step")
         #expect(found.dropFirst(1).first?.message == "a shell loop re-runs `xcodebuild`; flaky is failing")
-        #expect(found.dropFirst(5).first?.message == "`-only-testing:SpoonjoyJourneys/SignInJourney` runs part of a target; select SpoonjoyJourneys, SpoonjoyShoppingUITests, SpoonjoyDuoJourneys, SpoonjoyParityJourneys or SpoonjoySiriJourneys whole")
+        #expect(found.dropFirst(5).first?.message == "`-only-testing:SpoonjoyJourneys/SignInJourney` runs part of a target; select SpoonjoyJourneys, SpoonjoyShoppingUITests, SpoonjoyDuoJourneys, SpoonjoyParityJourneys, SpoonjoySiriJourneys or SpoonjoySelfHostedJourneys whole")
         #expect(found.dropFirst(9).first?.message == "a shell loop re-runs `scripts/run-journeys.sh`; flaky is failing")
     }
 

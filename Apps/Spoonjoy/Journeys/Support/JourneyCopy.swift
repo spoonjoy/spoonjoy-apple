@@ -6,6 +6,8 @@ enum JourneyCopy {
     static let signOutConfirm = "Sign Out"
     /// The sign-in status after a rejected password (`SignedOutSetupView.passwordSignInFailureMessage`).
     static let wrongPasswordStatus = "Could not sign in. Check your username, password, and connection."
+    /// The end of the server sheet's problem when an address answers but is not Spoonjoy (`SpoonjoyServerCheckError`).
+    static let notSpoonjoyServer = "answered, but it isn't a Spoonjoy server."
 
     // Tab bar items cannot carry accessibility identifiers, so tabs are found by their titles.
     static let kitchenTab = "Kitchen"
