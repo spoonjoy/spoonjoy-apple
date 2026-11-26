@@ -358,10 +358,14 @@ module ReviewDemoKitchen
     # repeats made a poor App Store shot (Store scenes run 45766699742).
     def ensure_shopping_list(chef_key, wanted)
       token = @tokens[chef_key]
-      names = wanted.map { |entry| entry["name"].downcase }
+      # One item per seeded entry, with the seed's quantity and unit; the add step below re-creates any it removes.
       kept = []
       shopping_items(token).each do |item|
-        if names.include?(item_name(item)) && !kept.include?(item_name(item))
+        entry = wanted.find do |candidate|
+          candidate["name"].downcase == item_name(item) && candidate["quantity"].to_f == item["quantity"].to_f &&
+            candidate["unit"].to_s == item["unit"].to_s
+        end
+        if entry && !kept.include?(item_name(item))
           kept << item_name(item)
           next
         end

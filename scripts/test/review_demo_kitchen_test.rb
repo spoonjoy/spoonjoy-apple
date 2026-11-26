@@ -114,9 +114,12 @@ class ReviewDemoKitchenTest < Minitest::Test
       in [:get, "/api/v1/shopping-list"]
         [200, { "data" => { "shoppingList" => { "items" => @shopping[user(token)].map(&:dup) } } }]
       in [:post, "/api/v1/shopping-list/items"]
-        @shopping[user(token)] << { "id" => "i#{@writes.length}", "name" => body["name"], "checked" => false }
+        @shopping[user(token)] << { "id" => "i#{@writes.length}", "name" => body["name"].downcase, "quantity" => body["quantity"],
+                                    "unit" => body["unit"], "checked" => false }
         [201, {}]
       in [:delete, %r{\A/api/v1/shopping-list/items/(i\d+)\z}]
+        return [400, {}] if body.to_h["clientMutationId"].to_s.empty?
+
         @shopping[user(token)].reject! { |i| i["id"] == Regexp.last_match(1) }
         [200, {}]
       in [:patch, %r{\A/api/v1/shopping-list/items/(i\d+)\z}]
@@ -220,10 +223,12 @@ class ReviewDemoKitchenTest < Minitest::Test
     seeder.call
     list = api.instance_variable_get(:@shopping)["johnnyappleseed"]
     list << { "id" => "i900", "name" => "granny smith apples", "checked" => false }
-    list << { "id" => "i901", "name" => "Honeycrisp apples", "checked" => false }
+    list << { "id" => "i901", "name" => "honeycrisp apples", "quantity" => 6, "unit" => "whole", "checked" => false }
+    list.find { |item| item["name"] == "unsalted butter" }["quantity"] = 500
     seeder.call
     wanted = kitchen.dig("chefs", "demo", "shoppingList").map { |entry| entry["name"].downcase }
     assert_equal wanted.sort, list.map { |item| item["name"].downcase }.sort
+    assert_equal 250, list.find { |item| item["name"] == "unsalted butter" }["quantity"]
     assert_equal 0, seeder.call
   end
 

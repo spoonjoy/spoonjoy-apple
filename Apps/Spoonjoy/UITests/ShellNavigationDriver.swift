@@ -112,6 +112,7 @@ struct ShellNavigationDriver {
         // "Hide Sidebar" means it is already out, only covered (by the "Save Password?" alert in Store scenes run
         // 45766699742); tapping it would put the sidebar away.
         if sidebarToggle.label.lowercased().hasPrefix("hide") {
+            XCTAssertTrue(waitUntil(10) { sidebarShows }, "The sidebar is out but covered.\n\(app.debugDescription)", file: file, line: line)
             return
         }
         sidebarToggle.tap()
@@ -135,7 +136,8 @@ struct ShellNavigationDriver {
             // scrolling back up brings the other tabs back.
             for _ in 0..<4 where !tab.exists {
                 app.swipeDown(velocity: .fast)
-                tab = element(place.tabIdentifier).exists ? element(place.tabIdentifier) : app.tabBars.buttons[place.tabTitle]
+                let byIdentifier = element(place.tabIdentifier)
+                tab = byIdentifier.exists ? byIdentifier : app.tabBars.buttons[place.tabTitle]
             }
             XCTAssertTrue(tab.waitForExistence(timeout: 10), "The tab bar has no \(place.rawValue) tab.", file: file, line: line)
             tab.tap()
