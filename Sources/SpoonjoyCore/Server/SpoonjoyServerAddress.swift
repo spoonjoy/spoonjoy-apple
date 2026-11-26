@@ -80,7 +80,8 @@ public struct SpoonjoyServerAddress: Equatable, Hashable, Sendable {
         let host = rawHost.lowercased()
         let scheme: String
         if hasScheme {
-            scheme = (components.scheme ?? "").lowercased()
+            // The address matched the scheme pattern above, so it has one.
+            scheme = components.scheme!.lowercased()
         } else {
             scheme = isLocalNetworkHost(host) ? "http" : "https"
         }
