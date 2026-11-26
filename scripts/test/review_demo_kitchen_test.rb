@@ -23,11 +23,15 @@ class ReviewDemoKitchenTest < Minitest::Test
     galette["steps"][0]["duration"] = 2.5
     bad["chefs"]["demo"]["cookbooks"][0]["recipes"] << "missing"
     bad["cooks"] << { "by" => "demo", "recipe" => "friend.nope", "note" => "x" }
+    bad["chefs"]["demo"]["recipes"][1]["coverPhoto"] = "missing.jpg"
+    bad["chefs"]["demo"]["forks"][0]["coverPhoto"] = "../secrets.jpg"
     errors = ReviewDemoKitchen.validate(bad)
     assert(errors.any? { |e| e.include?("ingredient plain flour appears 2 times") }, errors.inspect)
     assert(errors.any? { |e| e.include?("duration must be a positive whole number") })
     assert(errors.any? { |e| e.include?("missing is not one of demo's recipes") })
     assert(errors.any? { |e| e.include?("friend.nope: no such recipe") })
+    assert(errors.any? { |e| e.include?("demo.tatin: coverPhoto missing.jpg is not in") })
+    assert(errors.any? { |e| e.include?("demo.crumbleFork: coverPhoto ../secrets.jpg is not in") })
   end
 
   # A fake spoonjoy.app that keeps state, so the seeder can run twice against it.
@@ -51,6 +55,17 @@ class ReviewDemoKitchenTest < Minitest::Test
 
       @users[fields["username"]] = fields["password"]
       302
+    end
+
+    def upload(path, token:, fields:, file:)
+      @writes << "upload #{path}"
+      recipe_id = path[%r{/recipes/(r\d+)/image\z}, 1]
+      state = @covers[recipe_id]
+      cover = { "id" => "cv#{state['covers'].length}", "generationStatus" => fields["generateEditorial"] ? "processing" : "none",
+                "displayUrl" => "https://spoonjoy.test/#{File.basename(file)}", "file" => file }
+      state["covers"] << cover
+      state["activeCover"] = cover if fields["activateWhenReady"]
+      [201, {}]
     end
 
     def json(method, path, token: nil, body: nil, ok: [200, 201])
@@ -97,21 +112,7 @@ class ReviewDemoKitchenTest < Minitest::Test
       in [:get, %r{\A/api/v1/recipes/(r\d+)/spoons\z}]
         [200, { "data" => { "spoons" => @spoons.select { |s| s["recipeId"] == Regexp.last_match(1) } } }]
       in [:get, %r{\A/api/v1/recipes/(r\d+)/covers\z}]
-        state = @covers[Regexp.last_match(1)]
-        state["polls"] = state["polls"].to_i + 1
-        state["onPoll"]&.call(state)
-        [200, { "data" => state.slice("covers", "activeCover") }]
-      in [:post, %r{\A/api/v1/recipes/(r\d+)/covers/generate\z}]
-        state = @covers[Regexp.last_match(1)]
-        cover = { "id" => "cv#{state['covers'].length}", "generationStatus" => "ready", "displayUrl" => "https://spoonjoy.test/cover.jpg",
-                  "prompt" => body["promptAddition"] }
-        state["covers"] << cover
-        state["activeCover"] = cover if body["activateWhenReady"]
-        [201, {}]
-      in [:patch, %r{\A/api/v1/recipes/(r\d+)/covers/(cv\d+)\z}]
-        state = @covers[Regexp.last_match(1)]
-        state["activeCover"] = state["covers"].find { |c| c["id"] == Regexp.last_match(2) }
-        [200, {}]
+        [200, { "data" => @covers[Regexp.last_match(1)].slice("covers", "activeCover") }]
       in [:post, %r{\A/api/v1/recipes/(r\d+)/spoons\z}]
         @spoons << { "recipeId" => Regexp.last_match(1), "note" => body["note"], "chef" => { "username" => user(token) } }
         [201, {}]
@@ -143,49 +144,42 @@ class ReviewDemoKitchenTest < Minitest::Test
     assert_includes out.string, "https://spoonjoy.test/users/johnnyappleseed"
   end
 
-  def test_every_recipe_and_fork_gets_one_ai_cover_with_its_prompt
+  def test_every_recipe_and_fork_gets_its_own_photo_as_is_and_switched_on
     api = FakeApi.new
     ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: StringIO.new).run
-    generated = api.writes.grep(%r{/covers/generate\z})
-    assert_equal 9, generated.length, "7 demo recipes, the friend's crumble and the fork"
-    assert(api.covers.values.all? { |state| state["activeCover"] })
-    assert(api.covers.values.all? { |state| state["covers"].first["prompt"].to_s.length.positive? })
+    assert_equal 9, api.writes.grep(%r{\Aupload /api/v1/recipes/r\d+/image\z}).length, "7 demo recipes, the friend's crumble and the fork"
+    active = api.covers.values.map { |state| state["activeCover"] }
+    assert(active.all? { |cover| cover && cover["generationStatus"] == "none" }, "uploaded without an AI restyle")
+    files = active.map { |cover| cover["file"] }
+    assert_equal files.uniq, files, "no two recipes share a photo"
+    assert(files.all? { |file| File.file?(file) })
   end
 
-  def test_waits_for_an_in_flight_cover_and_switches_on_a_finished_inactive_one
+  def test_a_recipe_without_an_active_cover_gets_its_photo_again
     api = FakeApi.new
-    out = StringIO.new
-    ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: out).run
-    # r0 is mid-generation and finishes on a later poll; r1 has a finished cover nobody switched on.
-    processing = { "id" => "cv9", "generationStatus" => "processing" }
-    api.covers["r0"] = { "covers" => [processing], "activeCover" => nil,
-                         "onPoll" => ->(state) { state["activeCover"] = processing if state["polls"] > 2 } }
-    api.covers["r1"] = { "covers" => [{ "id" => "cv0", "generationStatus" => "ready", "displayUrl" => "u", "stylizedImageUrl" => "s" }], "activeCover" => nil }
-    naps = []
+    ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: StringIO.new).run
+    api.covers["r1"]["activeCover"] = nil
     before = api.writes.length
-    changes = ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: out, sleeper: ->(s) { naps << s }).run
+    changes = ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: StringIO.new).run
     assert_equal 1, changes
-    assert_equal ["patch /api/v1/recipes/r1/covers/cv0"], api.writes.drop(before)
-    assert_equal [10], naps
-    assert_includes out.string, "Cover ready for Brown Butter Apple Crumble"
+    assert_equal ["upload /api/v1/recipes/r1/image"], api.writes.drop(before)
   end
 
-  def test_a_cover_that_fails_to_generate_fails_the_run
-    api = FakeApi.new
-    ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: StringIO.new).run
-    failed = { "id" => "cv9", "generationStatus" => "processing" }
-    api.covers["r0"] = { "covers" => [failed], "activeCover" => nil,
-                         "onPoll" => lambda { |state|
-                           next unless state["polls"] > 1
-
-                           failed["generationStatus"] = "failed"
-                           failed["failureReason"] = "Image provider refused the request"
-                         } }
-    error = assert_raises(ReviewDemoKitchen::Error) do
-      ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: StringIO.new, sleeper: ->(_) {}).run
+  def test_http_upload_sends_the_fields_and_the_jpeg_as_multipart
+    sent = nil
+    http = StubbedHttp.new([])
+    http.define_singleton_method(:perform) do |request|
+      sent = request
+      Struct.new(:code, :body).new("201", "{}")
     end
-    assert_match(/Cover generation for Brown Butter Apple Crumble/, error.message)
-    assert_match(/\(Image provider refused the request\)/, error.message)
+    photo = File.join(ReviewDemoKitchen::COVERS_DIR, "tatin.jpg")
+    http.upload("/api/v1/recipes/r1/image", token: "t", fields: { "generateEditorial" => false }, file: photo)
+    assert_equal "Bearer t", sent["Authorization"]
+    wire = StringIO.new
+    sent.exec(Net::BufferedIO.new(wire), "1.1", sent.path)
+    body = wire.string.b
+    assert_match(/name="generateEditorial"\r\n\r\nfalse\r\n/, body)
+    assert_match(/name="photo"; filename="tatin.jpg"\r\nContent-Type: image\/jpeg/, body)
   end
 
   class StubbedHttp < ReviewDemoKitchen::Http
