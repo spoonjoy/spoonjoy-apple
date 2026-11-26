@@ -75,7 +75,9 @@ class ReviewDemoKitchenTest < Minitest::Test
       case [method, uri.path]
       in [:post, "/api/v1/auth/password/native"]
         user = body["emailOrUsername"]
-        @users[user] == body["password"] ? [201, { "data" => { "access_token" => "token-#{user}" } }] : [401, {}]
+        data = { "access_token" => "token-#{user}", "refresh_token" => "refresh-#{user}", "token_type" => "Bearer", "expires_in" => 900,
+                 "scope" => "kitchen:read kitchen:write", "client_id" => "spoonjoy-apple-native:abc", "userId" => "u-#{user}" }
+        @users[user] == body["password"] ? [201, { "data" => data }] : [401, {}]
       in [:get, %r{\A/api/v1/users/(.+)\z}]
         [@users.key?(Regexp.last_match(1)) ? 200 : 404, {}]
       in [:get, "/api/v1/recipes"]
@@ -163,6 +165,21 @@ class ReviewDemoKitchenTest < Minitest::Test
     changes = ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: StringIO.new).run
     assert_equal 1, changes
     assert_equal ["upload /api/v1/recipes/r1/image"], api.writes.drop(before)
+  end
+
+  def test_store_scenes_signs_a_debug_app_in_as_the_demo_chef_and_links_its_screens
+    api = FakeApi.new
+    seeder = ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: StringIO.new)
+    seeder.run
+    scenes = seeder.store_scenes(now: Time.at(978_307_200))
+    session = scenes.dig("session", "session")
+    assert_equal "spoonjoy-apple-native:abc", scenes.dig("session", "clientID")
+    assert_equal({ "clientID" => "spoonjoy-apple-native:abc", "accessToken" => "token-johnnyappleseed", "refreshToken" => "refresh-johnnyappleseed",
+                   "tokenType" => "Bearer", "scope" => "kitchen:read kitchen:write", "accountID" => "u-johnnyappleseed",
+                   "expiresAt" => 900.0, "serverOrigin" => "https://spoonjoy.test" }, session)
+    # The friend's crumble is r0, so the demo chef's galette is r1.
+    assert_equal "spoonjoy://recipes/r1/cook", scenes.dig("links", "cook")
+    assert_match %r{\Aspoonjoy://cookbooks/c\d+\z}, scenes.dig("links", "cookbook")
   end
 
   def test_http_upload_sends_the_fields_and_the_jpeg_as_multipart

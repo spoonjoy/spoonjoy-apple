@@ -174,6 +174,8 @@ module ReviewDemoKitchen
       @env = env
       @out = out
       @tokens = {}
+      @sign_ins = {}
+      @cookbook_ids = {}
       @usernames = {}
       @recipe_ids = {}
       @changes = 0
@@ -200,6 +202,24 @@ module ReviewDemoKitchen
       end
       say "#{@changes} change(s). Kitchens: #{@usernames.values.map { |name| "#{@http.base}/users/#{name}" }.join(', ')}"
       @changes
+    end
+
+    # What a DEBUG build of the app needs to open the seeded kitchen as the demo chef without typing a password: the
+    # contents of its debug-auth-session.json (FileBackedTokenVault, AuthSession) and spoonjoy:// links to the
+    # screens the Duo tour photographs. Call after run. The session holds live tokens, so write it 0600.
+    def store_scenes(now: Time.now)
+      sign_in = @sign_ins.fetch("demo")
+      galette = @recipe_ids.fetch("demo.galette")
+      session = {
+        "clientID" => sign_in["client_id"], "accessToken" => sign_in["access_token"], "refreshToken" => sign_in["refresh_token"],
+        "tokenType" => sign_in["token_type"], "scope" => sign_in["scope"], "accountID" => sign_in["userId"],
+        # Foundation's default Date encoding: seconds since 2001-01-01.
+        "expiresAt" => now.to_f + sign_in["expires_in"].to_i - 978_307_200, "serverOrigin" => @http.base.to_s.chomp("/")
+      }
+      { "session" => { "clientID" => session["clientID"], "session" => session },
+        "links" => { "kitchen" => "spoonjoy://kitchen", "recipe" => "spoonjoy://recipes/#{galette}",
+                     "cook" => "spoonjoy://recipes/#{galette}/cook", "cookbook" => "spoonjoy://cookbooks/#{@cookbook_ids.fetch('The Orchard')}",
+                     "shopping" => "spoonjoy://shopping-list" } }
     end
 
     private
@@ -249,7 +269,10 @@ module ReviewDemoKitchen
     def sign_in(username, password)
       status, body = @http.json(:post, "/api/v1/auth/password/native",
                                 body: { "emailOrUsername" => username, "password" => password }, ok: [201, 401])
-      status == 201 ? body.dig("data", "access_token") : nil
+      return nil unless status == 201
+
+      @sign_ins[@usernames.key(username)] = body["data"]
+      body.dig("data", "access_token")
     end
 
     def find_recipes(chef_key, title)
@@ -308,6 +331,7 @@ module ReviewDemoKitchen
         @changes += 1
         say "Created cookbook #{cookbook['title']}"
       end
+      @cookbook_ids[cookbook["title"]] = id
       cookbook["recipes"].each do |key|
         recipe_id = @recipe_ids.fetch("#{chef_key}.#{key}")
         next if present.include?(recipe_id)
