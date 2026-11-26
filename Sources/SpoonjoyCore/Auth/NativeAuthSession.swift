@@ -106,10 +106,12 @@ public enum NativeAuthSession {
             providerHint: providerHint
         )
         // The server the app signs in to shows the sign-in page; it sends the code back to the app's own callback.
-        var components = URLComponents()
-        components.scheme = serverBaseURL.scheme
-        components.host = serverBaseURL.host(percentEncoded: false)
-        components.port = serverBaseURL.port
+        // The origin comes from the server's own URL, so an IPv6 host keeps its brackets.
+        // A URL's own components always rebuild a URL once the path is absolute and the query is set.
+        var components = URLComponents(url: serverBaseURL, resolvingAgainstBaseURL: false)!
+        components.user = nil
+        components.password = nil
+        components.fragment = nil
         components.path = "/" + builder.pathComponents.joined(separator: "/")
         components.queryItems = builder.queryItems
         return components.url!
