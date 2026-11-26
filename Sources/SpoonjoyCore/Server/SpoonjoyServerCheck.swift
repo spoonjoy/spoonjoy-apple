@@ -1,0 +1,65 @@
+import Foundation
+
+/// Why a server address did not check out as a Spoonjoy server.
+public enum SpoonjoyServerCheckError: Error, Equatable, Sendable {
+    /// Nothing answered: the address is wrong, the server is down, or the network is.
+    case unreachable(String)
+    /// Something answered, but not as a Spoonjoy server does.
+    case notSpoonjoy(String)
+
+    public var message: String {
+        switch self {
+        case .unreachable(let name):
+            "Spoonjoy couldn't reach \(name). Check the address, and that the server is running and on this network."
+        case .notSpoonjoy(let name):
+            "\(name) answered, but it isn't a Spoonjoy server."
+        }
+    }
+}
+
+/// Asks a server whether it is Spoonjoy before the app signs in to it: `GET /api/v1/health`, which every Spoonjoy
+/// server answers without credentials with `{"ok": true, "data": {"ok": true, "version": "v1", ...}}`.
+public enum SpoonjoyServerCheck {
+    public static let timeout: TimeInterval = 15
+
+    private struct Health: Decodable, Equatable {
+        let ok: Bool
+        let version: String
+    }
+
+    public static func urlRequest(for address: SpoonjoyServerAddress) -> URLRequest {
+        var request = URLRequest(
+            url: address.baseURL.appending(path: "api/v1/health"),
+            cachePolicy: .reloadIgnoringLocalCacheData,
+            timeoutInterval: timeout
+        )
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        return request
+    }
+
+    /// Whether an answer to `urlRequest(for:)` is a Spoonjoy server's.
+    public static func isSpoonjoyHealth(_ data: Data, response: URLResponse) -> Bool {
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+              let health = try? APIEnvelope<Health>.decode(data).data else {
+            return false
+        }
+        return health.ok && health.version == "v1"
+    }
+
+    public static func check(
+        _ address: SpoonjoyServerAddress,
+        session: any URLSessionPerforming = URLSession.shared
+    ) async throws(SpoonjoyServerCheckError) {
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: urlRequest(for: address))
+        } catch {
+            throw .unreachable(address.displayName)
+        }
+        guard isSpoonjoyHealth(data, response: response) else {
+            throw .notSpoonjoy(address.displayName)
+        }
+    }
+}
