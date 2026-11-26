@@ -112,10 +112,13 @@ class ReviewDemoKitchenTest < Minitest::Test
         @cookbooks.find { |c| c["id"] == Regexp.last_match(1) }["recipes"] << Regexp.last_match(2)
         [201, {}]
       in [:get, "/api/v1/shopping-list"]
-        [200, { "data" => { "shoppingList" => { "items" => @shopping[user(token)] } } }]
+        [200, { "data" => { "shoppingList" => { "items" => @shopping[user(token)].map(&:dup) } } }]
       in [:post, "/api/v1/shopping-list/items"]
-        @shopping[user(token)] << { "id" => "i#{@shopping[user(token)].length}", "name" => body["name"], "checked" => false }
+        @shopping[user(token)] << { "id" => "i#{@writes.length}", "name" => body["name"], "checked" => false }
         [201, {}]
+      in [:delete, %r{\A/api/v1/shopping-list/items/(i\d+)\z}]
+        @shopping[user(token)].reject! { |i| i["id"] == Regexp.last_match(1) }
+        [200, {}]
       in [:patch, %r{\A/api/v1/shopping-list/items/(i\d+)\z}]
         @shopping[user(token)].find { |i| i["id"] == Regexp.last_match(1) }["checked"] = body["checked"]
         [200, {}]
@@ -209,6 +212,19 @@ class ReviewDemoKitchenTest < Minitest::Test
     # The friend's crumble is r0, so the demo chef's galette is r1.
     assert_equal "spoonjoy://recipes/r1/cook", scenes.dig("links", "cook")
     assert_match %r{\Aspoonjoy://cookbooks/c\d+\z}, scenes.dig("links", "cookbook")
+  end
+
+  def test_the_shopping_list_is_cut_back_to_the_seed
+    api = FakeApi.new
+    seeder = -> { ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: StringIO.new).run }
+    seeder.call
+    list = api.instance_variable_get(:@shopping)["johnnyappleseed"]
+    list << { "id" => "i900", "name" => "granny smith apples", "checked" => false }
+    list << { "id" => "i901", "name" => "Honeycrisp apples", "checked" => false }
+    seeder.call
+    wanted = kitchen.dig("chefs", "demo", "shoppingList").map { |entry| entry["name"].downcase }
+    assert_equal wanted.sort, list.map { |item| item["name"].downcase }.sort
+    assert_equal 0, seeder.call
   end
 
   def test_a_recipe_left_under_cooking_now_is_cleared

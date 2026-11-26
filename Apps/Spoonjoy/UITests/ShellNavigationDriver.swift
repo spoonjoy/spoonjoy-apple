@@ -109,6 +109,11 @@ struct ShellNavigationDriver {
             return
         }
         XCTAssertTrue(sidebarToggle.waitForExistence(timeout: 10), "No sidebar button.\n\(app.debugDescription)", file: file, line: line)
+        // "Hide Sidebar" means it is already out, only covered (by the "Save Password?" alert in Store scenes run
+        // 45766699742); tapping it would put the sidebar away.
+        if sidebarToggle.label.lowercased().hasPrefix("hide") {
+            return
+        }
         sidebarToggle.tap()
         XCTAssertTrue(waitUntil(10) { sidebarShows }, "The sidebar button did not show the sidebar.", file: file, line: line)
     }
@@ -125,7 +130,13 @@ struct ShellNavigationDriver {
         } else {
             // The dock's identifiers are attached through UIKit and sometimes arrive late; its titles are always there.
             let identified = element(place.tabIdentifier)
-            let tab = identified.waitForExistence(timeout: 3) ? identified : app.tabBars.buttons[place.tabTitle]
+            var tab = identified.waitForExistence(timeout: 3) ? identified : app.tabBars.buttons[place.tabTitle]
+            // The tab bar shrinks to the current tab when a page scrolls down (.tabBarMinimizeBehavior(.onScrollDown));
+            // scrolling back up brings the other tabs back.
+            for _ in 0..<4 where !tab.exists {
+                app.swipeDown(velocity: .fast)
+                tab = element(place.tabIdentifier).exists ? element(place.tabIdentifier) : app.tabBars.buttons[place.tabTitle]
+            }
             XCTAssertTrue(tab.waitForExistence(timeout: 10), "The tab bar has no \(place.rawValue) tab.", file: file, line: line)
             tab.tap()
             // Tapping the selected tab again pops it to its root.
