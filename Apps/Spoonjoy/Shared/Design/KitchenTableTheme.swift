@@ -351,10 +351,13 @@ struct KitchenTableHeader<Trailing: View>: View {
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
+            // Beside the title a trailing control keeps its own width, so a full-width button never splits the row
+            // and wraps its label; when that doesn't fit, it goes under the title, where it may span the column.
             HStack(alignment: .top, spacing: 16) {
                 titleStack
                 Spacer(minLength: 12)
                 trailing()
+                    .fixedSize()
             }
 
             VStack(alignment: .leading, spacing: 12) {
