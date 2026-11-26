@@ -94,7 +94,8 @@ public enum NativeAuthSession {
         scope: String,
         state: OAuthState,
         codeChallenge: String,
-        providerHint: OAuthProviderHint? = nil
+        providerHint: OAuthProviderHint? = nil,
+        serverBaseURL: URL = APIClientConfiguration.spoonjoyProduction.baseURL
     ) throws -> URL {
         let builder = try OAuthRequests.authorize(
             clientID: clientID,
@@ -104,9 +105,11 @@ public enum NativeAuthSession {
             codeChallenge: codeChallenge,
             providerHint: providerHint
         )
+        // The server the app signs in to shows the sign-in page; it sends the code back to the app's own callback.
         var components = URLComponents()
-        components.scheme = "https"
-        components.host = "spoonjoy.app"
+        components.scheme = serverBaseURL.scheme
+        components.host = serverBaseURL.host(percentEncoded: false)
+        components.port = serverBaseURL.port
         components.path = "/" + builder.pathComponents.joined(separator: "/")
         components.queryItems = builder.queryItems
         return components.url!

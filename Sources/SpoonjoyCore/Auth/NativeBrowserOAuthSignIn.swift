@@ -92,7 +92,8 @@ public final class NativeBrowserOAuthGate {
 public final class NativeBrowserOAuthSignIn {
     public struct Attempt: Equatable, Sendable {
         public let id: UUID
-        public let provider: OAuthProviderHint
+        /// Nil for a sign-in that opens the server's own sign-in page, with every way in it offers.
+        public let provider: OAuthProviderHint?
         public let state: OAuthState
         public let codeVerifier: String
         public let authorizationURL: URL
@@ -169,7 +170,7 @@ public final class NativeBrowserOAuthSignIn {
     /// newer attempt claiming the gate during a retry wait ends it with `.superseded`. With `sendsProviderHint` false, /oauth/authorize gets no provider
     /// hint and shows spoonjoy.app/login (BrowserSignInCallbackUITests, Debug builds only).
     public func begin(
-        provider: OAuthProviderHint,
+        provider: OAuthProviderHint?,
         sendsProviderHint: Bool = true,
         onReturn: @escaping @MainActor () -> Void = {},
         onRetry: @escaping @MainActor (NativeBrowserOAuthEarlyCancel.RetryPhase) -> Void = { _ in },

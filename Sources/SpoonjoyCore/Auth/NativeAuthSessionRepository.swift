@@ -142,7 +142,8 @@ public actor NativeAuthSessionRepository {
                 scope: scope,
                 state: state,
                 codeChallenge: codeChallenge,
-                providerHint: providerHint
+                providerHint: providerHint,
+                serverBaseURL: serverBaseURL ?? APIClientConfiguration.spoonjoyProduction.baseURL
             ),
             providerHint: providerHint
         )
